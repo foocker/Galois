@@ -4,16 +4,25 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.egg-info/
 .venv/
 venv/
 env/
 .env
 
+/.codex/
+projects/
 runs/
 artifacts/
 reports/
 logs/
 tmp/
+/three_horse/reasoning/memory/
+/three_horse/reasoning/results/
+/three_horse/verification/memory/
+/three_horse/verification/results/
 
 .idea/
 .vscode/
+references/
+.cache/

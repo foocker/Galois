@@ -1,0 +1,24 @@
+backend = "codex"
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+personality = "pragmatic"
+
+[codex]
+bin = "codex"
+base_url_env = "OPENAI_BASE_URL"
+api_key_env = "OPENAI_API_KEY"
+
+[reasoning]
+enabled = true
+workdir = "three_horse/reasoning"
+
+[verification]
+enabled = true
+workdir = "three_horse/verification"
+
+[platform]
+resume_enabled = true
+max_repair_rounds = 1
+project_root = "projects/default"
+benchmark_root = "benchmarks"
+run_root = "runs"

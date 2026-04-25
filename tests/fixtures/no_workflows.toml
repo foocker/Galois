@@ -1,0 +1,18 @@
+backend = "codex"
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+personality = "pragmatic"
+
+[reasoning]
+enabled = false
+workdir = "three_horse/reasoning"
+
+[verification]
+enabled = false
+workdir = "three_horse/verification"
+
+[platform]
+resume_enabled = true
+max_repair_rounds = 1
+benchmark_root = "benchmarks"
+run_root = "runs"
