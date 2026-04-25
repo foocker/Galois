@@ -1,7 +1,6 @@
 # Galois 系统设计
 
 状态：Current  
-仓库：`/home/gg/Galois`  
 默认模型：`codex / gpt-5.4 / xhigh`  
 环境管理：`uv`
 
@@ -78,6 +77,8 @@ Galois/
 - `platform/workflows.py`
 - `platform/launcher.py`
 - `platform/cli.py`
+- `platform/web.py`
+- `platform/web_assets/`
 - `platform/benchmark.py`
 - `platform/artifacts.py`
 - `reasoning/runner.py`
@@ -111,6 +112,7 @@ Galois/
 - 记录 run event
 - 收集 reasoning / verification artifacts
 - 提供 benchmark suite 入口
+- 提供 Web workbench API 与静态前端入口
 
 不负责：
 
@@ -258,14 +260,13 @@ projects/default/runs/<run_id>/
 
 配置来源：
 
-- [configs/defaults.toml](/home/gg/Galois/configs/defaults.toml)
+- `configs/defaults.toml`
 
 ## 9. 环境与依赖管理
 
 主仓库只使用 `uv`：
 
 ```bash
-cd /home/gg/Galois
 uv sync
 uv sync --dev
 ```
@@ -276,7 +277,20 @@ uv sync --dev
 - `three_horse/` 下的 requirements 文件仅作上游参考
 - 不在主仓库维护多个长期独立虚拟环境
 
-## 10. workflow 设计
+## 10. Web workbench
+
+Web workbench 是当前本地研究入口：
+
+- 用户通过 `sh run.sh` 或 `sh run.sh web` 启动。
+- 前端提交 Markdown/LaTeX 数学问题。
+- FastAPI 后端写入 `projects/default/web_inputs/`。
+- 后端以子进程复用现有 `launch-run` 控制链路，而不是引入新的持久队列或数据库。
+- Web wrapper 状态写入 `projects/default/web_runs/`，真实 run 仍写入 `projects/default/runs/`。
+- 查询接口会把 `web_*` wrapper id 映射回真实 run id，并展示 manifest、events、subagents、summary、blueprint 等 artifacts。
+
+用户文档只暴露 `run.sh` 入口；底层 `galois-run web` 保留为脚本调用和自动化测试入口。
+
+## 11. workflow 设计
 
 ### 10.1 支持的 pipeline
 
@@ -309,23 +323,24 @@ uv sync --dev
 - `plan-run`
 - `launch-run`
 - `inspect-run`
+- `web`
 - `suite list`
 - `suite plan`
 - `suite init-smoke`
 
 当前 `plan-run` 只做 planning，不做 execution。  
-`launch-run` 负责创建 run、写事件、启动 workflow、管理 verification service、归档结果。
+`launch-run` 负责创建 run、写事件、启动 workflow、管理 verification service、归档结果。`web` 由 `run.sh` 包装，提供本地研究工作台。
 
-## 11. benchmark 设计
+## 12. benchmark 设计
 
-### 11.1 当前 benchmark 层级
+### 12.1 当前 benchmark 层级
 
 当前主路径至少区分：
 
 - `reasoning-only`
 - `reasoning-verification`
 
-### 11.2 当前 benchmark 入口
+### 12.2 当前 benchmark 入口
 
 已落地：
 
@@ -335,7 +350,7 @@ uv sync --dev
 
 默认 smoke suite 复用 `three_horse/reasoning/data`。
 
-### 11.3 benchmark 记录要求
+### 12.3 benchmark 记录要求
 
 每次实验至少记录：
 
@@ -346,7 +361,7 @@ uv sync --dev
 - success / partial / fail
 - failure category
 
-## 12. 实施阶段
+## 13. 实施阶段
 
 ### Phase 1：control plane bootstrap
 

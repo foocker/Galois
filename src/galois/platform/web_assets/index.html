@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Galois Research Workbench</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <aside class="rail" aria-label="Galois roadmap">
+        <div class="brand-block">
+          <p class="eyebrow">Galois</p>
+          <h1>Research Workbench</h1>
+          <p class="brand-copy">A calm mathematical desk for long-form reasoning, verification, and reusable artifacts.</p>
+        </div>
+
+        <nav class="roadmap" aria-label="Platform modules">
+          <button class="module active" type="button">
+            <span>Problem Research</span>
+            <strong>Active</strong>
+            <small>Submit Markdown problems to the live Galois pipeline.</small>
+          </button>
+          <button class="module" type="button" disabled>
+            <span>Concept Explanation</span>
+            <strong>Planned</strong>
+            <small>Build precise explanations around definitions and examples.</small>
+          </button>
+          <button class="module" type="button" disabled>
+            <span>Research Exploration</span>
+            <strong>Planned</strong>
+            <small>Branch difficult questions into hypotheses and lemmas.</small>
+          </button>
+          <button class="module" type="button" disabled>
+            <span>Theorem Search</span>
+            <strong>Planned</strong>
+            <small>Find nearby results before attempting a proof.</small>
+          </button>
+          <button class="module" type="button" disabled>
+            <span>Paper Reading</span>
+            <strong>Planned</strong>
+            <small>Turn dense papers into navigable mathematical notes.</small>
+          </button>
+          <button class="module" type="button" disabled>
+            <span>Writing Polish</span>
+            <strong>Planned</strong>
+            <small>Refine proofs and exposition into publishable prose.</small>
+          </button>
+        </nav>
+
+        <section class="recent-panel" aria-labelledby="recent-title">
+          <div class="section-heading">
+            <h2 id="recent-title">Recent Runs</h2>
+            <button id="refresh-runs" class="text-button" type="button">Refresh</button>
+          </div>
+          <div id="recent-runs" class="run-list" aria-live="polite">
+            <p class="muted">No runs loaded yet.</p>
+          </div>
+        </section>
+      </aside>
+
+      <main class="composer" aria-labelledby="composer-title">
+        <header class="workspace-header">
+          <div>
+            <p class="eyebrow">Markdown problem input</p>
+            <h2 id="composer-title">Open a research session</h2>
+          </div>
+          <p class="header-note">Use Markdown and LaTeX delimiters such as <code>$x^2$</code> or <code>$$\int f$$</code>.</p>
+        </header>
+
+        <form id="run-form" class="problem-form">
+          <label class="field-label" for="problem-title">Title</label>
+          <input id="problem-title" name="title" type="text" placeholder="e.g. Compactness exercise in topology" autocomplete="off" />
+
+          <div class="field-row">
+            <label class="field-label" for="pipeline">Pipeline</label>
+            <select id="pipeline" name="pipeline">
+              <option value="reasoning-verification" selected>Reasoning + verification</option>
+              <option value="reasoning-only">Reasoning only</option>
+            </select>
+          </div>
+
+          <label class="field-label" for="problem-markdown">Problem Markdown</label>
+          <textarea id="problem-markdown" name="problem_markdown" spellcheck="false" placeholder="Paste a theorem, exercise, proof attempt, or research question here..."></textarea>
+
+          <div class="form-actions">
+            <button id="example-button" class="secondary-button" type="button">Load example</button>
+            <button id="submit-button" class="primary-button" type="submit">Start research run</button>
+          </div>
+          <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
+        </form>
+      </main>
+
+      <aside class="results" aria-label="Run status and answer">
+        <section class="status-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Live run</p>
+              <h2 id="current-run-title">No active run</h2>
+            </div>
+            <span id="status-pill" class="status-pill idle">Idle</span>
+          </div>
+
+          <ol id="progress-ladder" class="ladder" aria-label="Research progress">
+            <li data-step="queued"><span></span>Queued</li>
+            <li data-step="reasoning"><span></span>Reasoning</li>
+            <li data-step="verification"><span></span>Verification</li>
+            <li data-step="repair"><span></span>Repair loop</li>
+            <li data-step="complete"><span></span>Complete</li>
+          </ol>
+
+          <dl class="run-meta">
+            <div><dt>Run id</dt><dd id="run-id">—</dd></div>
+            <div><dt>Pipeline</dt><dd id="run-pipeline">—</dd></div>
+            <div><dt>Artifact</dt><dd id="artifact-path">—</dd></div>
+          </dl>
+        </section>
+
+        <section class="output-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Answer artifact</p>
+              <h2>Research output</h2>
+            </div>
+          </div>
+          <article id="output" class="markdown-output">
+            <p class="empty-state">Submit a problem to produce a Galois reasoning artifact. The final answer appears here when a blueprint or summary is available.</p>
+          </article>
+        </section>
+
+        <section class="events-card">
+          <div class="section-heading">
+            <h2>Event trail</h2>
+          </div>
+          <ul id="event-list" class="event-list">
+            <li class="muted">Events will appear after launch.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

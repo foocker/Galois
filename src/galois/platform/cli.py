@@ -193,6 +193,11 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument("run_id_or_path")
     inspect_parser.add_argument("--config", type=Path, default=None)
     inspect_parser.add_argument("--tail", type=int, default=5, help="Number of recent events to show.")
+
+    web_parser = subparsers.add_parser("web", help="Start the Galois research workbench web UI.")
+    web_parser.add_argument("--host", default="127.0.0.1")
+    web_parser.add_argument("--port", type=int, default=8000)
+    web_parser.add_argument("--config", type=Path, default=None)
     return parser
 
 
@@ -1144,6 +1149,15 @@ def cmd_inspect_run(run_id_or_path: str, tail: int, config_path: Path | None) ->
     return 0
 
 
+def cmd_web(host: str, port: int, config_path: Path | None) -> int:
+    import uvicorn
+
+    from .web import create_app
+
+    uvicorn.run(create_app(config_path=config_path), host=host, port=port)
+    return 0
+
+
 def main() -> int:
     args = build_parser().parse_args()
     if args.command == "show-config":
@@ -1191,6 +1205,8 @@ def main() -> int:
         )
     if args.command == "inspect-run":
         return cmd_inspect_run(args.run_id_or_path, args.tail, getattr(args, "config", None))
+    if args.command == "web":
+        return cmd_web(args.host, args.port, args.config)
     raise SystemExit(f"unknown command: {args.command}")
 
 
