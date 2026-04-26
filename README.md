@@ -8,10 +8,10 @@ Galois 是一个 Codex-first 的数学 agent 单仓工作区，当前聚焦：
 
 ## 快速开始
 
-所有本地入口统一走 `run.sh`：
+本地开发入口直接使用项目 CLI：
 
 ```bash
-sh run.sh
+uv run galois-run web
 ```
 
 默认会启动研究工作台 Web UI。打开终端输出中的本地地址后，可以输入 Markdown/LaTeX 数学问题，等待 Galois 创建真实 run，并查看 reasoning / verification 状态与结果产物。
@@ -19,19 +19,30 @@ sh run.sh
 常用入口：
 
 ```bash
-sh run.sh web
-sh run.sh reasoning
-sh run.sh verify
-sh run.sh plan
-sh run.sh suite
-sh run.sh inspect <run_id_or_path>
+uv run galois-run web
+uv run galois-run suite list
+uv run galois-run inspect-run <run_id_or_path>
+
+uv run galois-run plan-run \
+  --problem-id example \
+  --problem-path three_horse/reasoning/data/example.md \
+  --pipeline reasoning-verification
+
+uv run galois-run launch-run \
+  --problem-id example \
+  --problem-path three_horse/reasoning/data/example.md \
+  --pipeline reasoning-only
+
+uv run galois-run launch-run \
+  --problem-id polynomial-Freiman-Ruzsa-conjecture \
+  --problem-path "benchmarks/problems/finite_fields/polynomial Freiman-Ruzsa conjecture.md" \
+  --pipeline reasoning-only
 ```
 
-可通过环境变量覆盖默认问题或 Web 端口：
+Web 端口通过 CLI 参数设置：
 
 ```bash
-HOST=127.0.0.1 PORT=8000 sh run.sh web
-PROBLEM_ID=example PROBLEM_PATH=three_horse/reasoning/data/example.md sh run.sh reasoning
+uv run galois-run web --host 127.0.0.1 --port 8000
 ```
 
 真实 reasoning / verification 需要当前 shell 中已经配置好模型环境变量，例如 `OPENAI_BASE_URL` 与 `OPENAI_API_KEY`。

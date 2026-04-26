@@ -146,18 +146,17 @@
   - App target can be `galois.platform.web:create_app` or direct instantiated app.
 
 - [ ] **Step 2: Document usage**
-  - Add README section that points users to `sh run.sh`.
+  - Add README section that points users to `uv run galois-run web`.
   - Explain that real runs require the same environment variables as CLI runs.
 
 - [ ] **Step 3: Run targeted validation**
   - Run: `uv run pytest tests/test_web_app.py -v`
-  - Run: `sh run.sh help`
+  - Run: `uv run galois-run web --help`
   - Expected: tests pass and help prints.
 
 ## Final Verification
 
 - [ ] Run: `uv run pytest -v`
-- [ ] Run: `sh run.sh help`
-- [ ] Optionally run local server: `sh run.sh web`
-- [ ] Open the local URL printed by `sh run.sh web` and submit a small Markdown problem if model credentials are configured.
-
+- [ ] Run: `uv run galois-run web --help`
+- [ ] Optionally run local server: `uv run galois-run web`
+- [ ] Open the local URL printed by `uv run galois-run web` and submit a small Markdown problem if model credentials are configured.

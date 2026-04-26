@@ -962,7 +962,7 @@ def cmd_launch_run(
                 )
                 services.append(service)
                 task = service.manager.get_task(service.task_id)
-                print(f"[{launch.kind.value}] status=running pid={task.pid if task else None}")
+                print(f"[{launch.kind.value}] service_ready pid={task.pid if task else None}")
                 if launch.kind.value == "verification":
                     verification_url = "http://127.0.0.1:8091/verify"
 
@@ -987,6 +987,7 @@ def cmd_launch_run(
                     event_type="reasoning_iteration_started",
                     payload={"attempt": attempts},
                 )
+                print(f"[{reasoning_launch.kind.value}] status=running attempt={attempts}")
                 reasoning_result = run_workflow(
                     run_dir=run_dir,
                     run_id=manifest.run_id,

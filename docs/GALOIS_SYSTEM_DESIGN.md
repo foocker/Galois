@@ -281,14 +281,14 @@ uv sync --dev
 
 Web workbench 是当前本地研究入口：
 
-- 用户通过 `sh run.sh` 或 `sh run.sh web` 启动。
+- 用户通过 `uv run galois-run web` 启动。
 - 前端提交 Markdown/LaTeX 数学问题。
 - FastAPI 后端写入 `projects/default/web_inputs/`。
 - 后端以子进程复用现有 `launch-run` 控制链路，而不是引入新的持久队列或数据库。
 - Web wrapper 状态写入 `projects/default/web_runs/`，真实 run 仍写入 `projects/default/runs/`。
 - 查询接口会把 `web_*` wrapper id 映射回真实 run id，并展示 manifest、events、subagents、summary、blueprint 等 artifacts。
 
-用户文档只暴露 `run.sh` 入口；底层 `galois-run web` 保留为脚本调用和自动化测试入口。
+用户文档直接暴露 `uv run galois-run ...`，不再维护额外 shell wrapper。
 
 ## 11. workflow 设计
 
@@ -329,7 +329,7 @@ Web workbench 是当前本地研究入口：
 - `suite init-smoke`
 
 当前 `plan-run` 只做 planning，不做 execution。  
-`launch-run` 负责创建 run、写事件、启动 workflow、管理 verification service、归档结果。`web` 由 `run.sh` 包装，提供本地研究工作台。
+`launch-run` 负责创建 run、写事件、启动 workflow、管理 verification service、归档结果。`web` 提供本地研究工作台。
 
 ## 12. benchmark 设计
 
