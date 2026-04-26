@@ -240,6 +240,6 @@ A full real reasoning run may depend on external model configuration and should 
 
 ## Open Questions
 
-- Whether to keep `uv run galois-run web` as the only user-facing local launch entry.
+- Whether to keep `uv run galois web` as the only user-facing local launch entry.
 - Whether future iterations should replace the static frontend with a component framework.
 - Whether Markdown rendering should later include KaTeX/MathJax for formula display.

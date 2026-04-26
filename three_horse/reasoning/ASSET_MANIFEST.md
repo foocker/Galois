@@ -8,7 +8,7 @@ Kept here:
 - `.codex/` for Codex configuration and subagent definitions.
 - `.agents/skills/` for generation skills copied from `Rethlas/agents/generation`.
 - `mcp/` for reasoning tools exposed to the agent.
-- `scripts/` and `tests/` for upstream-compatible debugging and smoke checks.
+- `scripts/` and `tests/` for upstream-compatible debugging and quick checks.
 - `data/example*.md` for small local examples.
 
 Do not keep here:

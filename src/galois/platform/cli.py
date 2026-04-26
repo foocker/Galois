@@ -56,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Galois control-plane bootstrap.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    show_parser = subparsers.add_parser("show-config", help="Print the resolved Galois config.")
+    show_parser = subparsers.add_parser("config", help="Print the resolved Galois config.")
     show_parser.add_argument("--config", type=Path, default=None)
 
     suite_parser = subparsers.add_parser("suite", help="Inspect or materialize benchmark suites.")
@@ -78,7 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--limit",
         type=int,
         default=2,
-        help="Limit planned problems for smoke runs. Defaults to 2.",
+        help="Limit planned problems for quick local checks. Defaults to 2.",
     )
     suite_plan_parser.add_argument(
         "--all",
@@ -86,13 +86,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Plan every problem in the suite. Use only for larger benchmark passes.",
     )
     suite_init_parser = suite_subparsers.add_parser(
-        "init-smoke",
-        help="Create the default smoke suite manifest from three_horse/reasoning/data.",
+        "init-examples",
+        help="Create the default example suite manifest from three_horse/reasoning/data.",
     )
     suite_init_parser.add_argument("--output", type=Path, default=None)
     suite_init_parser.add_argument("--config", type=Path, default=None)
 
-    plan_parser = subparsers.add_parser("plan-run", help="Create a run manifest and print workflow plan.")
+    plan_parser = subparsers.add_parser("plan", help="Create a run manifest and print workflow plan.")
     plan_parser.add_argument("--problem-id", required=True)
     plan_parser.add_argument("--problem-path", required=True)
     plan_parser.add_argument("--title", default=None)
@@ -106,7 +106,6 @@ def build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--reasoning-only", action="store_true", help="Run only natural-language reasoning.")
     plan_parser.add_argument(
         "--verification",
-        "--verification-nlp",
         dest="verification",
         action="store_true",
         default=None,
@@ -138,7 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the configured outer platform repair-loop bound for this run.",
     )
 
-    launch_parser = subparsers.add_parser("launch-run", help="Create a run and launch configured workflows.")
+    launch_parser = subparsers.add_parser("launch", help="Create a run and launch configured workflows.")
     launch_parser.add_argument("--problem-id", required=True)
     launch_parser.add_argument("--problem-path", required=True)
     launch_parser.add_argument("--title", default=None)
@@ -152,7 +151,6 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--reasoning-only", action="store_true", help="Run only natural-language reasoning.")
     launch_parser.add_argument(
         "--verification",
-        "--verification-nlp",
         dest="verification",
         action="store_true",
         default=None,
@@ -186,10 +184,10 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument(
         "--skip-services",
         action="store_true",
-        help="Skip service workflows such as verification API; useful for offline smoke tests.",
+        help="Skip service workflows such as verification API; useful for offline local checks.",
     )
 
-    inspect_parser = subparsers.add_parser("inspect-run", help="Print manifest, events, and subagent status.")
+    inspect_parser = subparsers.add_parser("inspect", help="Print manifest, events, and subagent status.")
     inspect_parser.add_argument("run_id_or_path")
     inspect_parser.add_argument("--config", type=Path, default=None)
     inspect_parser.add_argument("--tail", type=int, default=5, help="Number of recent events to show.")
@@ -230,10 +228,10 @@ def cmd_suite_list(suite_path: Path | None, config_path: Path | None) -> int:
     return 0
 
 
-def cmd_suite_init_smoke(output_path: Path | None, config_path: Path | None) -> int:
+def cmd_suite_init_examples(output_path: Path | None, config_path: Path | None) -> int:
     config = load_config(config_path)
     suite = discover_reasoning_data_suite(config.repo_root)
-    destination = output_path or config.benchmark_root_path / "manifests" / "reasoning_data_smoke.toml"
+    destination = output_path or config.benchmark_root_path / "manifests" / "reasoning_data_examples.toml"
     write_suite(destination, suite)
     print(f"suite_id={suite.suite_id}")
     print(f"problems={len(suite.problems)}")
@@ -1161,7 +1159,7 @@ def cmd_web(host: str, port: int, config_path: Path | None) -> int:
 
 def main() -> int:
     args = build_parser().parse_args()
-    if args.command == "show-config":
+    if args.command == "config":
         return cmd_show_config(args.config)
     if args.command == "suite":
         if args.suite_command == "list":
@@ -1176,10 +1174,10 @@ def main() -> int:
                 limit=args.limit,
                 all_problems=args.all,
             )
-        if args.suite_command == "init-smoke":
-            return cmd_suite_init_smoke(args.output, args.config)
+        if args.suite_command == "init-examples":
+            return cmd_suite_init_examples(args.output, args.config)
         raise SystemExit(f"unknown suite command: {args.suite_command}")
-    if args.command == "plan-run":
+    if args.command == "plan":
         return cmd_plan_run(
             args.problem_id,
             args.problem_path,
@@ -1191,7 +1189,7 @@ def main() -> int:
             args.repair_loop,
             args.max_repair_rounds,
         )
-    if args.command == "launch-run":
+    if args.command == "launch":
         return cmd_launch_run(
             args.problem_id,
             args.problem_path,
@@ -1204,7 +1202,7 @@ def main() -> int:
             args.repair_loop,
             args.max_repair_rounds,
         )
-    if args.command == "inspect-run":
+    if args.command == "inspect":
         return cmd_inspect_run(args.run_id_or_path, args.tail, getattr(args, "config", None))
     if args.command == "web":
         return cmd_web(args.host, args.port, args.config)

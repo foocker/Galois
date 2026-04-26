@@ -10,7 +10,7 @@ Kept here:
 - `mcp/` for verifier tools exposed to the agent.
 - `schemas/` for verification output contracts.
 - `api/server.py` as a compatibility entrypoint that re-exports `galois.verification.service`.
-- `scripts/` and `tests/` for upstream-compatible debugging and smoke checks.
+- `scripts/` and `tests/` for upstream-compatible debugging and quick checks.
 
 Do not keep here:
 

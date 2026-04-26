@@ -227,7 +227,7 @@ def test_launch_command_reuses_current_python_interpreter(tmp_path: Path) -> Non
         pipeline="reasoning-verification",
     )
 
-    assert command[:5] == [sys.executable, "-u", "-m", "galois.platform.cli", "launch-run"]
+    assert command[:5] == [sys.executable, "-u", "-m", "galois.platform.cli", "launch"]
     assert "uv" not in command
     assert command[-4:] == ["--title", "Demo title", "--config", str(config_path)]
 
@@ -274,7 +274,7 @@ def test_stream_launch_process_records_real_run_id_before_completion(monkeypatch
     monkeypatch.setattr(web.subprocess, "Popen", fake_popen)
 
     web.run_launch_process(
-        command=["python", "-m", "galois.platform.cli", "launch-run"],
+        command=["python", "-m", "galois.platform.cli", "launch"],
         cwd=tmp_path,
         web_run_dir=status_dir,
         problem_id="web_demo",
@@ -303,7 +303,7 @@ def test_launch_command_uses_unbuffered_python(tmp_path: Path) -> None:
         pipeline="reasoning-only",
     )
 
-    assert command[:5] == [sys.executable, "-u", "-m", "galois.platform.cli", "launch-run"]
+    assert command[:5] == [sys.executable, "-u", "-m", "galois.platform.cli", "launch"]
 
 
 def test_web_snapshot_falls_back_to_matching_real_run(tmp_path: Path) -> None:

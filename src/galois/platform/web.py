@@ -85,7 +85,7 @@ def build_launch_command(
         "-u",
         "-m",
         "galois.platform.cli",
-        "launch-run",
+        "launch",
         "--problem-id",
         problem_id,
         "--problem-path",

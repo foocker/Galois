@@ -127,7 +127,7 @@
   - Render events, progress ladder, artifact output, failures.
   - Load recent runs from `GET /api/runs`.
 
-- [ ] **Step 4: Smoke check static route**
+- [ ] **Step 4: Check static route**
   - Run: `uv run pytest tests/test_web_app.py -v`
   - Expected: pass.
 
@@ -140,23 +140,23 @@
 - Modify: `README.md`
 - Test: `tests/test_web_app.py` or CLI parser test if existing pattern supports it.
 
-- [ ] **Step 1: Add `galois-run web` subcommand**
+- [ ] **Step 1: Add `galois web` subcommand**
   - Arguments: `--host`, `--port`, `--config`.
   - Implementation imports uvicorn lazily.
   - App target can be `galois.platform.web:create_app` or direct instantiated app.
 
 - [ ] **Step 2: Document usage**
-  - Add README section that points users to `uv run galois-run web`.
+  - Add README section that points users to `uv run galois web`.
   - Explain that real runs require the same environment variables as CLI runs.
 
 - [ ] **Step 3: Run targeted validation**
   - Run: `uv run pytest tests/test_web_app.py -v`
-  - Run: `uv run galois-run web --help`
+  - Run: `uv run galois web --help`
   - Expected: tests pass and help prints.
 
 ## Final Verification
 
 - [ ] Run: `uv run pytest -v`
-- [ ] Run: `uv run galois-run web --help`
-- [ ] Optionally run local server: `uv run galois-run web`
-- [ ] Open the local URL printed by `uv run galois-run web` and submit a small Markdown problem if model credentials are configured.
+- [ ] Run: `uv run galois web --help`
+- [ ] Optionally run local server: `uv run galois web`
+- [ ] Open the local URL printed by `uv run galois web` and submit a small Markdown problem if model credentials are configured.

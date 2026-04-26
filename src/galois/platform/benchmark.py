@@ -42,7 +42,7 @@ def _repo_root() -> Path:
 
 def _default_suite_path(repo_root: Path | None = None) -> Path:
     root = repo_root or _repo_root()
-    return root / "benchmarks" / "manifests" / "reasoning_data_smoke.toml"
+    return root / "benchmarks" / "manifests" / "reasoning_data_examples.toml"
 
 
 def discover_reasoning_data_suite(repo_root: Path | None = None) -> BenchmarkSuite:
@@ -56,12 +56,12 @@ def discover_reasoning_data_suite(repo_root: Path | None = None) -> BenchmarkSui
                 problem_id=problem_path.stem,
                 path=str(problem_path.relative_to(root)),
                 title=title or problem_path.stem,
-                tags=["smoke", "reasoning-data"],
+                tags=["examples", "reasoning-data"],
             )
         )
     return BenchmarkSuite(
-        suite_id="reasoning-data-smoke",
-        description="Smoke benchmark generated from repo-local three_horse/reasoning/data problems.",
+        suite_id="reasoning-data-examples",
+        description="Example benchmark generated from repo-local three_horse/reasoning/data problems.",
         default_pipeline=PipelinePreset.REASONING_VERIFICATION,
         problems=problems,
     )

@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-galois-run = "galois.platform.cli:main"
+galois = "galois.platform.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

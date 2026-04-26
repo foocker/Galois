@@ -28,12 +28,12 @@ from galois.platform.subagents import SubagentManager
 from galois.platform.workflows import build_workflow_plan
 
 
-def test_cli_prefers_verification_flags_and_keeps_verification_nlp_aliases() -> None:
+def test_cli_prefers_verification_flags_and_rejects_legacy_verification_aliases() -> None:
     from galois.platform.cli import build_parser
 
     parser = build_parser()
     base_args = [
-        "launch-run",
+        "launch",
         "--problem-id",
         "example",
         "--problem-path",
@@ -43,8 +43,12 @@ def test_cli_prefers_verification_flags_and_keeps_verification_nlp_aliases() -> 
     args = parser.parse_args([*base_args, "--no-verification"])
     assert args.verification is False
 
-    legacy_args = parser.parse_args([*base_args, "--verification-nlp"])
-    assert legacy_args.verification is True
+    try:
+        parser.parse_args([*base_args, "--verification" + "-nlp"])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("legacy verification alias should not be accepted")
 
     preset_args = parser.parse_args([*base_args, "--pipeline", "reasoning-only", "--no-repair-loop"])
     assert preset_args.pipeline == "reasoning-only"
@@ -752,7 +756,7 @@ def test_run_workflow_captures_stdout_stderr_and_events(tmp_path: Path) -> None:
     run_dir, manifest = create_run_manifest(
         config=config,
         paths=paths,
-        problem=ProblemInput(problem_id="smoke", problem_path="three_horse/reasoning/data/example.md"),
+        problem=ProblemInput(problem_id="example-check", problem_path="three_horse/reasoning/data/example.md"),
     )
     launch = build_workflow_plan(
         config=PlatformConfig(
@@ -771,7 +775,7 @@ def test_run_workflow_captures_stdout_stderr_and_events(tmp_path: Path) -> None:
             repo_root=config.repo_root,
         ),
         paths=paths,
-        problem=ProblemInput(problem_id="smoke", problem_path="three_horse/reasoning/data/example.md"),
+        problem=ProblemInput(problem_id="example-check", problem_path="three_horse/reasoning/data/example.md"),
         run_dir=run_dir,
     )[0]
     launch.entrypoint = sys.executable
@@ -1058,11 +1062,11 @@ run_root = "{run_root}"
             sys.executable,
             "-m",
             "galois.platform.cli",
-            "launch-run",
+            "launch",
             "--config",
             str(config_path),
             "--problem-id",
-            "inspect-smoke",
+            "inspect-example",
             "--problem-path",
             str(repo_root / "three_horse" / "reasoning" / "data" / "example.md"),
         ],
@@ -1080,7 +1084,7 @@ run_root = "{run_root}"
             sys.executable,
             "-m",
             "galois.platform.cli",
-            "inspect-run",
+            "inspect",
             "--config",
             str(config_path),
             run_dir,
@@ -1322,7 +1326,7 @@ def test_build_workflow_plan_stages_external_problem_under_run_workspace(tmp_pat
         repo_root=repo_root,
     )
     paths = resolve_paths(config)
-    problem = ProblemInput(problem_id="external-smoke", problem_path=str(external_problem), title="External Smoke")
+    problem = ProblemInput(problem_id="external-example", problem_path=str(external_problem), title="External Example")
 
     launches = build_workflow_plan(config=config, paths=paths, problem=problem, run_dir=tmp_path / "runs" / "test")
 
@@ -1546,13 +1550,13 @@ def test_write_summary_includes_metrics_section_and_metrics_file(tmp_path: Path)
     assert "- verification_runtime_seconds: `90`" in summary
 
 
-def test_benchmark_suite_manifest_uses_reasoning_data_smoke_set() -> None:
+def test_benchmark_suite_manifest_uses_reasoning_data_examples_set() -> None:
     from galois.platform.benchmark import build_suite_plan, load_suite
 
     repo_root = Path(__file__).resolve().parents[1]
-    suite = load_suite(repo_root / "benchmarks" / "manifests" / "reasoning_data_smoke.toml", repo_root=repo_root)
+    suite = load_suite(repo_root / "benchmarks" / "manifests" / "reasoning_data_examples.toml", repo_root=repo_root)
 
-    assert suite.suite_id == "reasoning-data-smoke"
+    assert suite.suite_id == "reasoning-data-examples"
     assert suite.default_pipeline == PipelinePreset.REASONING_VERIFICATION
     plan = build_suite_plan(
         suite=suite,

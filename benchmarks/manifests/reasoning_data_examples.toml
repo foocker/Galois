@@ -1,63 +1,63 @@
-suite_id = "reasoning-data-smoke"
-description = "Smoke benchmark generated from repo-local three_horse/reasoning/data problems."
+suite_id = "reasoning-data-examples"
+description = "Example benchmark generated from repo-local three_horse/reasoning/data problems."
 default_pipeline = "reasoning-verification"
 
 [[problems]]
 id = "example"
 path = "three_horse/reasoning/data/example.md"
 title = "Prove that every finite group of prime order is cyclic."
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example10"
 path = "three_horse/reasoning/data/example10.md"
 title = "构造一个拓扑空间，它是连通的 (Connected)，但不是路径连通的 (Path-connected)"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example2"
 path = "three_horse/reasoning/data/example2.md"
 title = "证明环 \\(\\mathbb Z[\\sqrt2]\\) 是欧几里得环。"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example3"
 path = "three_horse/reasoning/data/example3.md"
 title = "考虑函数列 $f_n(x) = \\frac{\\sin(nx)}{\\sqrt{n}}$。证明 $f_n(x)$ 在 $\\mathbb{R}$ 上一致收敛于 $0$，但 $\\lim_{n \\to \\infty} f_n'(0) \\neq 0$"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example4"
 path = "three_horse/reasoning/data/example4.md"
 title = "证明在任意有限维向量空间上，不存在线性变换 $A$ 和 $B$ 使得 $AB - BA = I$"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example5"
 path = "three_horse/reasoning/data/example5.md"
 title = "设 $p$ 和 $q$ 为不同的素数。证明任意阶为 $p^2q$ 的群 $G$ 都不是单群 (Simple Group)"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example6"
 path = "three_horse/reasoning/data/example6.md"
 title = "明任意一个无限维的巴拿赫空间 (Banach Space) 不能具有可数无限的 Hamel 基"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example7"
 path = "three_horse/reasoning/data/example7.md"
 title = "在希尔伯特空间 $L^2([0,1])$ 中，证明序列 $f_n(x) = \\sin(n\\pi x)$ 弱收敛于 $0$，但它并不强收敛于 $0$"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example8"
 path = "three_horse/reasoning/data/example8.md"
 title = "计算并比较以下两个累次积分："
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
 
 [[problems]]
 id = "example9"
 path = "three_horse/reasoning/data/example9.md"
 title = "证明：对于度量空间 $X$，子集 $A$ 是紧致的，当且仅当 $A$ 在 $X$ 的任何包含它的度量空间中都是闭集。"
-tags = ["smoke", "reasoning-data"]
+tags = ["examples", "reasoning-data"]
