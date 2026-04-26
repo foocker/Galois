@@ -21,7 +21,7 @@ from .artifacts import (
     reasoning_workspace_dir,
     write_reasoning_repair_input,
 )
-from .config import PlatformConfig, load_config
+from .config import PlatformConfig, SUPPORTED_MODELS, load_config, model_is_configured
 from .contracts import LaunchMode, PipelinePreset, ProblemInput, RunStatus, WorkflowKind, WorkflowLaunch
 from .launcher import (
     RunningService,
@@ -50,6 +50,18 @@ class RunFeatureFlags:
     max_repair_rounds: int
 
 PIPELINE_CHOICES = tuple(pipeline.value for pipeline in PipelinePreset)
+
+
+def _apply_model_override(config: PlatformConfig, model_override: str | None) -> PlatformConfig:
+    if model_override:
+        if model_override not in SUPPORTED_MODELS:
+            raise SystemExit(f"unsupported model: {model_override}")
+        if model_override not in config.model_connections:
+            raise SystemExit(f"model is not configured: {model_override}")
+        if not model_is_configured(config, model_override):
+            raise SystemExit(f"model credentials are not configured: {model_override}")
+        config.model = model_override
+    return config
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -97,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--problem-path", required=True)
     plan_parser.add_argument("--title", default=None)
     plan_parser.add_argument("--config", type=Path, default=None)
+    plan_parser.add_argument("--model", choices=SUPPORTED_MODELS, default=None, help="Override the configured model for this run.")
     plan_parser.add_argument(
         "--pipeline",
         choices=PIPELINE_CHOICES,
@@ -142,6 +155,7 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--problem-path", required=True)
     launch_parser.add_argument("--title", default=None)
     launch_parser.add_argument("--config", type=Path, default=None)
+    launch_parser.add_argument("--model", choices=SUPPORTED_MODELS, default=None, help="Override the configured model for this run.")
     launch_parser.add_argument(
         "--pipeline",
         choices=PIPELINE_CHOICES,
@@ -835,8 +849,9 @@ def cmd_plan_run(
     pipeline: str | None = None,
     repair_loop: bool | None = None,
     max_repair_rounds: int | None = None,
+    model_override: str | None = None,
 ) -> int:
-    config = load_config(config_path)
+    config = _apply_model_override(load_config(config_path), model_override)
     paths = resolve_paths(config)
     ensure_run_layout(paths)
     feature_flags = _resolve_run_feature_flags(
@@ -866,6 +881,7 @@ def cmd_plan_run(
     print(f"run_id={manifest.run_id}")
     print(f"run_dir={run_dir}")
     print(f"pipeline={feature_flags.pipeline.value}")
+    print(f"model={config.model}")
     print(f"verification_enabled={feature_flags.verification_enabled}")
     print(f"repair_loop_enabled={feature_flags.repair_loop_enabled}")
     print(f"max_repair_rounds={feature_flags.max_repair_rounds}")
@@ -873,71 +889,22 @@ def cmd_plan_run(
     return 0
 
 
-def cmd_launch_run(
-    problem_id: str,
-    problem_path: str,
-    title: str | None,
-    config_path: Path | None,
-    reasoning_only: bool,
-    verification: bool | None,
-    skip_services: bool,
-    pipeline: str | None = None,
-    repair_loop: bool | None = None,
-    max_repair_rounds: int | None = None,
+def execute_run_workflows(
+    *,
+    config: PlatformConfig,
+    paths,
+    run_dir: Path,
+    manifest,
+    problem: ProblemInput,
+    launches: list[WorkflowLaunch],
+    feature_flags: RunFeatureFlags,
 ) -> int:
-    config = load_config(config_path)
-    paths = resolve_paths(config)
-    ensure_run_layout(paths)
-    feature_flags = _resolve_run_feature_flags(
-        verification_default=config.verification.enabled,
-        max_repair_rounds_default=config.max_repair_rounds,
-        pipeline=pipeline,
-        reasoning_only=reasoning_only,
-        verification_override=verification,
-        repair_loop_override=repair_loop,
-        max_repair_rounds_override=max_repair_rounds,
-    )
-
-    problem = _problem_from_args(problem_id, problem_path, title)
-    run_dir, manifest = create_run_manifest(config=config, paths=paths, problem=problem)
-    _copy_problem_artifacts(run_dir, problem, paths.repo_root, config)
-
-    launches = build_workflow_plan(
-        config=config,
-        paths=paths,
-        problem=problem,
-        run_dir=run_dir,
-        verification_enabled=feature_flags.verification_enabled,
-    )
-    if skip_services:
-        launches = [launch for launch in launches if launch.mode.value != "service"]
-    if _find_launch(launches, WorkflowKind.REASONING) is not None:
-        _prepare_reasoning_workspace(run_dir, paths.repo_root)
-        _stage_problem_for_reasoning_workspace(run_dir=run_dir, repo_root=paths.repo_root, problem=problem)
-    if _find_launch(launches, WorkflowKind.VERIFICATION) is not None:
-        _prepare_verification_workspace(run_dir, paths.repo_root)
-    manifest.pipeline = feature_flags.pipeline
-    manifest.features = _feature_payload(feature_flags)
-    manifest.workflows = [launch.kind for launch in launches]
-    write_manifest(run_dir, manifest)
-
-    append_event(
-        run_dir,
-        run_id=manifest.run_id,
-        event_type="run_created",
-        payload={
-            "problem": asdict(problem),
-            "run_dir": str(run_dir),
-            "workflow_count": len(launches),
-            "skip_services": skip_services,
-            **_feature_payload(feature_flags),
-        },
-    )
     update_manifest_status(run_dir, manifest, RunStatus.RUNNING)
 
     print(f"run_id={manifest.run_id}")
     print(f"run_dir={run_dir}")
     print(f"pipeline={feature_flags.pipeline.value}")
+    print(f"model={config.model}")
     print(f"verification_enabled={feature_flags.verification_enabled}")
     print(f"repair_loop_enabled={feature_flags.repair_loop_enabled}")
     print(f"max_repair_rounds={feature_flags.max_repair_rounds}")
@@ -1094,6 +1061,78 @@ def cmd_launch_run(
     return 0 if final_status == RunStatus.SUCCEEDED else 1
 
 
+def cmd_launch_run(
+    problem_id: str,
+    problem_path: str,
+    title: str | None,
+    config_path: Path | None,
+    reasoning_only: bool,
+    verification: bool | None,
+    skip_services: bool,
+    pipeline: str | None = None,
+    repair_loop: bool | None = None,
+    max_repair_rounds: int | None = None,
+    model_override: str | None = None,
+) -> int:
+    config = _apply_model_override(load_config(config_path), model_override)
+    paths = resolve_paths(config)
+    ensure_run_layout(paths)
+    feature_flags = _resolve_run_feature_flags(
+        verification_default=config.verification.enabled,
+        max_repair_rounds_default=config.max_repair_rounds,
+        pipeline=pipeline,
+        reasoning_only=reasoning_only,
+        verification_override=verification,
+        repair_loop_override=repair_loop,
+        max_repair_rounds_override=max_repair_rounds,
+    )
+
+    problem = _problem_from_args(problem_id, problem_path, title)
+    run_dir, manifest = create_run_manifest(config=config, paths=paths, problem=problem)
+    _copy_problem_artifacts(run_dir, problem, paths.repo_root, config)
+
+    launches = build_workflow_plan(
+        config=config,
+        paths=paths,
+        problem=problem,
+        run_dir=run_dir,
+        verification_enabled=feature_flags.verification_enabled,
+    )
+    if skip_services:
+        launches = [launch for launch in launches if launch.mode.value != "service"]
+    if _find_launch(launches, WorkflowKind.REASONING) is not None:
+        _prepare_reasoning_workspace(run_dir, paths.repo_root)
+        _stage_problem_for_reasoning_workspace(run_dir=run_dir, repo_root=paths.repo_root, problem=problem)
+    if _find_launch(launches, WorkflowKind.VERIFICATION) is not None:
+        _prepare_verification_workspace(run_dir, paths.repo_root)
+    manifest.pipeline = feature_flags.pipeline
+    manifest.features = _feature_payload(feature_flags)
+    manifest.workflows = [launch.kind for launch in launches]
+    write_manifest(run_dir, manifest)
+
+    append_event(
+        run_dir,
+        run_id=manifest.run_id,
+        event_type="run_created",
+        payload={
+            "problem": asdict(problem),
+            "run_dir": str(run_dir),
+            "workflow_count": len(launches),
+            "skip_services": skip_services,
+            **_feature_payload(feature_flags),
+        },
+    )
+    return execute_run_workflows(
+        config=config,
+        paths=paths,
+        run_dir=run_dir,
+        manifest=manifest,
+        problem=problem,
+        launches=launches,
+        feature_flags=feature_flags,
+    )
+
+
 def cmd_inspect_run(run_id_or_path: str, tail: int, config_path: Path | None) -> int:
     config = load_config(config_path)
     run_dir = _resolve_run_dir(run_id_or_path, config.run_root_path)
@@ -1188,6 +1227,7 @@ def main() -> int:
             args.pipeline,
             args.repair_loop,
             args.max_repair_rounds,
+            args.model,
         )
     if args.command == "launch":
         return cmd_launch_run(
@@ -1201,6 +1241,7 @@ def main() -> int:
             args.pipeline,
             args.repair_loop,
             args.max_repair_rounds,
+            args.model,
         )
     if args.command == "inspect":
         return cmd_inspect_run(args.run_id_or_path, args.tail, getattr(args, "config", None))

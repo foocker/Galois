@@ -54,6 +54,18 @@ def test_cli_prefers_verification_flags_and_rejects_legacy_verification_aliases(
     assert preset_args.pipeline == "reasoning-only"
     assert preset_args.repair_loop is False
 
+    model_args = parser.parse_args([*base_args, "--model", "gpt-5.4"])
+    assert model_args.model == "gpt-5.4"
+    gemini_args = parser.parse_args([*base_args, "--model", "gemini-pro-3.1"])
+    assert gemini_args.model == "gemini-pro-3.1"
+
+    try:
+        parser.parse_args([*base_args, "--model", "gpt-5.3-codex"])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("unsupported model should not be accepted")
+
 
 def test_launch_run_prints_reasoning_status_after_service_ready(monkeypatch, tmp_path: Path, capsys) -> None:
     from galois.platform import cli as platform_cli
@@ -191,13 +203,13 @@ run_root = "{run_root}"
 
 
 def test_reasoning_and_verification_adapters_exist() -> None:
-    from galois.reasoning.runner import reasoning_resume_script, vendored_reasoning_dir
+    from galois.reasoning.runner import run_reasoning_resume, vendored_reasoning_dir
     from galois.verification.service import app
 
     repo_root = Path(__file__).resolve().parents[1]
     assert vendored_reasoning_dir(repo_root) == repo_root / "three_horse" / "reasoning"
-    assert reasoning_resume_script(repo_root) == repo_root / "three_horse" / "reasoning" / "tests" / "run_example_resume.sh"
-    assert reasoning_resume_script(repo_root).exists()
+    assert callable(run_reasoning_resume)
+    assert not (repo_root / "three_horse" / "reasoning" / "tests" / "run_example_resume.sh").exists()
     assert app.title == "Verification Agent API"
 
 
@@ -1004,6 +1016,106 @@ run_root = "{run_root}"
     workspace = run_dir / "verification" / "workspace"
     assert (workspace / "memory").is_dir()
     assert (workspace / "results").is_dir()
+
+
+def test_launch_run_model_override_flows_to_manifest_and_workflow(monkeypatch, tmp_path: Path, capsys) -> None:
+    from galois.platform import cli as platform_cli
+    from galois.platform.run_registry import utc_now_iso
+
+    repo_root = Path(__file__).resolve().parents[1]
+    run_root = tmp_path / "runs"
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        f"""
+backend = "codex"
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+personality = "pragmatic"
+
+[codex]
+bin = "codex"
+base_url_env = "OPENAI_BASE_URL"
+api_key_env = "OPENAI_API_KEY"
+
+[models."gpt-5.4"]
+base_url_env = "OPENAI_BASE_URL"
+api_key_env = "OPENAI_API_KEY"
+
+[models."gpt-5.5"]
+base_url_env = "OPENAI_BASE_URL"
+api_key_env = "OPENAI_API_KEY"
+
+[models."gemini-pro-3.1"]
+base_url_env = "GEMINI_BASE_URL"
+api_key_env = "GEMINI_API_KEY"
+
+[reasoning]
+enabled = true
+workdir = "three_horse/reasoning"
+
+[verification]
+enabled = true
+workdir = "three_horse/verification"
+
+[platform]
+resume_enabled = true
+max_repair_rounds = 0
+benchmark_root = "benchmarks"
+run_root = "{run_root}"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.example/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+    seen: dict[str, str] = {}
+
+    def fake_run_workflow(*, run_dir, run_id, launch, manager=None):
+        seen["model"] = launch.environment["MODEL"]
+        problem_dir = reasoning_workspace_dir(run_dir) / "results" / "example"
+        problem_dir.mkdir(parents=True, exist_ok=True)
+        (problem_dir / "blueprint.md").write_text("proof attempt", encoding="utf-8")
+        stdout_path = run_dir / "reasoning" / "logs" / "stdout_r1.log"
+        stderr_path = run_dir / "reasoning" / "logs" / "stderr_r1.log"
+        stdout_path.parent.mkdir(parents=True, exist_ok=True)
+        stdout_path.write_text("reasoning\n", encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return WorkflowResult(
+            workflow=launch.kind.value,
+            mode=launch.mode,
+            command=[launch.entrypoint, *launch.arguments],
+            cwd=launch.cwd,
+            started_at=utc_now_iso(),
+            finished_at=utc_now_iso(),
+            pid=2001,
+            exit_code=0,
+            stdout_path=str(stdout_path),
+            stderr_path=str(stderr_path),
+            status="succeeded",
+            subagent_task_id="ga-001",
+            subagent_session_id="ga_session_1",
+        )
+
+    monkeypatch.setattr(platform_cli, "run_workflow", fake_run_workflow)
+
+    exit_code = platform_cli.cmd_launch_run(
+        problem_id="example",
+        problem_path=str(repo_root / "three_horse" / "reasoning" / "data" / "example.md"),
+        title="Example",
+        config_path=config_path,
+        reasoning_only=False,
+        verification=False,
+        skip_services=False,
+        pipeline="reasoning-only",
+        model_override="gpt-5.5",
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "model=gpt-5.5" in captured.out
+    assert seen["model"] == "gpt-5.5"
+    run_dir = sorted(run_root.iterdir())[0]
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["model"] == "gpt-5.5"
 
 
 def test_subagent_manager_spawns_thread_and_child_process(tmp_path: Path) -> None:

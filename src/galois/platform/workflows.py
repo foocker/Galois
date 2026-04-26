@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 
 from .artifacts import reasoning_workspace_dir
-from .config import PlatformConfig
+from .config import PlatformConfig, model_runtime_environment
 from .contracts import LaunchMode, ProblemInput, WorkflowKind, WorkflowLaunch
 from .paths import RepoPaths
 
@@ -51,6 +51,7 @@ def build_reasoning_launch(
         "GALOIS_REASONING_VERIFICATION_ENABLED": "1" if verification_enabled else "0",
         "GALOIS_REASONING_VERIFICATION_MODE": "external" if verification_enabled else "disabled",
         "RESUME": "auto" if config.resume_enabled else "0",
+        **model_runtime_environment(config),
     }
     if run_dir is not None:
         runtime_dir = reasoning_workspace_dir(run_dir)
@@ -99,6 +100,7 @@ def build_verification_launch(
             "CODEX_BIN": config.codex.bin,
             "CODEX_MODEL": config.model,
             "CODEX_REASONING_EFFORT": config.model_reasoning_effort,
+            **model_runtime_environment(config),
             "GALOIS_VERIFICATION_AGENT_DIR": str(agent_dir),
             "GALOIS_VERIFICATION_RUNTIME_DIR": str(runtime_dir),
             "GALOIS_VERIFICATION_WORKDIR": str(agent_dir),

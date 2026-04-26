@@ -3,142 +3,273 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Galois Research Workbench</title>
+    <title>Galois Formal Verification</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+      integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
+      crossorigin="anonymous"
+    />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <aside class="rail" aria-label="Galois roadmap">
-        <div class="brand-block">
-          <p class="eyebrow">Galois</p>
-          <h1>Research Workbench</h1>
-          <p class="brand-copy">A calm mathematical desk for long-form reasoning, verification, and reusable artifacts.</p>
+    <div class="app-shell">
+      <aside class="side-rail" aria-label="Galois navigation">
+        <div class="brand-mark">
+          <div class="mark" aria-hidden="true">G</div>
+          <div>
+            <p class="brand-name">Galois</p>
+            <p class="brand-subtitle" data-i18n-html="brand.subtitle">Mathematics<br />Learning &amp;<br /><span>Research</span></p>
+          </div>
         </div>
 
-        <nav class="roadmap" aria-label="Platform modules">
-          <button class="module active" type="button">
-            <span>Problem Research</span>
-            <strong>Active</strong>
-            <small>Submit Markdown problems to the live Galois pipeline.</small>
-          </button>
-          <button class="module" type="button" disabled>
-            <span>Concept Explanation</span>
-            <strong>Planned</strong>
-            <small>Build precise explanations around definitions and examples.</small>
-          </button>
-          <button class="module" type="button" disabled>
-            <span>Research Exploration</span>
-            <strong>Planned</strong>
-            <small>Branch difficult questions into hypotheses and lemmas.</small>
-          </button>
-          <button class="module" type="button" disabled>
-            <span>Theorem Search</span>
-            <strong>Planned</strong>
-            <small>Find nearby results before attempting a proof.</small>
-          </button>
-          <button class="module" type="button" disabled>
-            <span>Paper Reading</span>
-            <strong>Planned</strong>
-            <small>Turn dense papers into navigable mathematical notes.</small>
-          </button>
-          <button class="module" type="button" disabled>
-            <span>Writing Polish</span>
-            <strong>Planned</strong>
-            <small>Refine proofs and exposition into publishable prose.</small>
+        <nav class="module-nav" aria-label="Workspace pages">
+          <button class="nav-item" type="button" data-view-target="dashboard">
+            <span class="nav-icon" aria-hidden="true">▦</span>
+            <span data-i18n="nav.dashboard">Dashboard</span>
           </button>
         </nav>
 
+        <button id="new-proof-shortcut" class="rail-button" type="button" data-i18n="actions.newProof">New Proof</button>
+
         <section class="recent-panel" aria-labelledby="recent-title">
-          <div class="section-heading">
-            <h2 id="recent-title">Recent Runs</h2>
-            <button id="refresh-runs" class="text-button" type="button">Refresh</button>
+          <div class="panel-heading">
+            <h2 id="recent-title" data-i18n="history.recentRuns">Recent Runs</h2>
+            <button id="refresh-runs" class="text-button" type="button" data-i18n="actions.refresh">Refresh</button>
           </div>
           <div id="recent-runs" class="run-list" aria-live="polite">
-            <p class="muted">No runs loaded yet.</p>
+            <p class="muted" data-i18n="empty.noRunsLoaded">No runs loaded yet.</p>
           </div>
         </section>
+
       </aside>
 
-      <main class="composer" aria-labelledby="composer-title">
-        <header class="workspace-header">
-          <div>
-            <p class="eyebrow">Markdown problem input</p>
-            <h2 id="composer-title">Open a research session</h2>
+      <div class="workspace">
+        <header class="top-bar">
+          <nav class="product-tabs" aria-label="Galois modules">
+            <button class="product-tab active" type="button" data-view-target="problem-solving" data-i18n="nav.problemSolving">Problem Solving</button>
+            <button class="product-tab" type="button" data-view-target="math-learning" data-i18n="nav.mathLearning">Math Learning</button>
+            <button class="product-tab" type="button" data-view-target="theorem-searching" data-i18n="nav.theoremSearching">Theorem Searching</button>
+            <button class="product-tab" type="button" data-view-target="paper-writing" data-i18n="nav.paperWriting">Paper Writing</button>
+          </nav>
+          <div class="top-actions">
+            <div class="display-controls" aria-label="Display preferences">
+              <div class="segmented-control" role="group" aria-label="Language">
+                <button class="active" type="button" data-language-toggle="en" aria-pressed="true">EN</button>
+                <button type="button" data-language-toggle="zh" aria-pressed="false">中</button>
+              </div>
+              <div class="segmented-control" role="group" aria-label="Theme">
+                <button class="active" type="button" data-theme-toggle="light" aria-pressed="true" data-i18n="theme.day">Day</button>
+                <button type="button" data-theme-toggle="dark" aria-pressed="false" data-i18n="theme.night">Night</button>
+              </div>
+            </div>
+            <button class="login-placeholder" type="button" disabled data-i18n="auth.signIn">Sign In</button>
           </div>
-          <p class="header-note">Use Markdown and LaTeX delimiters such as <code>$x^2$</code> or <code>$$\int f$$</code>.</p>
         </header>
 
-        <form id="run-form" class="problem-form">
-          <label class="field-label" for="problem-title">Title</label>
-          <input id="problem-title" name="title" type="text" placeholder="e.g. Compactness exercise in topology" autocomplete="off" />
-
-          <div class="field-row">
-            <label class="field-label" for="pipeline">Pipeline</label>
-            <select id="pipeline" name="pipeline">
-              <option value="reasoning-verification" selected>Reasoning + verification</option>
-              <option value="reasoning-only">Reasoning only</option>
-            </select>
-          </div>
-
-          <label class="field-label" for="problem-markdown">Problem Markdown</label>
-          <textarea id="problem-markdown" name="problem_markdown" spellcheck="false" placeholder="Paste a theorem, exercise, proof attempt, or research question here..."></textarea>
-
-          <div class="form-actions">
-            <button id="example-button" class="secondary-button" type="button">Load example</button>
-            <button id="submit-button" class="primary-button" type="submit">Start research run</button>
-          </div>
-          <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
-        </form>
-      </main>
-
-      <aside class="results" aria-label="Run status and answer">
-        <section class="status-card">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Live run</p>
-              <h2 id="current-run-title">No active run</h2>
+        <main class="history-view app-view" data-view="dashboard" hidden>
+          <section class="ledger">
+            <div class="ledger-head">
+              <div>
+                <p class="kicker" data-i18n="history.ledgerKicker">Ledger Vol. XIV</p>
+                <h1 data-i18n="history.title">History</h1>
+              </div>
+              <button class="primary-button ledger-action" data-new-proof type="button" data-i18n="actions.newProof">New Proof</button>
             </div>
-            <span id="status-pill" class="status-pill idle">Idle</span>
-          </div>
-
-          <ol id="progress-ladder" class="ladder" aria-label="Research progress">
-            <li data-step="queued"><span></span>Queued</li>
-            <li data-step="reasoning"><span></span>Reasoning</li>
-            <li data-step="verification"><span></span>Verification</li>
-            <li data-step="repair"><span></span>Repair loop</li>
-            <li data-step="complete"><span></span>Complete</li>
-          </ol>
-
-          <dl class="run-meta">
-            <div><dt>Run id</dt><dd id="run-id">—</dd></div>
-            <div><dt>Pipeline</dt><dd id="run-pipeline">—</dd></div>
-            <div><dt>Artifact</dt><dd id="artifact-path">—</dd></div>
-          </dl>
-        </section>
-
-        <section class="output-card">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Answer artifact</p>
-              <h2>Research output</h2>
+            <div class="ledger-table" aria-label="Run history">
+              <div class="ledger-row ledger-labels">
+                <span data-i18n="history.date">Date</span>
+                <span data-i18n="history.problemTitle">Problem Title</span>
+                <span data-i18n="history.pipelineStatus">Pipeline Status</span>
+              </div>
+              <div id="ledger-runs" class="ledger-run-list">
+                <div class="ledger-row ledger-empty">
+                  <time>—</time>
+                  <strong data-i18n="empty.noVerifiedRunsLoaded">No verified runs loaded yet.</strong>
+                  <em class="status-tag draft" data-i18n="status.empty">Empty</em>
+                </div>
+              </div>
             </div>
-          </div>
-          <article id="output" class="markdown-output">
-            <p class="empty-state">Submit a problem to produce a Galois reasoning artifact. The final answer appears here when a blueprint or summary is available.</p>
-          </article>
-        </section>
+            <p class="ledger-end" data-i18n="history.end">End of Ledger</p>
+          </section>
+        </main>
 
-        <section class="events-card">
-          <div class="section-heading">
-            <h2>Event trail</h2>
-          </div>
-          <ul id="event-list" class="event-list">
-            <li class="muted">Events will appear after launch.</li>
-          </ul>
-        </section>
-      </aside>
+        <main class="main-grid app-view active" data-view="problem-solving">
+          <section class="draft-pane" aria-labelledby="composer-title">
+            <form id="run-form" class="problem-form">
+              <div class="document-head">
+                <p class="kicker" data-i18n="problem.draftObligation">Title</p>
+                <label class="visually-hidden" for="problem-title">Title</label>
+                <input
+                  id="problem-title"
+                  name="title"
+                  type="text"
+                  placeholder="Riemann Hypothesis"
+                  data-i18n-placeholder="problem.titlePlaceholder"
+                  autocomplete="off"
+                />
+              </div>
+
+              <div class="document-rule" aria-hidden="true"></div>
+
+              <div class="editor-head">
+                <label class="field-label" for="problem-markdown" data-i18n="problem.markdownLabel">Problem</label>
+                <span data-i18n="problem.livePreview">Preview</span>
+              </div>
+              <div class="problem-editor">
+                <textarea
+                  id="problem-markdown"
+                  name="problem_markdown"
+                  spellcheck="false"
+                  placeholder="Paste a theorem, exercise, proof attempt, or research question here..."
+                  data-i18n-placeholder="problem.markdownPlaceholder"
+                ></textarea>
+                <article id="problem-preview" class="markdown-output editor-preview" aria-live="polite">
+                  <p class="empty-state" data-i18n="empty.previewPending">Preview updates as you write.</p>
+                </article>
+              </div>
+
+              <footer class="draft-footer">
+                <div class="support-note">
+                  <span data-i18n="problem.latexSupport">Markdown / LaTeX support active</span>
+                </div>
+                <button id="example-button" class="text-button" type="button" data-i18n="actions.loadExample">Load example</button>
+              </footer>
+
+              <button id="submit-button" class="submit-hidden" type="submit" data-i18n="actions.startRun">Start research run</button>
+              <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
+            </form>
+
+            <section id="proof-sheet" class="output-sheet" aria-labelledby="output-title" hidden>
+              <div class="sheet-head">
+                <div>
+                  <h2 id="output-title" data-i18n="output.proofDocument">Proof Document</h2>
+                </div>
+                <button id="copy-proof-markdown" class="copy-button" type="button" data-i18n="actions.copyProofMarkdown" disabled>
+                  Copy Markdown
+                </button>
+              </div>
+              <article id="output" class="markdown-output">
+              </article>
+            </section>
+          </section>
+
+          <aside class="control-pane" aria-label="Problem configuration and run status">
+            <section class="config-panel">
+              <div class="section-title">
+                <h2 data-i18n="config.title">Problem Configuration</h2>
+                <p data-i18n="config.description">Choose the model and verification pipeline for the current proof obligation.</p>
+              </div>
+
+              <fieldset class="pipeline-field">
+                <legend data-i18n="config.pipelineSelection">Pipeline Selection</legend>
+                <label class="pipeline-option selected" for="pipeline-verification">
+                  <input id="pipeline-verification" name="pipeline-choice" type="radio" value="reasoning-verification" checked />
+                  <span>
+                    <strong data-i18n="pipeline.reasoningVerification">Reasoning &amp; Verification</strong>
+                    <small data-i18n="pipeline.reasoningVerificationDesc">Constructs a proof attempt, then runs the verification service.</small>
+                  </span>
+                  <em data-i18n="pipeline.formalCheck">Formal Check</em>
+                </label>
+                <label class="pipeline-option" for="pipeline-reasoning">
+                  <input id="pipeline-reasoning" name="pipeline-choice" type="radio" value="reasoning-only" />
+                  <span>
+                    <strong data-i18n="pipeline.reasoningOnly">Reasoning-Only</strong>
+                    <small data-i18n="pipeline.reasoningOnlyDesc">Generates mathematical reasoning without strict downstream verification.</small>
+                  </span>
+                  <em data-i18n="pipeline.fastDraft">Fast Draft</em>
+                </label>
+              </fieldset>
+
+              <label class="visually-hidden" for="pipeline">Pipeline</label>
+              <select id="pipeline" name="pipeline" aria-label="Pipeline">
+                <option value="reasoning-verification" selected>Reasoning + verification</option>
+                <option value="reasoning-only">Reasoning only</option>
+              </select>
+
+              <label class="model-field" for="model-select">
+                <span data-i18n="config.modelSelection">Model Selection</span>
+                <select id="model-select" name="model">
+                  <option value="gpt-5.4" selected>GPT-5.4</option>
+                  <option value="gpt-5.5">GPT-5.5</option>
+                  <option value="gemini-pro-3.1">Gemini Pro 3.1</option>
+                </select>
+              </label>
+
+              <button id="submit-proxy" class="primary-button" type="button"><span data-i18n="actions.commenceRun">Commence Run</span> <span>▶</span></button>
+            </section>
+
+            <section class="status-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="kicker" data-i18n="status.verificationStatus">Verification Status</p>
+                  <h2 id="current-run-title" data-i18n="status.noActiveRun">No active run</h2>
+                </div>
+                <span id="status-pill" class="status-pill idle" data-i18n="status.idle">Idle</span>
+              </div>
+
+              <ol id="progress-ladder" class="ladder" aria-label="Research progress">
+                <li data-step="queued"><span></span><b data-i18n="status.queued">Queued</b></li>
+                <li data-step="reasoning"><span></span><b data-i18n="status.reasoning">Reasoning</b></li>
+                <li data-step="verification"><span></span><b data-i18n="status.verification">Verification</b></li>
+                <li data-step="repair"><span></span><b data-i18n="status.repairLoop">Repair Loop</b></li>
+                <li data-step="complete"><span></span><b data-i18n="status.complete">Complete</b></li>
+              </ol>
+
+              <dl class="run-meta">
+                <div><dt data-i18n="status.runId">Run Id</dt><dd id="run-id">—</dd></div>
+                <div><dt data-i18n="status.pipeline">Pipeline</dt><dd id="run-pipeline">—</dd></div>
+              </dl>
+            </section>
+          </aside>
+        </main>
+
+        <main class="placeholder-view app-view" data-view="math-learning" hidden>
+          <section class="placeholder-panel">
+            <p class="kicker" data-i18n="nav.mathLearning">Math Learning</p>
+            <h1 data-i18n="placeholder.soonTitle">待实现</h1>
+            <p data-i18n="placeholder.mathLearning">Concept explanation, guided study paths, and example-driven learning will live here.</p>
+          </section>
+        </main>
+
+        <main class="placeholder-view app-view" data-view="theorem-searching" hidden>
+          <section class="placeholder-panel">
+            <p class="kicker" data-i18n="nav.theoremSearching">Theorem Searching</p>
+            <h1 data-i18n="placeholder.soonTitle">待实现</h1>
+            <p data-i18n="placeholder.theoremSearching">The theorem and related-paper search workspace will live here.</p>
+          </section>
+        </main>
+
+        <main class="placeholder-view app-view" data-view="paper-writing" hidden>
+          <section class="placeholder-panel">
+            <p class="kicker" data-i18n="nav.paperWriting">Paper Writing</p>
+            <h1 data-i18n="placeholder.soonTitle">待实现</h1>
+            <p data-i18n="placeholder.paperWriting">Drafting, polishing, and mathematical exposition tools will live here.</p>
+          </section>
+        </main>
+      </div>
     </div>
 
+    <script
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+      integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg"
+      crossorigin="anonymous"
+      defer
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      integrity="sha384-43gviWU0YVja7ZzQGgaDc6t2rU5f9jT7tR8pP4cS5bMW4QdDJ7JQMP7r6X4Vuq3f"
+      crossorigin="anonymous"
+      defer
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
+      defer
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
+      defer
+    ></script>
     <script src="/assets/app.js" defer></script>
   </body>
 </html>

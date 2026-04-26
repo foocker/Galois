@@ -31,10 +31,6 @@ def vendored_reasoning_dir(repo_root: Path | None = None) -> Path:
     return root / "three_horse" / "reasoning"
 
 
-def reasoning_resume_script(repo_root: Path | None = None) -> Path:
-    return vendored_reasoning_dir(repo_root) / "tests" / "run_example_resume.sh"
-
-
 def _bool_false(value: str) -> bool:
     return value in {"0", "false", "False", "no", "No"}
 
