@@ -45,6 +45,10 @@ workdir = "three_horse/verification"
 enabled = true
 workdir = "three_horse/writing"
 
+[database]
+url_env = "DATABASE_URL"
+url = "postgresql://galois:galois_dev@127.0.0.1:5432/galois"
+
 [platform]
 resume_enabled = true
 max_repair_rounds = 1
@@ -54,6 +58,21 @@ run_root = "{run_root.name}"
 """.lstrip(),
         encoding="utf-8",
     )
+
+
+def test_config_loads_problem_garden_database_url(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform.config import load_config
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    config = load_config(config_path)
+    assert config.database.connection_url == "postgresql://galois:galois_dev@127.0.0.1:5432/galois"
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://override:secret@127.0.0.1:5432/override")
+    config = load_config(config_path)
+    assert config.database.connection_url == "postgresql://override:secret@127.0.0.1:5432/override"
 
 
 def test_index_serves_research_workbench(tmp_path: Path) -> None:
@@ -99,8 +118,8 @@ def test_index_loads_markdown_rendering_assets(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "marked.min.js" in response.text
     assert "purify.min.js" in response.text
-    assert '/assets/styles.css?v=paper-writing-3' in response.text
-    assert '/assets/app.js?v=paper-writing-3' in response.text
+    assert '/assets/styles.css?v=problem-garden-db-1' in response.text
+    assert '/assets/app.js?v=problem-garden-db-1' in response.text
 
 
 def test_index_contains_current_product_views(tmp_path: Path) -> None:
@@ -115,9 +134,29 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert 'data-view="problem-solving"' in response.text
     assert 'data-view="dashboard"' in response.text
+    assert 'data-view="problem-garden"' in response.text
     assert 'data-view="math-learning"' in response.text
     assert 'data-view="theorem-searching"' in response.text
     assert 'data-view="paper-writing"' in response.text
+    assert 'class="problem-garden-view app-view" data-view="problem-garden"' in response.text
+    assert 'id="garden-problems"' in response.text
+    assert 'id="garden-detail"' in response.text
+    assert 'id="garden-graph"' in response.text
+    assert 'id="garden-search-form"' in response.text
+    assert 'id="garden-query"' in response.text
+    assert 'id="garden-status-filter"' in response.text
+    assert 'id="garden-domain-filter"' in response.text
+    assert 'id="garden-difficulty-filter"' in response.text
+    assert 'id="garden-submit-form"' in response.text
+    assert 'id="garden-submit-title"' in response.text
+    assert 'id="garden-submit-statement"' in response.text
+    assert 'id="garden-submit-source"' in response.text
+    assert 'id="garden-submit-references"' in response.text
+    assert 'data-garden-problem-id="pfr-finite-fields"' in response.text
+    assert 'data-garden-use-problem' in response.text
+    assert "Polynomial Freiman-Ruzsa conjecture" in response.text
+    assert "open" in response.text
+    assert "frontier" in response.text
     assert 'class="paper-writing-view app-view" data-view="paper-writing"' in response.text
     assert 'id="paper-submit-button"' in response.text
     assert 'id="paper-draft"' in response.text
@@ -179,10 +218,12 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert "引理 4.2：拓扑等价" not in response.text
     assert 'class="main-grid app-view active" data-view="problem-solving"' in response.text
     assert 'data-view-target="problem-solving"' in response.text
+    assert 'data-view-target="problem-garden"' in response.text
     assert 'data-view-target="theorem-searching"' in response.text
     assert 'data-view="problem-solution"' not in response.text
     assert 'data-view="theorem-search"' not in response.text
     assert ">Problem Solving<" in response.text
+    assert ">Problem Garden<" in response.text
     assert ">Math Learning<" in response.text
     assert ">Theorem Searching<" in response.text
     assert ">Paper Writing<" in response.text
@@ -201,6 +242,8 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert ">Repository<" not in response.text
     assert ">Proofs<" not in response.text
     assert ">Drafts<" not in response.text
+    assert response.text.index('data-view-target="problem-solving"') < response.text.index('data-view-target="problem-garden"')
+    assert response.text.index('data-view-target="problem-garden"') < response.text.index('data-view-target="math-learning"')
 
 
 def test_index_contains_matlas_theorem_search_workspace(tmp_path: Path) -> None:
@@ -324,6 +367,181 @@ def test_writing_project_api_creates_independent_writing_run(monkeypatch, tmp_pa
     assert "min_pages: 6" in input_text
     assert "max_pages: 10" in input_text
     assert "review_rounds: 2" in input_text
+
+
+def test_problem_garden_api_lists_filters_and_details(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    calls = []
+
+    class FakeProblemGardenStore:
+        def __init__(self, database_url: str):
+            calls.append(("init", database_url))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return None
+
+        def initialize(self):
+            calls.append(("initialize",))
+
+        def list_problems(self, *, query=None, status=None, domain=None, difficulty=None):
+            calls.append(("list", query, status, domain, difficulty))
+            return [
+                {
+                    "id": "pfr-finite-fields",
+                    "title": "Polynomial Freiman-Ruzsa conjecture",
+                    "status": "open",
+                    "difficulty": "frontier",
+                    "domains": ["additive combinatorics", "finite fields"],
+                    "source": "Peluse 2024 survey",
+                    "source_url": "https://example.test/peluse",
+                    "context": "finite-field model",
+                    "statement": "Let $A \\subseteq \\mathbb{F}_p^n$ have small doubling.",
+                    "related_literature_count": 2,
+                    "latest_progress": "Equivalent finite-field formulations are known.",
+                }
+            ]
+
+        def get_problem(self, problem_id: str):
+            calls.append(("get", problem_id))
+            return {
+                "id": problem_id,
+                "title": "Polynomial Freiman-Ruzsa conjecture",
+                "status": "open",
+                "difficulty": "frontier",
+                "domains": ["additive combinatorics", "finite fields"],
+                "source": "Peluse 2024 survey",
+                "source_url": "https://example.test/peluse",
+                "context": "finite-field model",
+                "statement": "Let $A \\subseteq \\mathbb{F}_p^n$ have small doubling.",
+                "source_literature": ["Peluse 2024"],
+                "attempted_literature": ["Lovett 2012"],
+                "related_literature": ["Bogolyubov-Ruzsa surveys"],
+                "known_core_ideas": ["Small doubling forces structure."],
+                "progress": ["Equivalent formulations known."],
+                "possible_ideas": ["Compare formulations."],
+                "graph_links": [
+                    {"from": "Problem", "relation": "stated_in", "to": "Peluse 2024 survey"},
+                ],
+            }
+
+    monkeypatch.setattr(web, "ProblemGardenStore", FakeProblemGardenStore)
+    client = TestClient(web.create_app(config_path=config_path))
+
+    response = client.get(
+        "/api/problem-garden/problems",
+        params={"q": "freiman", "status": "open", "domain": "finite fields", "difficulty": "frontier"},
+    )
+    assert response.status_code == 200
+    assert response.json()["problems"][0]["id"] == "pfr-finite-fields"
+    assert calls[:2] == [
+        ("init", "postgresql://galois:galois_dev@127.0.0.1:5432/galois"),
+        ("initialize",),
+    ]
+    assert calls[2] == ("list", "freiman", "open", "finite fields", "frontier")
+
+    detail = client.get("/api/problem-garden/problems/pfr-finite-fields")
+    assert detail.status_code == 200
+    assert detail.json()["problem"]["graph_links"][0]["relation"] == "stated_in"
+
+
+def test_problem_garden_api_submits_candidates_to_review_queue(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    calls = []
+
+    class FakeProblemGardenStore:
+        def __init__(self, database_url: str):
+            calls.append(("init", database_url))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return None
+
+        def initialize(self):
+            calls.append(("initialize",))
+
+        def create_submission(self, payload):
+            calls.append(("create_submission", payload))
+            return {"submission_id": "submission-1", "status": "pending_review"}
+
+    monkeypatch.setattr(web, "ProblemGardenStore", FakeProblemGardenStore)
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post(
+        "/api/problem-garden/submissions",
+        json={
+            "title": "A new finite-field problem",
+            "statement": "Determine whether every object has property $P$.",
+            "source_url": "https://example.test/problem",
+            "domain": "finite fields",
+            "context": "Collected from a survey.",
+            "references_text": "A. Author, A useful survey.",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {"submission_id": "submission-1", "status": "pending_review"}
+    assert calls[-1][0] == "create_submission"
+    submission = calls[-1][1]
+    assert submission["title"] == "A new finite-field problem"
+    assert submission["status"] == "pending_review"
+
+    invalid = client.post(
+        "/api/problem-garden/submissions",
+        json={"title": "No source", "statement": "A problem.", "source_url": " "},
+    )
+    assert invalid.status_code == 400
+    assert invalid.json()["detail"] == "source_url must not be blank"
+
+
+def test_problem_garden_store_initializes_schema_and_submission_in_live_postgres(monkeypatch) -> None:
+    database_url = "postgresql://galois:galois_dev@127.0.0.1:5432/galois"
+    import psycopg
+
+    try:
+        with psycopg.connect(database_url, connect_timeout=2) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+    except psycopg.OperationalError:
+        return
+
+    from galois.platform.problem_garden import ProblemGardenStore
+
+    with ProblemGardenStore(database_url) as store:
+        store.initialize()
+        problems = store.list_problems(query="Freiman", status="open", domain="finite fields", difficulty="frontier")
+        assert any(problem["id"] == "pfr-finite-fields" for problem in problems)
+        detail = store.get_problem("pfr-finite-fields")
+        assert detail is not None
+        assert detail["graph_links"]
+        with store.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM garden_submissions WHERE id = %s", ("test-submission-live-postgres",))
+        store.connection.commit()
+        created = store.create_submission(
+            {
+                "id": "test-submission-live-postgres",
+                "title": "Live PostgreSQL submission test",
+                "statement": "A statement used by the test suite.",
+                "source_url": "https://example.test/live-postgres-submission",
+                "domain": "test",
+                "context": "Created by pytest and cleaned up immediately.",
+                "references_text": "Test reference.",
+                "status": "pending_review",
+            }
+        )
+        assert created == {"submission_id": "test-submission-live-postgres", "status": "pending_review"}
+        with store.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM garden_submissions WHERE id = %s", ("test-submission-live-postgres",))
+        store.connection.commit()
 
 
 def test_matlas_search_proxy_posts_to_public_api(monkeypatch, tmp_path: Path) -> None:
@@ -1196,6 +1414,345 @@ if (preview.hidden !== false) throw new Error("draft preview should be visible i
 context.setPaperDraftView("edit");
 if (draft.hidden !== false) throw new Error("draft editor should be visible in edit mode");
 if (preview.hidden !== true) throw new Error("draft preview should be hidden in edit mode");
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_frontend_problem_garden_selects_and_sends_problem_to_solver() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  const values = new Set();
+  return {{
+    values,
+    toggle(name, force) {{
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{ return values.has(name); }},
+    add(name) {{ values.add(name); }},
+    remove(name) {{ values.delete(name); }},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  const element = {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    attributes: {{}},
+    addEventListener() {{}},
+    setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+    getAttribute(name) {{ return this.attributes[name]; }},
+    closest() {{ return fakeElement(); }},
+    contains() {{ return false; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{ this.focused = true; }},
+  }};
+  element.classList = fakeClassList();
+  return element;
+}}
+
+const views = [
+  fakeElement({{ view: "problem-solving" }}),
+  fakeElement({{ view: "problem-garden" }}),
+  fakeElement({{ view: "dashboard" }}),
+  fakeElement({{ view: "math-learning" }}),
+  fakeElement({{ view: "theorem-searching" }}),
+  fakeElement({{ view: "paper-writing" }}),
+];
+const buttons = [
+  fakeElement({{ viewTarget: "problem-solving" }}),
+  fakeElement({{ viewTarget: "problem-garden" }}),
+];
+const problemTitle = fakeElement();
+const problemMarkdown = fakeElement();
+const problemPreview = fakeElement();
+const gardenProblems = fakeElement();
+const gardenDetail = fakeElement();
+const gardenGraph = fakeElement();
+const elementMap = new Map([
+  ["#problem-title", problemTitle],
+  ["#problem-markdown", problemMarkdown],
+  ["#problem-preview", problemPreview],
+  ["#garden-problems", gardenProblems],
+  ["#garden-detail", gardenDetail],
+  ["#garden-graph", gardenGraph],
+]);
+const document = {{
+  documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
+  querySelector(selector) {{
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return views;
+    if (selector === "[data-view-target]") return buttons;
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const window = {{
+  location: {{ hash: "#problem-garden" }},
+  history: {{ replaceState(_state, _title, hash) {{ window.location.hash = hash; }} }},
+  addEventListener() {{}},
+  localStorage: {{ getItem() {{ return null; }}, setItem() {{}}, removeItem() {{}} }},
+  matchMedia() {{ return {{ matches: false }}; }},
+}};
+const fetch = async () => ({{ ok: true, json: async () => ({{ runs: [] }}) }});
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+  JSON,
+}};
+
+vm.runInNewContext(code, context);
+context.renderProblemGarden("pfr-finite-fields");
+if (!gardenProblems.innerHTML.includes("Polynomial Freiman-Ruzsa conjecture")) throw new Error(gardenProblems.innerHTML);
+if (!gardenProblems.innerHTML.includes("frontier")) throw new Error(gardenProblems.innerHTML);
+if (!gardenDetail.innerHTML.includes("Known core ideas")) throw new Error(gardenDetail.innerHTML);
+if (!gardenDetail.innerHTML.includes("Source literature")) throw new Error(gardenDetail.innerHTML);
+if (!gardenGraph.innerHTML.includes("uses_method")) throw new Error(gardenGraph.innerHTML);
+context.useGardenProblem("pfr-finite-fields");
+if (problemTitle.value !== "Polynomial Freiman-Ruzsa conjecture") throw new Error(problemTitle.value);
+if (!problemMarkdown.value.includes("## Problem")) throw new Error(problemMarkdown.value);
+if (!problemMarkdown.value.includes("finite-field model")) throw new Error(problemMarkdown.value);
+if (window.location.hash !== "#problem-solving") throw new Error(window.location.hash);
+if (problemMarkdown.focused !== true) throw new Error("problem markdown should be focused");
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_frontend_problem_garden_searches_and_submits_via_api() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  const values = new Set();
+  return {{
+    values,
+    toggle(name, force) {{
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{ return values.has(name); }},
+    add(name) {{ values.add(name); }},
+    remove(name) {{ values.delete(name); }},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  const element = {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    attributes: {{}},
+    addEventListener() {{}},
+    setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+    getAttribute(name) {{ return this.attributes[name]; }},
+    closest() {{ return fakeElement(); }},
+    contains() {{ return false; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{ this.focused = true; }},
+    reset() {{ this.resetCalled = true; }},
+  }};
+  element.classList = fakeClassList();
+  return element;
+}}
+
+const views = [
+  fakeElement({{ view: "problem-solving" }}),
+  fakeElement({{ view: "problem-garden" }}),
+];
+const buttons = [fakeElement({{ viewTarget: "problem-garden" }})];
+const gardenProblems = fakeElement();
+const gardenDetail = fakeElement();
+const gardenGraph = fakeElement();
+const gardenSearchForm = fakeElement();
+const gardenQuery = fakeElement();
+const gardenStatus = fakeElement();
+const gardenDomain = fakeElement();
+const gardenDifficulty = fakeElement();
+const gardenMessage = fakeElement();
+const gardenSubmitForm = fakeElement();
+const gardenSubmitTitle = fakeElement();
+const gardenSubmitStatement = fakeElement();
+const gardenSubmitSource = fakeElement();
+const gardenSubmitDomain = fakeElement();
+const gardenSubmitContext = fakeElement();
+const gardenSubmitReferences = fakeElement();
+const elementMap = new Map([
+  ["#garden-problems", gardenProblems],
+  ["#garden-detail", gardenDetail],
+  ["#garden-graph", gardenGraph],
+  ["#garden-search-form", gardenSearchForm],
+  ["#garden-query", gardenQuery],
+  ["#garden-status-filter", gardenStatus],
+  ["#garden-domain-filter", gardenDomain],
+  ["#garden-difficulty-filter", gardenDifficulty],
+  ["#garden-message", gardenMessage],
+  ["#garden-submit-form", gardenSubmitForm],
+  ["#garden-submit-title", gardenSubmitTitle],
+  ["#garden-submit-statement", gardenSubmitStatement],
+  ["#garden-submit-source", gardenSubmitSource],
+  ["#garden-submit-domain", gardenSubmitDomain],
+  ["#garden-submit-context", gardenSubmitContext],
+  ["#garden-submit-references", gardenSubmitReferences],
+]);
+const document = {{
+  documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
+  querySelector(selector) {{
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return views;
+    if (selector === "[data-view-target]") return buttons;
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const window = {{
+  location: {{ hash: "#problem-garden" }},
+  history: {{ replaceState(_state, _title, hash) {{ window.location.hash = hash; }} }},
+  addEventListener() {{}},
+  localStorage: {{ getItem() {{ return null; }}, setItem() {{}}, removeItem() {{}} }},
+  matchMedia() {{ return {{ matches: false }}; }},
+}};
+const fetchCalls = [];
+const apiProblem = {{
+  id: "api-pfr",
+  title: "API Polynomial Freiman-Ruzsa",
+  status: "open",
+  difficulty: "frontier",
+  domains: ["finite fields"],
+  source: "API source",
+  source_url: "https://example.test/source",
+  context: "API finite-field context",
+  statement: "API statement with $A+A$.",
+  source_literature: ["API source literature"],
+  attempted_literature: ["API attempt"],
+  related_literature: ["API related"],
+  known_core_ideas: ["API idea"],
+  progress: ["API progress"],
+  possible_ideas: ["API possible idea"],
+  graph_links: [{{ from: "Problem", relation: "stated_in", to: "API source" }}],
+}};
+const fetch = async (url, options = {{}}) => {{
+  fetchCalls.push([String(url), options || {{}}]);
+  if (String(url).startsWith("/api/problem-garden/problems?")) {{
+    const value = String(url);
+    if (!value.includes("q=freiman")) throw new Error(value);
+    if (!value.includes("status=open")) throw new Error(value);
+    if (!value.includes("domain=finite+fields")) throw new Error(value);
+    if (!value.includes("difficulty=frontier")) throw new Error(value);
+    return {{ ok: true, json: async () => ({{ problems: [apiProblem] }}) }};
+  }}
+  if (url === "/api/problem-garden/problems") {{
+    return {{ ok: true, json: async () => ({{ problems: [apiProblem] }}) }};
+  }}
+  if (url === "/api/problem-garden/problems/api-pfr") {{
+    return {{ ok: true, json: async () => ({{ problem: apiProblem }}) }};
+  }}
+  if (url === "/api/problem-garden/submissions") {{
+    const body = JSON.parse(options.body);
+    if (body.title !== "Submitted problem") throw new Error(options.body);
+    if (body.status !== "pending_review") throw new Error(options.body);
+    return {{ ok: true, json: async () => ({{ submission_id: "submission-1", status: "pending_review" }}) }};
+  }}
+  if (url === "/api/runs") return {{ ok: true, json: async () => ({{ runs: [] }}) }};
+  return {{ ok: true, json: async () => ({{ runs: [] }}) }};
+}};
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  URLSearchParams,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+  JSON,
+}};
+
+(async () => {{
+  vm.runInNewContext(code, context);
+  gardenQuery.value = "freiman";
+  gardenStatus.value = "open";
+  gardenDomain.value = "finite fields";
+  gardenDifficulty.value = "frontier";
+  await context.loadProblemGarden();
+  if (!gardenProblems.innerHTML.includes("API Polynomial Freiman-Ruzsa")) throw new Error(gardenProblems.innerHTML);
+  if (!gardenDetail.innerHTML.includes("API source literature")) throw new Error(gardenDetail.innerHTML);
+  if (!gardenGraph.innerHTML.includes("stated_in")) throw new Error(gardenGraph.innerHTML);
+  const searchCalls = fetchCalls.filter(([url]) => url.startsWith("/api/problem-garden/problems?"));
+  if (searchCalls.length !== 1) throw new Error(`expected one filtered search, got ${{searchCalls.length}}`);
+
+  gardenSubmitTitle.value = "Submitted problem";
+  gardenSubmitStatement.value = "Statement";
+  gardenSubmitSource.value = "https://example.test/submitted";
+  gardenSubmitDomain.value = "finite fields";
+  gardenSubmitContext.value = "Context";
+  gardenSubmitReferences.value = "Reference";
+  await context.submitGardenCandidate({{ preventDefault() {{}} }});
+  if (!gardenMessage.textContent.includes("pending_review")) throw new Error(gardenMessage.textContent);
+  if (gardenSubmitForm.resetCalled !== true) throw new Error("submission form should reset after accepted candidate");
+}})().catch((error) => {{
+  console.error(error.stack || error.message);
+  process.exit(1);
+}});
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 

@@ -5,6 +5,7 @@ const state = {
   writingPollHandle: null,
   runs: [],
   proofMarkdown: '',
+  selectedGardenProblemId: 'pfr-finite-fields',
   paperOutputKind: 'manuscript_draft',
   lastWritingSnapshot: null,
 };
@@ -45,6 +46,22 @@ const elements = {
   matlasCount: document.querySelector('#matlas-count'),
   matlasMessage: document.querySelector('#matlas-message'),
   matlasResults: document.querySelector('#matlas-results'),
+  gardenProblems: document.querySelector('#garden-problems'),
+  gardenDetail: document.querySelector('#garden-detail'),
+  gardenGraph: document.querySelector('#garden-graph'),
+  gardenSearchForm: document.querySelector('#garden-search-form'),
+  gardenQuery: document.querySelector('#garden-query'),
+  gardenStatusFilter: document.querySelector('#garden-status-filter'),
+  gardenDomainFilter: document.querySelector('#garden-domain-filter'),
+  gardenDifficultyFilter: document.querySelector('#garden-difficulty-filter'),
+  gardenSubmitForm: document.querySelector('#garden-submit-form'),
+  gardenSubmitTitle: document.querySelector('#garden-submit-title'),
+  gardenSubmitStatement: document.querySelector('#garden-submit-statement'),
+  gardenSubmitSource: document.querySelector('#garden-submit-source'),
+  gardenSubmitDomain: document.querySelector('#garden-submit-domain'),
+  gardenSubmitContext: document.querySelector('#garden-submit-context'),
+  gardenSubmitReferences: document.querySelector('#garden-submit-references'),
+  gardenMessage: document.querySelector('#garden-message'),
   paperTypeChoices: [...document.querySelectorAll('input[name="paper-type"]')],
   paperTitle: document.querySelector('#paper-title-input'),
   paperJournal: document.querySelector('#paper-journal-input'),
@@ -74,7 +91,7 @@ const viewAliases = new Map([
   ['problem-solution', 'problem-solving'],
   ['theorem-search', 'theorem-searching'],
 ]);
-const viewNames = new Set(['problem-solving', 'dashboard', 'math-learning', 'theorem-searching', 'paper-writing']);
+const viewNames = new Set(['problem-solving', 'problem-garden', 'dashboard', 'math-learning', 'theorem-searching', 'paper-writing']);
 const languageStorageKey = 'galois-language';
 const themeStorageKey = 'galois-theme';
 const currentRunStorageKey = 'galois-current-run-id';
@@ -110,6 +127,32 @@ const translations = {
     'history.problemTitle': 'Problem Title',
     'history.recentRuns': 'Recent Runs',
     'history.title': 'History',
+    'garden.brief': 'Curated research problems with source trails, attempts, related literature, and graph links.',
+    'garden.domainPlaceholder': 'Domain',
+    'garden.filterAnyDifficulty': 'Any difficulty',
+    'garden.filterAnyStatus': 'Any status',
+    'garden.graphKicker': 'Link Graph',
+    'garden.graphTitle': 'Problem links',
+    'garden.kicker': 'Problem Garden',
+    'garden.loading': 'Loading Problem Garden...',
+    'garden.loadFailed': 'Problem Garden database could not be loaded. Showing local seed data.',
+    'garden.noResults': 'No matching problems found.',
+    'garden.searchAction': 'Search',
+    'garden.searchLabel': 'Search problems',
+    'garden.searchPlaceholder': 'Search title, statement, or source',
+    'garden.submitAction': 'Send to review',
+    'garden.submitContext': 'Context',
+    'garden.submitDomain': 'Domain',
+    'garden.submitProblemTitle': 'Title',
+    'garden.submitReferences': 'Seed references',
+    'garden.submitSource': 'Source URL',
+    'garden.submitStatement': 'Statement',
+    'garden.submitTitle': 'Submit candidate',
+    'garden.submissionAccepted': 'Candidate submitted for review',
+    'garden.submissionFailed': 'Candidate could not be submitted.',
+    'garden.submissionRequired': 'Title, statement, and source URL are required.',
+    'garden.title': 'Open Problem Garden',
+    'message.gardenProblemLoaded': 'Problem loaded into the solver.',
     'message.exampleLoaded': 'Example problem loaded. Edit it or start a run.',
     'message.problemRequired': 'Paste a Markdown problem before starting a run.',
     'message.submitting': 'Submitting problem to Galois...',
@@ -127,6 +170,7 @@ const translations = {
     'nav.dashboard': 'Dashboard',
     'nav.mathLearning': 'Math Learning',
     'nav.paperWriting': 'Paper Writing',
+    'nav.problemGarden': 'Problem Garden',
     'nav.problemSolving': 'Problem Solving',
     'nav.theoremSearching': 'Theorem Searching',
     'output.proofDocument': 'Proof Document',
@@ -226,6 +270,33 @@ const translations = {
     'history.problemTitle': '问题标题',
     'history.recentRuns': '最近运行',
     'history.title': '历史',
+    'garden.brief': '收录有来源链路、尝试文献、相关文献和图谱关系的研究问题。',
+    'garden.domainPlaceholder': '领域',
+    'garden.filterAnyDifficulty': '任意难度',
+    'garden.filterAnyStatus': '任意状态',
+    'garden.graphKicker': '链接图谱',
+    'garden.graphTitle': '问题关系',
+    'garden.kicker': '问题花园',
+    'garden.loading': '正在加载问题花园...',
+    'garden.loadFailed': '问题花园数据库暂时不可用，正在显示本地种子数据。',
+    'garden.noResults': '没有匹配的问题。',
+    'garden.searchAction': '检索',
+    'garden.searchLabel': '检索问题',
+    'garden.searchPlaceholder': '检索题目、表述或来源',
+    'garden.submitAction': '送入审核',
+    'garden.submitContext': '上下文',
+    'garden.submitDomain': '领域',
+    'garden.submitProblemTitle': '题目',
+    'garden.submitReferences': '种子参考文献',
+    'garden.submitSource': '来源 URL',
+    'garden.submitStatement': '问题表述',
+    'garden.submitTitle': '提交候选问题',
+    'garden.submissionAccepted': '候选问题已提交审核',
+    'garden.submissionFailed': '候选问题提交失败。',
+    'garden.submissionRequired': '题目、表述和来源 URL 必填。',
+    'garden.title': '开放问题花园',
+
+    'message.gardenProblemLoaded': '问题已送入求解区。',
     'message.problemRequired': '请先粘贴 Markdown 问题再启动运行。',
     'message.submitting': '正在提交问题到 Galois...',
     'matlas.countLabel': '结果数量',
@@ -242,6 +313,7 @@ const translations = {
     'nav.dashboard': '仪表盘',
     'nav.mathLearning': '数学学习',
     'nav.paperWriting': '论文写作',
+    'nav.problemGarden': '问题花园',
     'nav.problemSolving': '问题求解',
     'nav.theoremSearching': '定理搜索',
     'output.proofDocument': '证明文档',
@@ -326,6 +398,139 @@ Let $X$ be a compact topological space and let $f:X \to \mathbb{R}$ be continuou
 Prove that $f$ is bounded and attains its maximum and minimum on $X$.
 
 Please give a proof-oriented explanation and identify the key theorem used.`;
+
+const problemGardenProblems = [
+  {
+    id: 'pfr-finite-fields',
+    title: 'Polynomial Freiman-Ruzsa conjecture',
+    status: 'open',
+    difficulty: 'frontier',
+    domains: ['additive combinatorics', 'finite fields'],
+    source: 'S. Peluse, Finite field models in arithmetic combinatorics -- twenty years on, Surveys in Combinatorics 2024.',
+    sourceUrl: 'benchmarks/problems/finite_fields/polynomial Freiman-Ruzsa conjecture.md',
+    context: 'This is the polynomial Freiman-Ruzsa conjecture in the finite-field model.',
+    statement: `Let $p$ be a fixed prime and let $A \\subseteq \\mathbb{F}_p^n$ satisfy
+$$
+|A+A| \\le K|A|.
+$$
+Must there exist a subspace $H \\le \\mathbb{F}_p^n$ with $|H| \\le |A|$ such that $A$ can be covered by at most $K^{O(1)}$ cosets of $H$?`,
+    sourceLiterature: [
+      'S. Peluse, Finite field models in arithmetic combinatorics -- twenty years on, Surveys in Combinatorics 2024.',
+      'B. Green, Notes on the polynomial Freiman-Ruzsa conjecture, unpublished notes, 2005.',
+    ],
+    attemptedLiterature: [
+      'S. Lovett, Equivalence of polynomial conjectures in additive combinatorics, Combinatorica 32 (2012), 607-618.',
+    ],
+    relatedLiterature: [
+      'Green-Tao style finite-field additive combinatorics surveys.',
+      'Bogolyubov-Ruzsa type covering theorems over finite vector spaces.',
+    ],
+    knownCoreIdeas: [
+      'Small doubling should force low-complexity additive structure.',
+      'Known routes compare covering, modeling, and inverse theorem formulations.',
+      'Quantitative polynomial dependence on $K$ is the central obstruction.',
+    ],
+    progress: [
+      'Several polynomial conjectures are known to be equivalent in finite-field models.',
+      'The benchmark formulation asks for better covering bounds or explicit structural extraction.',
+    ],
+    possibleIdeas: [
+      'Track which equivalent formulation gives the most direct attack for a given $p$ and $K$.',
+      'Compare recent finite-field survey reductions against older unpublished notes.',
+    ],
+    graphLinks: [
+      { from: 'Problem', relation: 'stated_in', to: 'Peluse 2024 survey' },
+      { from: 'Problem', relation: 'attempted_by', to: 'Lovett 2012' },
+      { from: 'Problem', relation: 'uses_method', to: 'Bogolyubov-Ruzsa covering' },
+      { from: 'Problem', relation: 'belongs_to_domain', to: 'Additive combinatorics' },
+    ],
+  },
+  {
+    id: 'primitive-completely-normal',
+    title: 'Primitive completely normal elements',
+    status: 'open',
+    difficulty: 'research',
+    domains: ['finite fields', 'field arithmetic'],
+    source: 'Finite-field benchmark problem collection in Galois.',
+    sourceUrl: 'benchmarks/problems/finite_fields/primitive completely normal problem.md',
+    context: 'This finite-field problem is useful for testing the boundary between algebraic existence results and explicit construction methods.',
+    statement: 'Determine sharp existence results for elements of finite field extensions that are simultaneously primitive and completely normal over every intermediate subfield.',
+    sourceLiterature: [
+      'Finite-field normal basis and primitive element literature.',
+    ],
+    attemptedLiterature: [
+      'Character sum approaches to primitive normal basis problems.',
+    ],
+    relatedLiterature: [
+      'Completely normal elements over finite fields.',
+      'Primitive elements avoiding affine hyperplanes.',
+    ],
+    knownCoreIdeas: [
+      'Combine multiplicative primitivity with additive normality constraints.',
+      'Character sums can separate some constraints but constants and small fields remain delicate.',
+    ],
+    progress: [
+      'Many extension-degree regimes are known; sharp uniform results remain a useful benchmark target.',
+    ],
+    possibleIdeas: [
+      'Build a case table by extension degree and field size, then isolate the remaining exceptional regimes.',
+    ],
+    graphLinks: [
+      { from: 'Problem', relation: 'related_to', to: 'Normal basis theorem' },
+      { from: 'Problem', relation: 'uses_method', to: 'Character sums' },
+      { from: 'Problem', relation: 'belongs_to_domain', to: 'Finite fields' },
+    ],
+  },
+  {
+    id: 'lehmer-mahler-measure',
+    title: "Lehmer's problem on Mahler measure",
+    status: 'open',
+    difficulty: 'frontier',
+    domains: ['number theory', 'arithmetic dynamics'],
+    source: 'Benchmark problem collection; classical formulation due to Lehmer.',
+    sourceUrl: "benchmarks/problems/number_theory/Lehmer's problem on Mahler measure.md",
+    context: 'This classical problem asks for a uniform gap in Mahler measure outside cyclotomic factors.',
+    statement: 'Is there a universal constant $c>1$ such that every noncyclotomic monic integer polynomial has Mahler measure at least $c$?',
+    sourceLiterature: [
+      'D. H. Lehmer, Factorization of certain cyclotomic functions, Annals of Mathematics 34 (1933).',
+    ],
+    attemptedLiterature: [
+      'Dobrowolski-type lower bounds for Mahler measure.',
+      'Surveys on Lehmer-type problems and heights.',
+    ],
+    relatedLiterature: [
+      'Height lower bounds.',
+      'Salem numbers and cyclotomic factors.',
+    ],
+    knownCoreIdeas: [
+      'Exclude cyclotomic factors and seek a uniform height gap.',
+      'Known lower bounds depend on polynomial degree.',
+    ],
+    progress: [
+      'No degree-independent gap is known in the full classical form.',
+    ],
+    possibleIdeas: [
+      'Compare special families where stronger lower bounds are known against the unrestricted problem.',
+    ],
+    graphLinks: [
+      { from: 'Problem', relation: 'stated_in', to: 'Lehmer 1933' },
+      { from: 'Problem', relation: 'related_to', to: 'Heights' },
+      { from: 'Problem', relation: 'belongs_to_domain', to: 'Number theory' },
+    ],
+  },
+];
+
+const problemGardenSeedProblems = problemGardenProblems.map((problem) => ({
+  ...problem,
+  domains: [...problem.domains],
+  sourceLiterature: [...problem.sourceLiterature],
+  attemptedLiterature: [...problem.attemptedLiterature],
+  relatedLiterature: [...problem.relatedLiterature],
+  knownCoreIdeas: [...problem.knownCoreIdeas],
+  progress: [...problem.progress],
+  possibleIdeas: [...problem.possibleIdeas],
+  graphLinks: problem.graphLinks.map((edge) => ({ ...edge })),
+}));
 
 function translate(key) {
   return translations[currentLocale]?.[key] || translations.en[key] || key;
@@ -608,6 +813,230 @@ function renderMarkdownDocument(markdown) {
 
 function renderMarkdownLite(markdown) {
   return renderMarkdownDocument(markdown);
+}
+
+function normalizeGardenProblem(problem) {
+  return {
+    id: problem.id,
+    title: problem.title || 'Untitled problem',
+    status: problem.status || 'unclear',
+    difficulty: problem.difficulty || problem.difficulty_level || 'research',
+    domains: Array.isArray(problem.domains) ? problem.domains : [],
+    source: problem.source || '',
+    sourceUrl: problem.sourceUrl || problem.source_url || '',
+    context: problem.context || '',
+    statement: problem.statement || '',
+    sourceLiterature: problem.sourceLiterature || problem.source_literature || [],
+    attemptedLiterature: problem.attemptedLiterature || problem.attempted_literature || [],
+    relatedLiterature: problem.relatedLiterature || problem.related_literature || [],
+    knownCoreIdeas: problem.knownCoreIdeas || problem.known_core_ideas || [],
+    progress: problem.progress || problem.progress_notes || [],
+    possibleIdeas: problem.possibleIdeas || problem.possible_ideas || [],
+    graphLinks: problem.graphLinks || problem.graph_links || [],
+    relatedLiteratureCount: problem.relatedLiteratureCount || problem.related_literature_count || 0,
+    latestProgress: problem.latestProgress || problem.latest_progress || '',
+  };
+}
+
+function setGardenMessage(text, tone = 'neutral') {
+  if (!elements.gardenMessage) return;
+  elements.gardenMessage.textContent = text;
+  elements.gardenMessage.dataset.tone = tone;
+}
+
+function gardenProblemById(problemId) {
+  return problemGardenProblems.find((problem) => problem.id === problemId) || problemGardenProblems[0] || problemGardenSeedProblems[0];
+}
+
+function gardenProblemMarkdown(problem) {
+  return `# ${problem.title}
+
+## Problem
+
+${problem.statement}
+
+## Context
+
+${problem.context || problem.source}
+
+## Source
+
+${problem.source}
+
+## Known core ideas
+
+${problem.knownCoreIdeas.map((item) => `- ${item}`).join('\n')}`;
+}
+
+function renderGardenList(selectedId) {
+  if (!problemGardenProblems.length) {
+    return `<p class="garden-empty">${escapeHtml(translate('garden.noResults'))}</p>`;
+  }
+  return problemGardenProblems.map((rawProblem) => {
+    const problem = normalizeGardenProblem(rawProblem);
+    const active = problem.id === selectedId;
+    const domains = problem.domains.map((domain) => `<span>${escapeHtml(domain)}</span>`).join('');
+    return `<button class="garden-problem-item ${active ? 'active' : ''}" type="button" data-garden-problem-id="${escapeHtml(problem.id)}">
+      <span class="garden-item-status">${escapeHtml(problem.status)}</span>
+      <strong>${escapeHtml(problem.title)}</strong>
+      <small>${escapeHtml(problem.difficulty)}</small>
+      <span class="garden-domain-row">${domains}</span>
+    </button>`;
+  }).join('');
+}
+
+function renderGardenSection(title, items) {
+  if (!items?.length) return '';
+  return `<section class="garden-detail-section"><h3>${escapeHtml(title)}</h3><ul>${items.map((item) => `<li>${renderMarkdownLite(item)}</li>`).join('')}</ul></section>`;
+}
+
+function renderGardenDetail(problem) {
+  problem = normalizeGardenProblem(problem);
+  const domains = problem.domains.map((domain) => `<span>${escapeHtml(domain)}</span>`).join('');
+  return `<article>
+    <header class="garden-detail-head">
+      <p class="kicker">Problem Seed</p>
+      <h2>${escapeHtml(problem.title)}</h2>
+      <div class="garden-meta-strip">
+        <span>${escapeHtml(problem.status)}</span>
+        <span>${escapeHtml(problem.difficulty)}</span>
+        ${domains}
+      </div>
+    </header>
+    <section class="garden-statement">
+      <h3>Statement</h3>
+      ${renderMarkdownLite(problem.statement)}
+    </section>
+    <section class="garden-source">
+      <h3>Source literature</h3>
+      <p>${escapeHtml(problem.source)}</p>
+      <p><a href="${escapeHtml(problem.sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(problem.sourceUrl)}</a></p>
+      ${problem.sourceLiterature?.length ? `<ul>${problem.sourceLiterature.map((item) => `<li>${renderMarkdownLite(item)}</li>`).join('')}</ul>` : ''}
+    </section>
+    ${renderGardenSection('Attempted literature', problem.attemptedLiterature)}
+    ${renderGardenSection('Related literature', problem.relatedLiterature)}
+    ${renderGardenSection('Known core ideas', problem.knownCoreIdeas)}
+    ${renderGardenSection('Progress', problem.progress)}
+    ${renderGardenSection('Possible ideas', problem.possibleIdeas)}
+    <button class="primary-button garden-use-button" type="button" data-garden-use-problem="${escapeHtml(problem.id)}">Use in Problem Solving</button>
+  </article>`;
+}
+
+function renderGardenGraph(problem) {
+  problem = normalizeGardenProblem(problem);
+  return problem.graphLinks.map((edge) => `<div class="garden-edge">
+    <span>${escapeHtml(edge.from)}</span>
+    <strong>${escapeHtml(edge.relation)}</strong>
+    <span>${escapeHtml(edge.to)}</span>
+  </div>`).join('');
+}
+
+function renderProblemGarden(problemId = state.selectedGardenProblemId) {
+  if (!elements.gardenProblems || !elements.gardenDetail || !elements.gardenGraph) return;
+  if (!problemGardenProblems.length) {
+    elements.gardenProblems.innerHTML = renderGardenList(problemId);
+    elements.gardenDetail.innerHTML = `<p class="garden-empty">${escapeHtml(translate('garden.noResults'))}</p>`;
+    elements.gardenGraph.innerHTML = '';
+    return;
+  }
+  const problem = normalizeGardenProblem(gardenProblemById(problemId));
+  state.selectedGardenProblemId = problem.id;
+  elements.gardenProblems.innerHTML = renderGardenList(problem.id);
+  elements.gardenDetail.innerHTML = renderGardenDetail(problem);
+  elements.gardenGraph.innerHTML = renderGardenGraph(problem);
+  renderMath(elements.gardenDetail);
+}
+
+function useGardenProblem(problemId = state.selectedGardenProblemId) {
+  const problem = normalizeGardenProblem(gardenProblemById(problemId));
+  elements.title.value = problem.title;
+  elements.markdown.value = gardenProblemMarkdown(problem);
+  updateProblemPreview();
+  setView('problem-solving');
+  elements.markdown.focus();
+  setMessage(translate('message.gardenProblemLoaded'));
+}
+
+function gardenQueryParams() {
+  const params = new URLSearchParams();
+  const query = elements.gardenQuery?.value.trim();
+  const status = elements.gardenStatusFilter?.value.trim();
+  const domain = elements.gardenDomainFilter?.value.trim();
+  const difficulty = elements.gardenDifficultyFilter?.value.trim();
+  if (query) params.set('q', query);
+  if (status) params.set('status', status);
+  if (domain) params.set('domain', domain);
+  if (difficulty) params.set('difficulty', difficulty);
+  return params;
+}
+
+async function loadProblemGarden() {
+  if (!elements.gardenProblems || !elements.gardenDetail || !elements.gardenGraph) return;
+  setGardenMessage(translate('garden.loading'));
+  const params = gardenQueryParams();
+  const url = params.toString() ? `/api/problem-garden/problems?${params.toString()}` : '/api/problem-garden/problems';
+  try {
+    const payload = await fetchJson(url);
+    const problems = Array.isArray(payload.problems) ? payload.problems.map(normalizeGardenProblem) : [];
+    problemGardenProblems.splice(0, problemGardenProblems.length, ...problems);
+    if (problemGardenProblems.length && !gardenProblemById(state.selectedGardenProblemId)) {
+      state.selectedGardenProblemId = problemGardenProblems[0].id;
+    }
+    renderProblemGarden(state.selectedGardenProblemId);
+    setGardenMessage(problemGardenProblems.length ? '' : translate('garden.noResults'));
+  } catch (_error) {
+    setGardenMessage(translate('garden.loadFailed'), 'error');
+    if (!problemGardenProblems.length) problemGardenProblems.splice(0, problemGardenProblems.length, ...problemGardenSeedProblems);
+    renderProblemGarden(state.selectedGardenProblemId);
+  }
+}
+
+async function selectGardenProblem(problemId) {
+  try {
+    const payload = await fetchJson(`/api/problem-garden/problems/${encodeURIComponent(problemId)}`);
+    if (payload.problem) {
+      const problem = normalizeGardenProblem(payload.problem);
+      const index = problemGardenProblems.findIndex((item) => item.id === problem.id);
+      if (index >= 0) problemGardenProblems.splice(index, 1, problem);
+      else problemGardenProblems.push(problem);
+      renderProblemGarden(problem.id);
+      setGardenMessage('');
+      return;
+    }
+  } catch (_error) {
+    // Keep the existing list selection usable if the database detail lookup fails.
+  }
+  renderProblemGarden(problemId);
+}
+
+async function submitGardenCandidate(event) {
+  event.preventDefault();
+  const title = elements.gardenSubmitTitle?.value.trim() || '';
+  const statement = elements.gardenSubmitStatement?.value.trim() || '';
+  const sourceUrl = elements.gardenSubmitSource?.value.trim() || '';
+  if (!title || !statement || !sourceUrl) {
+    setGardenMessage(translate('garden.submissionRequired'), 'error');
+    return;
+  }
+  try {
+    const created = await fetchJson('/api/problem-garden/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        statement,
+        source_url: sourceUrl,
+        domain: elements.gardenSubmitDomain?.value.trim() || '',
+        context: elements.gardenSubmitContext?.value.trim() || '',
+        references_text: elements.gardenSubmitReferences?.value.trim() || '',
+        status: 'pending_review',
+      }),
+    });
+    elements.gardenSubmitForm?.reset();
+    setGardenMessage(`${translate('garden.submissionAccepted')}: ${created.status || 'pending_review'}`);
+  } catch (error) {
+    setGardenMessage(`${translate('garden.submissionFailed')} ${error.message}`, 'error');
+  }
 }
 
 function renderPaperDraftPreview() {
@@ -1455,17 +1884,39 @@ function wireEvents() {
     button.addEventListener('click', () => applyTheme(button.dataset.themeToggle));
   });
   elements.form.addEventListener('submit', submitRun);
-  elements.matlasForm.addEventListener('submit', submitMatlasSearch);
-  elements.matlasQuery.addEventListener('keydown', (event) => {
+  elements.matlasForm?.addEventListener('submit', submitMatlasSearch);
+  elements.matlasQuery?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       elements.matlasForm.requestSubmit();
     }
   });
-  elements.matlasResults.addEventListener('click', (event) => {
+  elements.matlasResults?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-matlas-feedback]');
     if (!button) return;
     sendMatlasFeedback(button);
+  });
+  elements.gardenSearchForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    loadProblemGarden().catch((error) => setGardenMessage(error.message, 'error'));
+  });
+  [elements.gardenStatusFilter, elements.gardenDifficultyFilter].forEach((filter) => {
+    filter?.addEventListener('change', () => {
+      loadProblemGarden().catch((error) => setGardenMessage(error.message, 'error'));
+    });
+  });
+  elements.gardenSubmitForm?.addEventListener('submit', (event) => {
+    submitGardenCandidate(event).catch((error) => setGardenMessage(error.message, 'error'));
+  });
+  elements.gardenProblems?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-garden-problem-id]');
+    if (!button) return;
+    selectGardenProblem(button.dataset.gardenProblemId).catch((error) => setGardenMessage(error.message, 'error'));
+  });
+  elements.gardenDetail?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-garden-use-problem]');
+    if (!button) return;
+    useGardenProblem(button.dataset.gardenUseProblem);
   });
   elements.paperTabs.forEach((tab) => {
     tab.addEventListener('click', () => setPaperTab(tab.dataset.paperTab));
@@ -1537,6 +1988,10 @@ applyTheme(preferredTheme());
 applyLocale(supportedLocales.has(storageGet(languageStorageKey)) ? storageGet(languageStorageKey) : 'en');
 setView(getViewFromHash() || defaultView, { updateHash: false });
 if (elements.matlasResults && !elements.matlasResults.innerHTML.trim()) setMatlasResultsHidden(true);
+loadProblemGarden().catch((error) => {
+  setGardenMessage(error.message, 'error');
+  renderProblemGarden();
+});
 renderPaperDraftPreview();
 setPaperDraftView('edit');
 updateProblemPreview();

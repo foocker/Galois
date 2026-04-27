@@ -56,6 +56,23 @@ class ModelConnectionConfig:
 
 
 @dataclass(slots=True)
+class DatabaseConfig:
+    url_env: str
+    url: str
+
+    @property
+    def connection_url(self) -> str:
+        return os.getenv(self.url_env, "") or self.url
+
+
+def _default_database_config() -> DatabaseConfig:
+    return DatabaseConfig(
+        url_env="DATABASE_URL",
+        url="postgresql://galois:galois_dev@127.0.0.1:5432/galois",
+    )
+
+
+@dataclass(slots=True)
 class PlatformConfig:
     backend: str
     model: str
@@ -72,6 +89,7 @@ class PlatformConfig:
     config_path: Path
     repo_root: Path
     project_root: str = "projects/default"
+    database: DatabaseConfig = field(default_factory=_default_database_config)
     model_connections: dict[str, ModelConnectionConfig] = field(default_factory=dict)
 
     @property
@@ -159,6 +177,10 @@ def load_config(path: Path | None = None) -> PlatformConfig:
         writing=WorkflowAreaConfig(
             enabled=bool(raw.get("writing", {}).get("enabled", True)),
             workdir=str(raw.get("writing", {}).get("workdir", "three_horse/writing")),
+        ),
+        database=DatabaseConfig(
+            url_env=str(raw.get("database", {}).get("url_env", "DATABASE_URL")),
+            url=str(raw.get("database", {}).get("url", "postgresql://galois:galois_dev@127.0.0.1:5432/galois")),
         ),
         resume_enabled=bool(raw["platform"]["resume_enabled"]),
         max_repair_rounds=int(raw["platform"].get("max_repair_rounds", 1)),

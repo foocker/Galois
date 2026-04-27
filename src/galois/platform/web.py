@@ -27,6 +27,7 @@ from .cli import (
 from .config import DEFAULT_MODEL, SUPPORTED_MODELS, load_config, model_is_configured
 from .contracts import PipelinePreset, ProblemInput, WorkflowKind
 from .paths import ensure_run_layout, resolve_paths
+from .problem_garden import ProblemGardenStore
 from .run_registry import append_event, create_run_manifest, write_manifest
 from .workflows import build_workflow_plan, build_writing_workflow_plan
 from galois.writing.citation_lookup import CitationLookupService
@@ -88,6 +89,15 @@ class WritingProjectCreateRequest(BaseModel):
     max_pages: int | None = Field(default=None, ge=1, le=300)
     review_rounds: int = Field(default=1, ge=0, le=5)
     model: str = DEFAULT_MODEL
+
+
+class ProblemGardenSubmissionRequest(BaseModel):
+    title: str = Field(min_length=1)
+    statement: str = Field(min_length=1)
+    source_url: str = Field(min_length=1)
+    domain: str = ""
+    context: str = ""
+    references_text: str = ""
 
 
 def _slug(text: str) -> str:
@@ -332,6 +342,18 @@ def _problem_payload(run_dir: Path) -> dict[str, Any] | None:
             "content": writing_input.read_text(encoding="utf-8"),
         }
     return None
+
+
+def _garden_store_payload(payload: ProblemGardenSubmissionRequest) -> dict[str, str]:
+    return {
+        "title": payload.title.strip(),
+        "statement": payload.statement.strip(),
+        "source_url": payload.source_url.strip(),
+        "domain": payload.domain.strip(),
+        "context": payload.context.strip(),
+        "references_text": payload.references_text.strip(),
+        "status": "pending_review",
+    }
 
 
 def read_run_snapshot(run_root: Path, run_id: str, project_root: Path | None = None) -> dict[str, Any]:
@@ -665,6 +687,47 @@ def create_app(config_path: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="bibtex must not be blank")
         with _citation_lookup_service(config.run_root_path / "citation_cache") as service:
             return service.validate_bibtex(bibtex, sources=payload.sources)
+
+    @app.get("/api/problem-garden/problems")
+    def list_problem_garden_problems(
+        q: str | None = None,
+        status: str | None = None,
+        domain: str | None = None,
+        difficulty: str | None = None,
+    ) -> dict[str, Any]:
+        with ProblemGardenStore(config.database.connection_url) as store:
+            store.initialize()
+            return {
+                "problems": store.list_problems(
+                    query=q.strip() if q else None,
+                    status=status.strip() if status else None,
+                    domain=domain.strip() if domain else None,
+                    difficulty=difficulty.strip() if difficulty else None,
+                )
+            }
+
+    @app.get("/api/problem-garden/problems/{problem_id}")
+    def get_problem_garden_problem(problem_id: str) -> dict[str, Any]:
+        with ProblemGardenStore(config.database.connection_url) as store:
+            store.initialize()
+            problem = store.get_problem(problem_id)
+        if problem is None:
+            raise HTTPException(status_code=404, detail="problem not found")
+        return {"problem": problem}
+
+    @app.post("/api/problem-garden/submissions")
+    def create_problem_garden_submission(payload: ProblemGardenSubmissionRequest) -> JSONResponse:
+        cleaned = _garden_store_payload(payload)
+        if not cleaned["title"]:
+            raise HTTPException(status_code=400, detail="title must not be blank")
+        if not cleaned["statement"]:
+            raise HTTPException(status_code=400, detail="statement must not be blank")
+        if not cleaned["source_url"]:
+            raise HTTPException(status_code=400, detail="source_url must not be blank")
+        with ProblemGardenStore(config.database.connection_url) as store:
+            store.initialize()
+            created = store.create_submission(cleaned)
+        return JSONResponse(status_code=202, content=created)
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict[str, Any]:

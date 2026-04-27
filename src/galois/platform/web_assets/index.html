@@ -10,7 +10,7 @@
       integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="/assets/styles.css?v=paper-writing-3" />
+    <link rel="stylesheet" href="/assets/styles.css?v=problem-garden-db-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -48,6 +48,7 @@
         <header class="top-bar">
           <nav class="product-tabs" aria-label="Galois modules">
             <button class="product-tab active" type="button" data-view-target="problem-solving" data-i18n="nav.problemSolving">Problem Solving</button>
+            <button class="product-tab" type="button" data-view-target="problem-garden" data-i18n="nav.problemGarden">Problem Garden</button>
             <button class="product-tab" type="button" data-view-target="math-learning" data-i18n="nav.mathLearning">Math Learning</button>
             <button class="product-tab" type="button" data-view-target="theorem-searching" data-i18n="nav.theoremSearching">Theorem Searching</button>
             <button class="product-tab" type="button" data-view-target="paper-writing" data-i18n="nav.paperWriting">Paper Writing</button>
@@ -224,6 +225,107 @@
           </aside>
         </main>
 
+        <main class="problem-garden-view app-view" data-view="problem-garden" hidden>
+          <section class="garden-layout" aria-labelledby="problem-garden-title">
+            <aside class="garden-index-panel">
+              <p class="kicker" data-i18n="garden.kicker">Problem Garden</p>
+              <h1 id="problem-garden-title" data-i18n="garden.title">Open Problem Garden</h1>
+              <p class="garden-brief" data-i18n="garden.brief">Curated research problems with source trails, attempts, related literature, and graph links.</p>
+              <form id="garden-search-form" class="garden-search-form" role="search">
+                <label class="visually-hidden" for="garden-query" data-i18n="garden.searchLabel">Search problems</label>
+                <input id="garden-query" type="search" placeholder="Search title, statement, or source" data-i18n-placeholder="garden.searchPlaceholder" />
+                <div class="garden-filter-grid" aria-label="Problem Garden filters">
+                  <select id="garden-status-filter" aria-label="Problem status">
+                    <option value="" data-i18n="garden.filterAnyStatus">Any status</option>
+                    <option value="open">open</option>
+                    <option value="partially_solved">partially_solved</option>
+                    <option value="solved">solved</option>
+                    <option value="unclear">unclear</option>
+                  </select>
+                  <select id="garden-difficulty-filter" aria-label="Problem difficulty">
+                    <option value="" data-i18n="garden.filterAnyDifficulty">Any difficulty</option>
+                    <option value="frontier">frontier</option>
+                    <option value="research">research</option>
+                    <option value="graduate">graduate</option>
+                    <option value="introductory">introductory</option>
+                  </select>
+                </div>
+                <input id="garden-domain-filter" type="search" placeholder="Domain" data-i18n-placeholder="garden.domainPlaceholder" />
+                <button class="secondary-button" type="submit" data-i18n="garden.searchAction">Search</button>
+              </form>
+              <div id="garden-problems" class="garden-problem-list" aria-label="Curated open problems">
+                <button class="garden-problem-item active" type="button" data-garden-problem-id="pfr-finite-fields">
+                  <span class="garden-item-status">open</span>
+                  <strong>Polynomial Freiman-Ruzsa conjecture</strong>
+                  <small>frontier</small>
+                </button>
+              </div>
+            </aside>
+
+            <section id="garden-detail" class="garden-detail markdown-output" aria-live="polite">
+              <article>
+                <header class="garden-detail-head">
+                  <p class="kicker">Problem Seed</p>
+                  <h2>Polynomial Freiman-Ruzsa conjecture</h2>
+                  <div class="garden-meta-strip">
+                    <span>open</span>
+                    <span>frontier</span>
+                    <span>additive combinatorics</span>
+                  </div>
+                </header>
+                <section class="garden-statement">
+                  <h3>Statement</h3>
+                  <p>Let <span class="math-source inline">A \subseteq \mathbb{F}_p^n</span> have small doubling. Must it be covered by polynomially many cosets of a bounded-size subspace?</p>
+                </section>
+                <button class="primary-button garden-use-button" type="button" data-garden-use-problem="pfr-finite-fields">Use in Problem Solving</button>
+              </article>
+            </section>
+
+            <aside class="garden-graph-panel" aria-labelledby="garden-graph-title">
+              <div class="garden-graph-head">
+                <p class="kicker" data-i18n="garden.graphKicker">Link Graph</p>
+                <h2 id="garden-graph-title" data-i18n="garden.graphTitle">Problem links</h2>
+              </div>
+              <div id="garden-graph" class="garden-graph" aria-live="polite">
+                <div class="garden-edge">
+                  <span>Problem</span>
+                  <strong>stated_in</strong>
+                  <span>Peluse 2024 survey</span>
+                </div>
+              </div>
+              <form id="garden-submit-form" class="garden-submit-form">
+                <h3 data-i18n="garden.submitTitle">Submit candidate</h3>
+                <label for="garden-submit-title">
+                  <span data-i18n="garden.submitProblemTitle">Title</span>
+                  <input id="garden-submit-title" type="text" required />
+                </label>
+                <label for="garden-submit-statement">
+                  <span data-i18n="garden.submitStatement">Statement</span>
+                  <textarea id="garden-submit-statement" rows="5" required></textarea>
+                </label>
+                <label for="garden-submit-source">
+                  <span data-i18n="garden.submitSource">Source URL</span>
+                  <input id="garden-submit-source" type="url" required />
+                </label>
+                <label for="garden-submit-domain">
+                  <span data-i18n="garden.submitDomain">Domain</span>
+                  <input id="garden-submit-domain" type="text" />
+                </label>
+                <label for="garden-submit-context">
+                  <span data-i18n="garden.submitContext">Context</span>
+                  <textarea id="garden-submit-context" rows="3"></textarea>
+                </label>
+                <label for="garden-submit-references">
+                  <span data-i18n="garden.submitReferences">Seed references</span>
+                  <textarea id="garden-submit-references" rows="4"></textarea>
+                </label>
+                <button class="secondary-button" type="submit" data-i18n="garden.submitAction">Send to review</button>
+                <p id="garden-message" class="form-message" role="status" aria-live="polite"></p>
+              </form>
+            </aside>
+          </section>
+        </main>
+
         <main class="placeholder-view app-view" data-view="math-learning" hidden>
           <section class="placeholder-panel">
             <p class="kicker" data-i18n="nav.mathLearning">Math Learning</p>
@@ -385,6 +487,6 @@
       src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
       defer
     ></script>
-    <script src="/assets/app.js?v=paper-writing-3" defer></script>
+    <script src="/assets/app.js?v=problem-garden-db-1" defer></script>
   </body>
 </html>

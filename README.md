@@ -47,6 +47,47 @@ uv run galois web --host 127.0.0.1 --port 8000
 
 真实 reasoning / verification 需要当前 shell 中已经配置好模型环境变量，例如 `OPENAI_BASE_URL` 与 `OPENAI_API_KEY`。
 
+## 本地 PostgreSQL
+
+Problem Garden 使用本地 PostgreSQL 作为正式数据源。WSL / Ubuntu 24.04 可直接安装系统包：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y postgresql postgresql-contrib
+sudo service postgresql start
+pg_isready
+psql --version
+```
+
+初始化 Galois 开发库：
+
+```bash
+sudo -u postgres psql
+```
+
+在 `psql` 中执行：
+
+```sql
+CREATE USER galois WITH PASSWORD 'galois_dev';
+CREATE DATABASE galois OWNER galois;
+GRANT ALL PRIVILEGES ON DATABASE galois TO galois;
+\q
+```
+
+验证连接：
+
+```bash
+psql "postgresql://galois:galois_dev@127.0.0.1:5432/galois" -c "select version();"
+```
+
+默认配置见 `configs/defaults.toml` 的 `[database]`。如需覆盖连接串，设置：
+
+```bash
+export DATABASE_URL="postgresql://galois:galois_dev@127.0.0.1:5432/galois"
+```
+
+启动 Web 后，`/api/problem-garden/problems` 会自动建表并写入默认 seed 问题；候选问题提交会进入 `garden_submissions` 的 `pending_review` 队列。
+
 ## 当前能力
 
 - `galois launch`：创建 run 目录、写事件日志、启动 workflow、归档 stdout / stderr。

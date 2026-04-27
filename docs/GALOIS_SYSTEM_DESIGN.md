@@ -361,7 +361,140 @@ Web workbench 是当前本地研究入口：
 - success / partial / fail
 - failure category
 
-## 13. 实施阶段
+## 13. Problem Garden 未来功能
+
+Problem Garden（问题花园）是一个独立功能，不是当前 `Problem Solving` 输入框的装饰区，也不是 run history。它的 Web 入口放在首页顶部导航的中间栏，顺序位于 `Problem Solving` 之后、`Math Learning` 之前。它面向“有研究价值的待解决问题”的发现、收录、追踪和图谱化展示。
+
+### 13.1 功能定位
+
+目标：
+
+- 从互联网、论文、预印本、会议资料、数学社区页面等来源中收录有价值的待解决问题。
+- 为每个问题维护结构化状态、来源、相关文献、尝试路径和研究进展。
+- 在 Web 中展示问题列表、单问题详情，以及问题与文献、领域、方法之间的链接图结构。
+- 当被收录的问题在后续文献中被解决时，标记为已解决，并记录解决论文地址与核心解法线索。
+
+非目标：
+
+- 第一版不自动声称某个开放问题已经被解决。
+- 不把未验证的网络文本当作事实；来源、状态和解决情况必须带出处。
+- 不替代 benchmark suite。Problem Garden 可为 benchmark 提供候选问题，但它本身是研究问题知识库。
+
+### 13.2 问题结构草案
+
+单个问题至少需要这些字段：
+
+- `title`：问题题目。
+- `statement`：较完整的问题表述，支持 Markdown / LaTeX。
+- `status`：`open`、`partially_solved`、`solved`、`retracted`、`unclear`。
+- `difficulty_level`：粗粒度难度等级，例如 `introductory`、`graduate`、`research`、`frontier`。
+- `domains`：问题领域，例如 number theory、algebraic geometry、combinatorics、PDE。
+- `source`：原始来源文献、网页、帖子或书籍位置，必须含 URL / DOI / arXiv ID / bibliographic note。
+- `source_reliability`：来源可信度与人工审核状态。
+- `attempted_literature`：已有尝试文献与失败/部分结果摘要。
+- `related_literature`：相关背景论文、survey、工具论文。
+- `known_core_ideas`：已知核心思路、等价转化、常用方法。
+- `progress_notes`：进展摘要，按时间或来源组织。
+- `possible_ideas`：待验证想法，必须标记为 conjectural / speculative。
+- `solved_by`：若已解决，记录解决论文、作者、日期、链接与解法摘要。
+- `graph_links`：问题到问题、文献、领域、方法、作者或数据源的边。
+- `ingestion_metadata`：采集时间、采集器、原始文本片段、去重键、审核人。
+
+### 13.3 链接图结构
+
+Problem Garden 应把问题作为图谱节点，而不是普通表格：
+
+- Problem 节点：开放问题或已解决问题。
+- Paper 节点：来源文献、尝试文献、相关文献、解决文献。
+- Domain 节点：数学领域或子领域。
+- Method 节点：可能的工具、技术路线、核心思路。
+- Source 节点：arXiv、Crossref、OpenAlex、网页、社区来源等采集入口。
+
+典型边：
+
+- `stated_in`
+- `attempted_by`
+- `related_to`
+- `uses_method`
+- `belongs_to_domain`
+- `solved_by`
+- `generalizes`
+- `special_case_of`
+- `inspired_by`
+
+### 13.4 采集与审核链路
+
+未来实现应分成采集、归一化、审核和展示四层：
+
+1. crawler / fetcher：从允许的数据源抓取候选问题与文献元数据。
+2. extractor：从文本中抽取问题表述、状态、领域、引用和候选链接。
+3. resolver：用 arXiv、Crossref、OpenAlex 等源解析文献身份并去重。
+4. reviewer：人工或 agent 审核字段可信度，标记不确定信息。
+5. garden store：保存结构化问题、文献节点和图边。
+6. Web UI：提供列表、筛选、单问题详情、图谱视图和“送入 Problem Solving”入口。
+
+### 13.5 Web 入口草案
+
+Problem Garden 应作为独立页面进入顶部导航，并在首页模块顺序中位于 `Problem Solving` 与 `Math Learning` 之间。
+
+列表页显示：
+
+- 问题题目
+- 简短表述
+- 状态
+- 难度等级
+- 领域
+- 来源
+- 最近进展
+- 相关文献数量
+
+详情页显示：
+
+- 完整问题表述
+- 来源与可信度
+- 尝试文献、来源文献、相关文献、解决文献
+- 已知核心思路、进展、可能想法
+- 链接图结构
+- 操作：复制为当前问题、启动 reasoning run、加入 benchmark candidate
+
+### 13.6 已落地的 PostgreSQL 数据层
+
+第一版 Problem Garden 已经接入本地 PostgreSQL，不再只依赖前端静态数组。默认连接串由 `configs/defaults.toml` 的 `[database]` 提供：
+
+- `url_env = "DATABASE_URL"`：优先读环境变量。
+- `url = "postgresql://galois:galois_dev@127.0.0.1:5432/galois"`：本地开发默认值。
+
+当前表结构：
+
+- `garden_problems`：问题主表。保存 `id`、`title`、`statement`、`status`、`difficulty`、`domains`、`source`、`source_url`、`context`，以及 `source_literature`、`attempted_literature`、`related_literature`、`known_core_ideas`、`progress`、`possible_ideas` 等 JSONB 字段。
+- `garden_edges`：链接图边表。保存 `problem_id`、`from_label`、`relation`、`to_label`，用于表示问题到文献、领域、方法、来源的关系。
+- `garden_submissions`：候选提交审核队列表。保存用户提交的 `title`、`statement`、`source_url`、`domain`、`context`、`references_text`，默认状态为 `pending_review`。
+
+当前 Web API：
+
+- `GET /api/problem-garden/problems`：列出问题，支持 `q`、`status`、`domain`、`difficulty` 过滤。
+- `GET /api/problem-garden/problems/{problem_id}`：读取单个问题详情和 `graph_links`。
+- `POST /api/problem-garden/submissions`：提交候选问题进入审核队列，不直接进入公开 Garden。
+
+Web 端已接入：
+
+- 顶部导航独立入口，位置在 `Problem Solving` 与 `Math Learning` 之间。
+- 左侧检索与筛选：关键词、状态、领域、难度。
+- 中间详情：问题表述、来源文献、尝试文献、相关文献、核心思路、进展、可能想法。
+- 右侧链接图和候选问题提交表单。
+- 数据库不可用时显示本地 seed 问题作为开发降级，但正式链路以 PostgreSQL 为准。
+
+### 13.7 分阶段 TODO
+
+- P0：继续固化 `ProblemGardenProblem`、`ProblemGardenPaper`、`ProblemGardenEdge` 的 JSON schema 和导入/导出格式。
+- P1：手动录入 5-10 个高质量样例问题，先验证字段是否够用。
+- P2：完善 Problem Garden 独立 Web 页面：更多筛选、审核队列视图、送入 Problem Solving。
+- P3：接入 arXiv / Crossref / OpenAlex 文献解析与去重。
+- P4：实现候选问题采集器，但所有 open / solved 状态必须进入审核队列。
+- P5：实现图谱视图，展示问题、文献、领域、方法之间的链接结构。
+- P6：将可信问题导出为 benchmark candidate suite。
+
+## 14. 实施阶段
 
 ### Phase 1：control plane bootstrap
 
@@ -391,11 +524,22 @@ Web workbench 是当前本地研究入口：
 
 目标：
 
-- 更稳定的问题集入口
+- 更稳定的 benchmark problem set 入口
 - 结果聚合
 - 更清晰的 ablation 支持
+- Problem Garden 中通过审核的问题可作为后续 benchmark candidate，但不与 benchmark harness 混为一层。
 
-## 13. 当前开发约定
+### Phase 5：Problem Garden
+
+目标：
+
+- 建立问题花园数据模型
+- 支持人工录入与审核
+- 支持文献身份解析、来源追踪和状态标注
+- 支持列表、详情和链接图展示
+- 支持将可信问题送入 Problem Solving 或 benchmark candidate
+
+## 15. 当前开发约定
 
 主开发目录：
 
