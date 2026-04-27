@@ -8,10 +8,11 @@ import threading
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .cli import (
     _feature_payload,
@@ -29,6 +30,7 @@ from .workflows import build_workflow_plan
 
 
 ASSET_DIR = Path(__file__).with_name("web_assets")
+MATLAS_BASE_URL = "https://matlas.ai"
 
 
 class RunCreateRequest(BaseModel):
@@ -36,6 +38,17 @@ class RunCreateRequest(BaseModel):
     problem_markdown: str
     pipeline: str = "reasoning-verification"
     model: str = DEFAULT_MODEL
+
+
+class MatlasSearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    num_results: int = Field(default=10, ge=10, le=200)
+
+
+class MatlasFeedbackRequest(BaseModel):
+    query: str = Field(min_length=1)
+    candidate_id: str = Field(min_length=1)
+    label: str
 
 
 def _slug(text: str) -> str:
@@ -127,6 +140,24 @@ def _output_payload(run_dir: Path) -> dict[str, Any] | None:
             "content": summary_path.read_text(encoding="utf-8"),
         }
     return None
+
+
+def _post_matlas_json(endpoint: str, payload: dict[str, object]) -> Any:
+    url = f"{MATLAS_BASE_URL}{endpoint}"
+    try:
+        with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        detail: Any
+        try:
+            detail = exc.response.json()
+        except ValueError:
+            detail = exc.response.text or "Matlas request failed"
+        raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+    except (httpx.RequestError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Matlas service unavailable: {exc}") from exc
 
 
 def _problem_payload(run_dir: Path) -> dict[str, Any] | None:
@@ -305,6 +336,34 @@ def create_app(config_path: Path | None = None) -> FastAPI:
                 "model": payload.model,
             },
         )
+
+    @app.post("/api/matlas/search")
+    def search_matlas(payload: MatlasSearchRequest) -> dict[str, Any]:
+        query = payload.query.strip()
+        if not query:
+            raise HTTPException(status_code=400, detail="query must not be blank")
+        results = _post_matlas_json("/api/search", {"query": query, "num_results": payload.num_results})
+        if not isinstance(results, list):
+            raise HTTPException(status_code=502, detail="Matlas search returned an unexpected response")
+        return {"results": results}
+
+    @app.post("/api/matlas/feedback")
+    def send_matlas_feedback(payload: MatlasFeedbackRequest) -> dict[str, Any]:
+        query = payload.query.strip()
+        candidate_id = payload.candidate_id.strip()
+        if not query:
+            raise HTTPException(status_code=400, detail="query must not be blank")
+        if not candidate_id:
+            raise HTTPException(status_code=400, detail="candidate_id must not be blank")
+        if payload.label not in {"relevant", "irrelevant"}:
+            raise HTTPException(status_code=400, detail="unsupported feedback label")
+        result = _post_matlas_json(
+            "/api/feedback",
+            {"query": query, "candidate_id": candidate_id, "label": payload.label},
+        )
+        if not isinstance(result, dict):
+            raise HTTPException(status_code=502, detail="Matlas feedback returned an unexpected response")
+        return result
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict[str, Any]:

@@ -95,6 +95,8 @@ def test_index_loads_markdown_rendering_assets(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "marked.min.js" in response.text
     assert "purify.min.js" in response.text
+    assert '/assets/styles.css?v=matlas-4' in response.text
+    assert '/assets/app.js?v=matlas-4' in response.text
 
 
 def test_index_contains_current_product_views(tmp_path: Path) -> None:
@@ -175,6 +177,28 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert ">Drafts<" not in response.text
 
 
+def test_index_contains_matlas_theorem_search_workspace(tmp_path: Path) -> None:
+    from galois.platform.web import create_app
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+
+    client = TestClient(create_app(config_path=config_path))
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'class="matlas-view app-view" data-view="theorem-searching"' in response.text
+    assert 'id="matlas-form"' in response.text
+    assert 'id="matlas-query"' in response.text
+    assert 'class="matlas-settings"' in response.text
+    assert 'id="matlas-count"' in response.text
+    assert 'id="matlas-results"' in response.text
+    assert "Search for theorems, definitions, or related mathematical results" in response.text
+    assert 'data-i18n="placeholder.theoremSearching"' not in response.text
+    assert 'data-i18n="matlas.empty"' not in response.text
+    assert 'data-matlas-shell="true"' not in response.text
+
+
 def test_frontend_sanitizes_local_artifact_paths(tmp_path: Path) -> None:
     from galois.platform.web import create_app
 
@@ -218,6 +242,347 @@ def test_frontend_sanitizes_local_artifact_paths(tmp_path: Path) -> None:
     assert "snapshot.output?.kind" in response.text
     assert "snapshot.problem_input?.content" in response.text
     assert "problemSource" not in response.text
+
+
+def test_matlas_search_proxy_posts_to_public_api(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    calls = []
+
+    def fake_post(endpoint: str, payload: dict[str, object]) -> object:
+        calls.append((endpoint, payload))
+        return [
+            {
+                "type": "paper",
+                "entity_name": "RIEMANN HYPOTHESIS CONJECTURE",
+                "doi": "doi.org/10.1006/jfan.1994.1046",
+                "title": "A conjecture which implies the Riemann hypothesis",
+                "authors": "de Branges, Louis",
+                "journal": "J. Funct. Anal.",
+                "year": "1994",
+                "statement": "The Riemann hypothesis is the conjecture that $\\zeta(s)$ has no zeros.",
+                "candidate_id": "candidate-1",
+            }
+        ]
+
+    monkeypatch.setattr(web, "_post_matlas_json", fake_post)
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post("/api/matlas/search", json={"query": "Riemann hypothesis", "num_results": 10})
+
+    assert response.status_code == 200
+    assert response.json()["results"][0]["candidate_id"] == "candidate-1"
+    assert calls == [("/api/search", {"query": "Riemann hypothesis", "num_results": 10})]
+
+
+def test_matlas_feedback_proxy_posts_relevance_label(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    calls = []
+
+    def fake_post(endpoint: str, payload: dict[str, object]) -> object:
+        calls.append((endpoint, payload))
+        return {"ok": True}
+
+    monkeypatch.setattr(web, "_post_matlas_json", fake_post)
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post(
+        "/api/matlas/feedback",
+        json={"query": "Riemann hypothesis", "candidate_id": "candidate-1", "label": "relevant"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert calls == [
+        (
+            "/api/feedback",
+            {"query": "Riemann hypothesis", "candidate_id": "candidate-1", "label": "relevant"},
+        )
+    ]
+
+
+def test_frontend_matlas_search_renders_returned_results() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  const values = new Set();
+  return {{
+    values,
+    toggle(name, force) {{
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{ return values.has(name); }},
+    add(name) {{ values.add(name); }},
+    remove(name) {{ values.delete(name); }},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  const element = {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    attributes: {{}},
+    checked: false,
+    addEventListener() {{}},
+    setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+    getAttribute(name) {{ return this.attributes[name]; }},
+    closest() {{ return fakeElement(); }},
+    contains() {{ return false; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{ this.focused = true; }},
+  }};
+  element.classList = fakeClassList();
+  return element;
+}}
+
+const views = [
+  fakeElement({{ view: "problem-solving" }}),
+  fakeElement({{ view: "dashboard" }}),
+  fakeElement({{ view: "math-learning" }}),
+  fakeElement({{ view: "theorem-searching" }}),
+  fakeElement({{ view: "paper-writing" }}),
+];
+const buttons = [
+  fakeElement({{ viewTarget: "problem-solving" }}),
+  fakeElement({{ viewTarget: "theorem-searching" }}),
+];
+const root = {{ lang: "en", dataset: {{}}, classList: fakeClassList() }};
+const elementMap = new Map();
+const document = {{
+  documentElement: root,
+  querySelector(selector) {{
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return views;
+    if (selector === "[data-view-target]") return buttons;
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const storage = {{}};
+const localStorage = {{
+  getItem(key) {{ return storage[key] || null; }},
+  setItem(key, value) {{ storage[key] = String(value); }},
+  removeItem(key) {{ delete storage[key]; }},
+}};
+const window = {{
+  location: {{ hash: "#theorem-searching" }},
+  history: {{ replaceState(_state, _title, hash) {{ window.location.hash = hash; }} }},
+  addEventListener() {{}},
+  localStorage,
+  matchMedia() {{ return {{ matches: false }}; }},
+}};
+const fetchCalls = [];
+const fetch = async (url, options = {{}}) => {{
+  fetchCalls.push([url, options]);
+  if (url === "/api/matlas/search") {{
+    const body = JSON.parse(options.body);
+    if (body.query !== "Riemann hypothesis") throw new Error(`unexpected query: ${{body.query}}`);
+    if (body.num_results !== 10) throw new Error(`unexpected count: ${{body.num_results}}`);
+    return {{
+      ok: true,
+      json: async () => ({{
+        results: [{{
+          type: "paper",
+          entity_name: "RIEMANN HYPOTHESIS CONJECTURE",
+          doi: "doi.org/10.1006/jfan.1994.1046",
+          title: "A conjecture which implies the Riemann hypothesis",
+          authors: "de Branges, Louis",
+          journal: "J. Funct. Anal.",
+          year: "1994",
+          statement: "The Riemann hypothesis is the conjecture that $\\\\zeta(s)$ has no zeros.",
+          candidate_id: "candidate-1",
+        }}],
+      }}),
+    }};
+  }}
+  return {{ ok: true, json: async () => ({{ runs: [] }}) }};
+}};
+const context = {{
+  console,
+  document,
+  window,
+  localStorage,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+}};
+
+(async () => {{
+  vm.runInNewContext(code, context);
+  elementMap.get("#matlas-query").value = "Riemann hypothesis";
+  elementMap.get("#matlas-count").value = "10";
+  await context.submitMatlasSearch({{ preventDefault() {{}} }});
+  const resultsHtml = elementMap.get("#matlas-results").innerHTML;
+  if (!resultsHtml.includes('class="matlas-card"')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes("A conjecture which implies the Riemann hypothesis")) throw new Error(resultsHtml);
+  if (!resultsHtml.includes('<a href="https://doi.org/10.1006/jfan.1994.1046" target="_blank" rel="noreferrer">A conjecture which implies the Riemann hypothesis</a>')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes("RIEMANN HYPOTHESIS CONJECTURE")) throw new Error(resultsHtml);
+  if (elementMap.get("#matlas-message").textContent !== "") throw new Error("search message should clear after results render");
+  const searchCalls = fetchCalls.filter(([url]) => url === "/api/matlas/search");
+  if (searchCalls.length !== 1) throw new Error(`expected one Matlas request, got ${{searchCalls.length}}`);
+}})().catch((error) => {{
+  console.error(error.stack || error.message);
+  process.exit(1);
+}});
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_frontend_matlas_enter_key_submits_search_box() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  const values = new Set();
+  return {{
+    toggle(name, force) {{
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{ return values.has(name); }},
+    add(name) {{ values.add(name); }},
+    remove(name) {{ values.delete(name); }},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  const listeners = {{}};
+  const element = {{
+    dataset,
+    listeners,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    attributes: {{}},
+    submitCount: 0,
+    addEventListener(type, listener) {{
+      listeners[type] = listener;
+    }},
+    setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+    closest() {{ return fakeElement(); }},
+    contains() {{ return false; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{ this.submitCount += 1; }},
+    scrollIntoView() {{}},
+    focus() {{}},
+  }};
+  element.classList = fakeClassList();
+  return element;
+}}
+
+const elementMap = new Map();
+const document = {{
+  documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
+  querySelector(selector) {{
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return [
+      fakeElement({{ view: "problem-solving" }}),
+      fakeElement({{ view: "theorem-searching" }}),
+    ];
+    if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "theorem-searching" }})];
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const window = {{
+  location: {{ hash: "#theorem-searching" }},
+  history: {{ replaceState(_state, _title, hash) {{ window.location.hash = hash; }} }},
+  addEventListener() {{}},
+  localStorage: {{ getItem() {{ return null; }}, setItem() {{}}, removeItem() {{}} }},
+  matchMedia() {{ return {{ matches: false }}; }},
+}};
+const fetch = async () => ({{ ok: true, json: async () => ({{ runs: [] }}) }});
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+}};
+
+vm.runInNewContext(code, context);
+const query = elementMap.get("#matlas-query");
+const form = elementMap.get("#matlas-form");
+query.listeners.keydown({{
+  key: "Enter",
+  shiftKey: false,
+  metaKey: false,
+  ctrlKey: false,
+  preventDefault() {{
+    this.defaultPrevented = true;
+  }},
+}});
+if (form.submitCount !== 1) throw new Error(`plain Enter should submit once, got ${{form.submitCount}}`);
+query.listeners.keydown({{
+  key: "Enter",
+  shiftKey: true,
+  metaKey: false,
+  ctrlKey: false,
+  preventDefault() {{
+    this.defaultPrevented = true;
+  }},
+}});
+if (form.submitCount !== 1) throw new Error("Shift+Enter should keep textarea newline behavior");
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_frontend_renders_multiline_display_math_with_katex_core() -> None:
@@ -1082,6 +1447,130 @@ if (window.location.hash !== "#theorem-searching") throw new Error("old theorem 
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_frontend_theorem_searching_stays_embedded_in_galois_shell() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  const values = new Set();
+  return {{
+    values,
+    toggle(name, force) {{
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{ return values.has(name); }},
+    add(name) {{ values.add(name); }},
+    remove(name) {{ values.delete(name); }},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  const element = {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    attributes: {{}},
+    addEventListener() {{}},
+    setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+    getAttribute(name) {{ return this.attributes[name]; }},
+    closest() {{ return {{ querySelectorAll() {{ return []; }} }}; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{}},
+  }};
+  element.classList = fakeClassList();
+  return element;
+}}
+
+const views = [
+  fakeElement({{ view: "problem-solving" }}),
+  fakeElement({{ view: "dashboard" }}),
+  fakeElement({{ view: "math-learning" }}),
+  fakeElement({{ view: "theorem-searching" }}),
+  fakeElement({{ view: "paper-writing" }}),
+];
+const buttons = [
+  fakeElement({{ viewTarget: "problem-solving" }}),
+  fakeElement({{ viewTarget: "theorem-searching" }}),
+];
+const root = {{ lang: "en", dataset: {{}}, classList: fakeClassList() }};
+const elementMap = new Map();
+const document = {{
+  documentElement: root,
+  querySelector(selector) {{
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return views;
+    if (selector === "[data-view-target]") return buttons;
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const window = {{
+  location: {{ hash: "#theorem-searching" }},
+  history: {{
+    replaceState(_state, _title, hash) {{
+      window.location.hash = hash;
+    }},
+  }},
+  addEventListener() {{}},
+}};
+const fetch = async () => ({{ ok: true, json: async () => ({{ runs: [] }}) }});
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+}};
+
+vm.runInNewContext(code, context);
+context.setView("theorem-searching");
+if (root.classList.contains("matlas-route")) throw new Error("theorem search should stay embedded in the Galois shell");
+if (views[3].hidden !== false) throw new Error("theorem search view should be visible");
+context.setView("problem-solving");
+if (root.classList.contains("matlas-route")) throw new Error("Galois shell state should not be toggled by theorem search");
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_matlas_styles_follow_galois_theme_instead_of_fullscreen_white() -> None:
+    css = Path("src/galois/platform/web_assets/styles.css").read_text(encoding="utf-8")
+
+    assert ".matlas-route .side-rail" not in css
+    assert ".matlas-route .top-bar" not in css
+    assert "background: #ffffff;" not in css[css.index(".matlas-view") : css.index(".ledger")]
+    assert "background: var(--sheet" in css[css.index(".matlas-view") : css.index(".ledger")]
+    assert "background: var(--sheet-cool" in css[css.index(".matlas-view") : css.index(".ledger")]
 
 
 def test_frontend_applies_language_and_theme_modes() -> None:

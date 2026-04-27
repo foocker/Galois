@@ -10,7 +10,7 @@
       integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=matlas-4" />
   </head>
   <body>
     <div class="app-shell">
@@ -232,11 +232,41 @@
           </section>
         </main>
 
-        <main class="placeholder-view app-view" data-view="theorem-searching" hidden>
-          <section class="placeholder-panel">
-            <p class="kicker" data-i18n="nav.theoremSearching">Theorem Searching</p>
-            <h1 data-i18n="placeholder.soonTitle">待实现</h1>
-            <p data-i18n="placeholder.theoremSearching">The theorem and related-paper search workspace will live here.</p>
+        <main class="matlas-view app-view" data-view="theorem-searching" hidden>
+          <section class="matlas-shell" aria-labelledby="matlas-title">
+            <header class="matlas-head">
+              <p id="matlas-title" class="matlas-logo" aria-label="MATLAS">MATLAS</p>
+            </header>
+            <form id="matlas-form" class="matlas-form" role="search">
+              <label class="visually-hidden" for="matlas-query" data-i18n="matlas.queryLabel">Theorem search query</label>
+              <textarea
+                id="matlas-query"
+                name="query"
+                rows="2"
+                placeholder="Search for theorems, definitions, or related mathematical results"
+                data-i18n-placeholder="matlas.placeholder"
+              ></textarea>
+              <div class="matlas-actions">
+                <details class="matlas-settings">
+                  <summary aria-label="Search settings">
+                    <span aria-hidden="true">☷</span>
+                  </summary>
+                  <label for="matlas-count">
+                    <span data-i18n="matlas.countLabel">Result count</span>
+                    <select id="matlas-count" aria-label="Matlas result count">
+                      <option value="10" selected>10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                    </select>
+                  </label>
+                </details>
+                <button class="matlas-search-button" type="submit" aria-label="Search Matlas">
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </form>
+            <p id="matlas-message" class="matlas-message" role="status" aria-live="polite"></p>
+            <section id="matlas-results" class="matlas-results" aria-live="polite"></section>
           </section>
         </main>
 
@@ -270,6 +300,6 @@
       src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
       defer
     ></script>
-    <script src="/assets/app.js" defer></script>
+    <script src="/assets/app.js?v=matlas-4" defer></script>
   </body>
 </html>

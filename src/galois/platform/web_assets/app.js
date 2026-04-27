@@ -34,6 +34,11 @@ const elements = {
   copyProofMarkdown: document.querySelector('#copy-proof-markdown'),
   output: document.querySelector('#output'),
   ladder: [...document.querySelectorAll('#progress-ladder li')],
+  matlasForm: document.querySelector('#matlas-form'),
+  matlasQuery: document.querySelector('#matlas-query'),
+  matlasCount: document.querySelector('#matlas-count'),
+  matlasMessage: document.querySelector('#matlas-message'),
+  matlasResults: document.querySelector('#matlas-results'),
 };
 
 const defaultView = 'problem-solving';
@@ -79,6 +84,17 @@ const translations = {
     'message.exampleLoaded': 'Example problem loaded. Edit it or start a run.',
     'message.problemRequired': 'Paste a Markdown problem before starting a run.',
     'message.submitting': 'Submitting problem to Galois...',
+    'matlas.countLabel': 'Result count',
+    'matlas.empty': 'Enter a theorem, definition, or mathematical phrase to search Matlas.',
+    'matlas.feedbackFailed': 'Feedback could not be sent.',
+    'matlas.feedbackIrrelevant': 'Marked irrelevant.',
+    'matlas.feedbackRelevant': 'Marked relevant.',
+    'matlas.loading': 'Searching Matlas...',
+    'matlas.noResults': 'No Matlas results found for this query.',
+    'matlas.placeholder': 'Search for theorems, definitions, or related mathematical results',
+    'matlas.queryLabel': 'Theorem search query',
+    'matlas.queryRequired': 'Enter a theorem, definition, or mathematical phrase before searching.',
+    'matlas.searchFailed': 'Matlas search failed.',
     'nav.dashboard': 'Dashboard',
     'nav.mathLearning': 'Math Learning',
     'nav.paperWriting': 'Paper Writing',
@@ -150,6 +166,17 @@ const translations = {
     'history.title': '历史',
     'message.problemRequired': '请先粘贴 Markdown 问题再启动运行。',
     'message.submitting': '正在提交问题到 Galois...',
+    'matlas.countLabel': '结果数量',
+    'matlas.empty': '输入定理、定义或数学短语来搜索 Matlas。',
+    'matlas.feedbackFailed': '反馈发送失败。',
+    'matlas.feedbackIrrelevant': '已标记为不相关。',
+    'matlas.feedbackRelevant': '已标记为相关。',
+    'matlas.loading': '正在搜索 Matlas...',
+    'matlas.noResults': '这个查询没有找到 Matlas 结果。',
+    'matlas.placeholder': '搜索定理、定义或相关数学结果',
+    'matlas.queryLabel': '定理搜索查询',
+    'matlas.queryRequired': '请先输入定理、定义或数学短语再搜索。',
+    'matlas.searchFailed': 'Matlas 搜索失败。',
     'nav.dashboard': '仪表盘',
     'nav.mathLearning': '数学学习',
     'nav.paperWriting': '论文写作',
@@ -529,6 +556,122 @@ function renderMath(container) {
   });
 }
 
+function setMatlasMessage(text, tone = 'neutral') {
+  if (!elements.matlasMessage) return;
+  elements.matlasMessage.textContent = text;
+  elements.matlasMessage.dataset.tone = tone;
+}
+
+function setMatlasResultsHidden(hidden) {
+  if (!elements.matlasResults) return;
+  elements.matlasResults.hidden = hidden;
+}
+
+function sourceLine(result) {
+  return [result.authors, result.journal, result.year].filter(Boolean).join(', ');
+}
+
+function normalizeDoi(doi) {
+  const value = String(doi || '').trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://${value}`;
+}
+
+function resultTypeLabel(type) {
+  return String(type || 'result').toUpperCase();
+}
+
+function renderMatlasResults(results, query) {
+  if (!elements.matlasResults) return;
+  setMatlasResultsHidden(false);
+  if (!results.length) {
+    elements.matlasResults.innerHTML = `<p class="matlas-empty">${escapeHtml(translate('matlas.noResults'))}</p>`;
+    return;
+  }
+  elements.matlasResults.innerHTML = results.map((result) => {
+    const type = resultTypeLabel(result.type);
+    const title = result.title || 'Untitled source';
+    const entity = result.entity_name || '';
+    const source = sourceLine(result);
+    const doi = normalizeDoi(result.doi);
+    const statement = renderMarkdownLite(result.statement || '');
+    const candidateId = result.candidate_id || '';
+    const titleHtml = doi
+      ? `<a href="${escapeHtml(doi)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>`
+      : escapeHtml(title);
+    const sourceHtml = doi
+      ? `<a href="${escapeHtml(doi)}" target="_blank" rel="noreferrer">${escapeHtml(source || result.doi)}</a>`
+      : escapeHtml(source);
+    return `<article class="matlas-card" data-candidate-id="${escapeHtml(candidateId)}" data-query="${escapeHtml(query)}">
+      <div class="matlas-card-head">
+        <h2>${titleHtml}${entity ? ` <span>${escapeHtml(entity)}</span>` : ''}</h2>
+        <em>${escapeHtml(type)}</em>
+      </div>
+      <div class="matlas-statement">${statement}</div>
+      <footer class="matlas-card-foot">
+        <p>${sourceHtml}</p>
+        <div class="matlas-feedback" aria-label="Matlas feedback">
+          <button type="button" data-matlas-feedback="relevant" aria-label="Relevant result">✓</button>
+          <button type="button" data-matlas-feedback="irrelevant" aria-label="Irrelevant result">×</button>
+        </div>
+      </footer>
+    </article>`;
+  }).join('');
+  renderMath(elements.matlasResults);
+}
+
+async function submitMatlasSearch(event) {
+  event.preventDefault();
+  const query = elements.matlasQuery.value.trim();
+  if (!query) {
+    setMatlasMessage(translate('matlas.queryRequired'), 'error');
+    elements.matlasQuery.focus();
+    return;
+  }
+  setMatlasMessage(translate('matlas.loading'));
+  setMatlasResultsHidden(false);
+  elements.matlasResults.innerHTML = `<p class="matlas-empty">${escapeHtml(translate('matlas.loading'))}</p>`;
+  try {
+    const payload = await fetchJson('/api/matlas/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        num_results: Number(elements.matlasCount.value || 10),
+      }),
+    });
+    const results = Array.isArray(payload.results) ? payload.results : [];
+    setMatlasMessage(results.length ? '' : translate('matlas.noResults'));
+    renderMatlasResults(results, query);
+  } catch (error) {
+    setMatlasMessage(`${translate('matlas.searchFailed')} ${error.message}`, 'error');
+    elements.matlasResults.innerHTML = `<p class="matlas-empty">${escapeHtml(translate('matlas.noResults'))}</p>`;
+  }
+}
+
+async function sendMatlasFeedback(button) {
+  const card = button.closest('.matlas-card');
+  if (!card) return;
+  const label = button.dataset.matlasFeedback;
+  try {
+    await fetchJson('/api/matlas/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: card.dataset.query || elements.matlasQuery.value.trim(),
+        candidate_id: card.dataset.candidateId,
+        label,
+      }),
+    });
+    card.querySelectorAll('[data-matlas-feedback]').forEach((item) => item.classList.remove('active'));
+    button.classList.add('active');
+    setMatlasMessage(label === 'relevant' ? translate('matlas.feedbackRelevant') : translate('matlas.feedbackIrrelevant'));
+  } catch (error) {
+    setMatlasMessage(`${translate('matlas.feedbackFailed')} ${error.message}`, 'error');
+  }
+}
+
 function updateProblemPreview() {
   const content = elements.markdown.value;
   if (!content.trim()) {
@@ -897,6 +1040,18 @@ function wireEvents() {
     button.addEventListener('click', () => applyTheme(button.dataset.themeToggle));
   });
   elements.form.addEventListener('submit', submitRun);
+  elements.matlasForm.addEventListener('submit', submitMatlasSearch);
+  elements.matlasQuery.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      elements.matlasForm.requestSubmit();
+    }
+  });
+  elements.matlasResults.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-matlas-feedback]');
+    if (!button) return;
+    sendMatlasFeedback(button);
+  });
   elements.markdown.addEventListener('input', updateProblemPreview);
   elements.copyProofMarkdown.addEventListener('click', () => {
     copyProofMarkdown().catch(() => setMessage(translate('actions.copyFailed'), 'error'));
@@ -948,6 +1103,7 @@ wireEvents();
 applyTheme(preferredTheme());
 applyLocale(supportedLocales.has(storageGet(languageStorageKey)) ? storageGet(languageStorageKey) : 'en');
 setView(getViewFromHash() || defaultView, { updateHash: false });
+if (elements.matlasResults && !elements.matlasResults.innerHTML.trim()) setMatlasResultsHidden(true);
 updateProblemPreview();
 loadRecentRuns()
   .then(() => restoreCurrentRun())

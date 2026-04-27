@@ -367,6 +367,296 @@ code {
   line-height: 1.7;
 }
 
+.matlas-view {
+  min-height: calc(100vh - 4.9rem);
+  padding: clamp(2.2rem, 4.8vw, 4.7rem) clamp(2rem, 6vw, 6.5rem);
+  background: var(--sheet);
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.matlas-shell {
+  display: grid;
+  align-content: start;
+  width: min(61rem, 100%);
+  min-height: calc(100vh - 4.9rem - clamp(4.4rem, 9.6vw, 9.4rem));
+  margin: 0 auto;
+}
+
+.matlas-results[hidden] {
+  display: none;
+}
+
+.matlas-shell:has(.matlas-results[hidden]) {
+  align-content: center;
+  padding-bottom: 4vh;
+}
+
+.matlas-head {
+  display: grid;
+  place-items: center;
+  margin-bottom: 1.95rem;
+}
+
+.matlas-logo {
+  margin: 0;
+  color: var(--navy);
+  font-size: clamp(3.45rem, 6.5vw, 5.35rem);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 0.9;
+}
+
+.matlas-form {
+  position: relative;
+  width: min(48rem, 100%);
+  margin: 0 auto;
+}
+
+.matlas-form textarea {
+  width: 100%;
+  min-height: 6.25rem;
+  resize: vertical;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 1.15rem 7.15rem 1.15rem 1.25rem;
+  background: var(--sheet-cool);
+  box-shadow: 0 0.3rem 1.4rem color-mix(in srgb, var(--rule) 10%, transparent);
+  color: var(--ink);
+  font-size: 1.04rem;
+  line-height: 1.5;
+}
+
+.matlas-form textarea::placeholder {
+  color: color-mix(in srgb, var(--muted) 78%, transparent);
+}
+
+.matlas-form textarea:focus {
+  border-color: var(--rule);
+  outline: 3px solid color-mix(in srgb, var(--focus) 22%, transparent);
+}
+
+.matlas-actions {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.matlas-settings summary,
+.matlas-settings select,
+.matlas-search-button,
+.matlas-feedback button {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--sheet);
+  color: var(--navy);
+  font-family: "Courier New", monospace;
+  font-weight: 800;
+}
+
+.matlas-settings {
+  position: relative;
+}
+
+.matlas-settings summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.matlas-settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.matlas-settings[open] summary {
+  border-color: var(--rule);
+  color: var(--navy-ink);
+}
+
+.matlas-settings label {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.75rem);
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.9rem;
+  align-items: center;
+  width: min(17.5rem, 72vw);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--sheet-cool);
+  box-shadow: 0 1.25rem 2.4rem color-mix(in srgb, var(--rule) 14%, transparent);
+  color: var(--ink);
+}
+
+.matlas-settings label span {
+  color: var(--muted);
+  font-family: "Courier New", monospace;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.matlas-settings select {
+  width: 5.2rem;
+  border-radius: 8px;
+  padding: 0 0.7rem;
+  appearance: auto;
+  color: var(--ink);
+}
+
+.matlas-search-button {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: var(--sheet);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.matlas-message {
+  min-height: 1.6rem;
+  width: min(48rem, 100%);
+  margin: 0.9rem auto 1.2rem;
+  color: var(--muted);
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+}
+
+.matlas-message[data-tone="error"] {
+  color: var(--danger);
+}
+
+.matlas-results {
+  display: grid;
+  gap: 1rem;
+  width: min(59.5rem, 100%);
+  margin: 1.1rem auto 0;
+}
+
+.matlas-card {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 1.14rem 1.12rem 1rem;
+  background: var(--sheet-cool);
+}
+
+.matlas-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 0.75rem;
+}
+
+.matlas-card h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 1.06rem;
+  line-height: 1.35;
+}
+
+.matlas-card h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.matlas-card h2 a:hover,
+.matlas-card h2 a:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.matlas-card h2 span {
+  margin-left: 0.35rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.matlas-card-head em {
+  border-radius: 999px;
+  padding: 0.16rem 0.55rem;
+  background: color-mix(in srgb, var(--navy) 12%, transparent);
+  color: var(--navy);
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.matlas-statement {
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.62;
+}
+
+.matlas-statement p {
+  margin: 0 0 0.8rem;
+}
+
+.matlas-statement .katex-display {
+  text-align: left;
+}
+
+.matlas-card-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: end;
+  min-height: 2.55rem;
+  margin-top: 0.6rem;
+}
+
+.matlas-card-foot p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.matlas-card-foot a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, var(--muted) 50%, transparent);
+  text-underline-offset: 0.18em;
+}
+
+.matlas-feedback {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.matlas-feedback button {
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1rem;
+}
+
+.matlas-feedback button.active,
+.matlas-feedback button:focus-visible,
+.matlas-feedback button:hover {
+  border-color: var(--navy);
+  outline: none;
+  color: var(--navy);
+}
+
+.matlas-empty {
+  width: min(48rem, 100%);
+  margin: 0 auto;
+  color: var(--muted);
+  line-height: 1.6;
+  text-align: center;
+}
+
 .ledger {
   width: min(58rem, 100%);
   margin: 0 auto;
@@ -1277,8 +1567,34 @@ textarea:focus {
   }
 
   .draft-pane,
-  .control-pane {
+  .control-pane,
+  .matlas-view {
     padding: 1.35rem;
+  }
+
+  .matlas-logo {
+    font-size: clamp(3.15rem, 18vw, 4.7rem);
+    letter-spacing: 0.11em;
+  }
+
+  .matlas-form textarea {
+    min-height: 7.4rem;
+    padding-right: 6.6rem;
+  }
+
+  .matlas-settings label {
+    right: -3.1rem;
+    width: min(17.5rem, calc(100vw - 2.7rem));
+  }
+
+  .matlas-card-head,
+  .matlas-card-foot {
+    grid-template-columns: 1fr;
+  }
+
+  .matlas-card-head em,
+  .matlas-feedback {
+    justify-self: start;
   }
 
   #problem-title {
