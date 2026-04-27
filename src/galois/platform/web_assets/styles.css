@@ -62,6 +62,10 @@ button:disabled {
   cursor: not-allowed;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 code {
   border: 1px solid var(--hairline);
   padding: 0 0.2rem;
@@ -1660,6 +1664,7 @@ textarea:focus {
 
 .paper-mode-grid label,
 .paper-tab,
+.paper-draft-view,
 .paper-output-choice {
   display: inline-grid;
   place-items: center;
@@ -1681,10 +1686,17 @@ textarea:focus {
 
 .paper-mode-grid label:has(input:checked),
 .paper-tab.active,
+.paper-draft-view.active,
 .paper-output-choice.active {
   border-color: var(--rule);
   background: var(--navy);
   color: var(--sheet);
+}
+
+.paper-parameter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
 }
 
 .paper-field {
@@ -1696,6 +1708,12 @@ textarea:focus {
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.paper-field.compact {
+  min-width: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
 }
 
 .paper-field input,
@@ -1718,6 +1736,11 @@ textarea:focus {
   padding: 0 0.8rem;
 }
 
+.paper-field.compact input {
+  min-height: 2.35rem;
+  padding: 0 0.65rem;
+}
+
 .paper-field textarea {
   min-height: 7rem;
   padding: 0.75rem 0.8rem;
@@ -1727,16 +1750,46 @@ textarea:focus {
 .paper-editor-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
 }
 
 .paper-tabs {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-bottom: 1px solid var(--rule);
 }
 
 .paper-tab {
   border-width: 0 1px 0 0;
+}
+
+.paper-draft-panel {
+  display: none;
+  min-height: 0;
+}
+
+.paper-draft-panel.active {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.paper-draft-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--sheet-cool) 78%, var(--paper));
+}
+
+.paper-draft-view {
+  min-height: 2.35rem;
+  cursor: pointer;
+}
+
+.paper-draft-surface {
+  display: grid;
+  min-height: 0;
 }
 
 .paper-input {
@@ -1749,6 +1802,20 @@ textarea:focus {
 
 .paper-input.active {
   display: block;
+}
+
+.paper-draft-editor {
+  min-height: 100%;
+}
+
+.paper-draft-preview {
+  overflow: auto;
+  min-height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  padding: clamp(1rem, 2vw, 1.55rem);
+  background: var(--sheet);
 }
 
 .paper-output-panel {
@@ -1771,7 +1838,7 @@ textarea:focus {
 
 .paper-output-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
 }
 
@@ -1779,6 +1846,42 @@ textarea:focus {
   overflow: auto;
   min-height: 18rem;
   max-height: calc(100vh - 19rem);
+}
+
+.citation-output h1 {
+  margin-top: 0;
+}
+
+.citation-list {
+  display: grid;
+  gap: 0.85rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.citation-list li {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.citation-index {
+  color: var(--muted);
+  font-family: "Courier New", monospace;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.citation-text {
+  min-width: 0;
+}
+
+.citation-text a {
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 1180px) {
@@ -1799,6 +1902,7 @@ textarea:focus {
 
   .paper-mode-grid,
   .paper-tabs,
+  .paper-draft-toolbar,
   .paper-output-actions {
     grid-template-columns: 1fr;
   }

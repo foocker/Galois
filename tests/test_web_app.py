@@ -99,8 +99,8 @@ def test_index_loads_markdown_rendering_assets(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "marked.min.js" in response.text
     assert "purify.min.js" in response.text
-    assert '/assets/styles.css?v=matlas-4' in response.text
-    assert '/assets/app.js?v=matlas-4' in response.text
+    assert '/assets/styles.css?v=paper-writing-3' in response.text
+    assert '/assets/app.js?v=paper-writing-3' in response.text
 
 
 def test_index_contains_current_product_views(tmp_path: Path) -> None:
@@ -120,7 +120,26 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert 'data-view="paper-writing"' in response.text
     assert 'class="paper-writing-view app-view" data-view="paper-writing"' in response.text
     assert 'id="paper-submit-button"' in response.text
-    assert 'id="paper-manuscript"' in response.text
+    assert 'id="paper-draft"' in response.text
+    assert 'id="paper-draft-preview"' in response.text
+    assert 'data-paper-draft-view="edit"' in response.text
+    assert 'data-paper-draft-view="preview"' in response.text
+    assert 'id="paper-references"' in response.text
+    assert 'id="paper-reviewer"' in response.text
+    assert 'id="paper-min-refs"' in response.text
+    assert 'id="paper-max-refs"' in response.text
+    assert 'id="paper-min-pages"' in response.text
+    assert 'id="paper-max-pages"' in response.text
+    assert 'id="paper-review-rounds"' in response.text
+    assert 'id="paper-manuscript"' not in response.text
+    assert 'id="paper-theorem"' not in response.text
+    assert 'id="paper-proof"' not in response.text
+    assert 'data-paper-output="manuscript_draft"' in response.text
+    assert 'data-paper-output="citation_report"' in response.text
+    assert 'data-paper-output="review_report"' not in response.text
+    assert 'data-i18n="paper.outputReview"' not in response.text
+    assert "Writing agent output will appear here." not in response.text
+    assert "写作 agent 输出会显示在这里。" not in response.text
     assert 'id="ledger-runs"' in response.text
     assert 'id="problem-preview"' in response.text
     assert 'id="proof-sheet" class="output-sheet" aria-labelledby="output-title" hidden' in response.text
@@ -270,13 +289,16 @@ def test_writing_project_api_creates_independent_writing_run(monkeypatch, tmp_pa
         json={
             "title": "Compactness paper",
             "project_type": "paper",
-            "manuscript_markdown": "We prove the result.",
-            "theorem_statement": "Let $X$ be compact.",
-            "proof_draft": "Use compact image.",
-            "bibliography": "",
+            "draft_markdown": "We prove the result.",
+            "references_markdown": "@article{sample, title={Sample}}",
             "reviewer_comments": "",
             "target_journal": "",
             "requested_work": "Improve and review.",
+            "min_references": 5,
+            "max_references": 12,
+            "min_pages": 6,
+            "max_pages": 10,
+            "review_rounds": 2,
             "model": "gpt-5.4",
         },
     )
@@ -291,7 +313,17 @@ def test_writing_project_api_creates_independent_writing_run(monkeypatch, tmp_pa
     assert launches[0]["feature_flags"].pipeline.value == "writing-only"
     input_path = Path(payload["input_path"])
     assert input_path.exists()
-    assert "## Manuscript Draft" in input_path.read_text(encoding="utf-8")
+    input_text = input_path.read_text(encoding="utf-8")
+    assert "## Draft" in input_text
+    assert "We prove the result." in input_text
+    assert "## References" in input_text
+    assert "@article{sample" in input_text
+    assert "## Writing Parameters" in input_text
+    assert "min_references: 5" in input_text
+    assert "max_references: 12" in input_text
+    assert "min_pages: 6" in input_text
+    assert "max_pages: 10" in input_text
+    assert "review_rounds: 2" in input_text
 
 
 def test_matlas_search_proxy_posts_to_public_api(monkeypatch, tmp_path: Path) -> None:
@@ -610,6 +642,124 @@ const context = {{
     assert result.returncode == 0, result.stderr
 
 
+def test_frontend_writing_output_tabs_render_cached_finished_snapshot() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  return {{
+    toggle() {{}},
+    contains() {{ return false; }},
+    add() {{}},
+    remove() {{}},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  return {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    checked: false,
+    classList: fakeClassList(),
+    addEventListener() {{}},
+    setAttribute() {{}},
+    getAttribute() {{ return ""; }},
+    closest() {{ return {{ querySelectorAll() {{ return []; }}, classList: fakeClassList() }}; }},
+    contains() {{ return false; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{}},
+  }};
+}}
+
+const paperOutput = fakeElement();
+const outputChoices = [
+  fakeElement({{ paperOutput: "manuscript_draft" }}),
+  fakeElement({{ paperOutput: "citation_report" }}),
+];
+const elementMap = new Map([["#paper-output", paperOutput]]);
+const document = {{
+  documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
+  querySelector(selector) {{
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return [fakeElement({{ view: "paper-writing" }})];
+    if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "paper-writing" }})];
+    if (selector === "[data-paper-output]") return outputChoices;
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const window = {{
+  location: {{ hash: "#paper-writing" }},
+  history: {{ replaceState(_state, _title, hash) {{ window.location.hash = hash; }} }},
+  addEventListener() {{}},
+  localStorage: {{ getItem() {{ return null; }}, setItem() {{}}, removeItem() {{}} }},
+  matchMedia() {{ return {{ matches: false }}; }},
+}};
+const fetch = async () => ({{ ok: true, json: async () => ({{ runs: [] }}) }});
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+  JSON,
+}};
+
+vm.runInNewContext(code, context);
+context.renderWritingSnapshot({{
+  status: "succeeded",
+  run_id: "run-1",
+  pipeline: "writing-only",
+  output: {{
+    artifacts: {{
+      manuscript_draft: {{ content: "# Draft\\nManuscript text" }},
+      review_report: {{ content: "# Review\\nReview text" }},
+      citation_report: {{ content: "# References\\n\\n1. Smith, A. Example paper. Journal 1 (2024). DOI: 10.1000/example\\n\\n## Citation Audit\\n- A lookup task that should not become a reference." }},
+    }},
+  }},
+}});
+if (!paperOutput.innerHTML.includes("Manuscript text")) throw new Error(paperOutput.innerHTML);
+context.updatePaperOutputChoice("review_report");
+if (paperOutput.innerHTML.includes("Review text")) throw new Error(paperOutput.innerHTML);
+if (!paperOutput.innerHTML.includes("Manuscript text")) throw new Error(paperOutput.innerHTML);
+context.updatePaperOutputChoice("citation_report");
+if (!paperOutput.innerHTML.includes("<h1>References</h1>")) throw new Error(paperOutput.innerHTML);
+if (!paperOutput.innerHTML.includes("citation-list")) throw new Error(paperOutput.innerHTML);
+if (!paperOutput.innerHTML.includes("[1]")) throw new Error(paperOutput.innerHTML);
+if (!paperOutput.innerHTML.includes("https://doi.org/10.1000/example")) throw new Error(paperOutput.innerHTML);
+if (paperOutput.innerHTML.includes("lookup task")) throw new Error(paperOutput.innerHTML);
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_frontend_matlas_enter_key_submits_search_box() -> None:
     node = shutil.which("node")
     if node is None:
@@ -919,6 +1069,133 @@ if (!preview.innerHTML.includes("<h1>Problem</h1>")) throw new Error(preview.inn
 if (!preview.innerHTML.includes('class="math-source inline"')) throw new Error(preview.innerHTML);
 if (katexCalls.length !== 1) throw new Error(`expected preview KaTeX call, got ${{katexCalls.length}}`);
 if (katexCalls[0].math !== "x^2") throw new Error(`unexpected math: ${{katexCalls[0].math}}`);
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_frontend_paper_draft_editor_updates_markdown_preview() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  const values = new Set();
+  return {{
+    toggle(name, force) {{
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{ return values.has(name); }},
+    add(name) {{ values.add(name); }},
+    remove(name) {{ values.delete(name); }},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  return {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    classList: fakeClassList(),
+    addEventListener() {{}},
+    setAttribute() {{}},
+    getAttribute() {{ return ""; }},
+    closest() {{ return {{ querySelectorAll() {{ return []; }}, classList: fakeClassList() }}; }},
+    contains() {{ return false; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{}},
+  }};
+}}
+
+const elementMap = new Map();
+const draft = fakeElement({{ paperInput: "draft" }});
+const preview = fakeElement();
+const editButton = fakeElement({{ paperDraftView: "edit" }});
+const previewButton = fakeElement({{ paperDraftView: "preview" }});
+const mathNode = {{
+  textContent: "x^2",
+  classList: {{ contains(name) {{ return name === "inline"; }}, remove() {{}}, add() {{}} }},
+  replaceWith() {{}},
+}};
+preview.querySelectorAll = () => [mathNode];
+
+const document = {{
+  documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
+  querySelector(selector) {{
+    if (selector === "#paper-draft") return draft;
+    if (selector === "#paper-draft-preview") return preview;
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return [fakeElement({{ view: "paper-writing" }})];
+    if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "paper-writing" }})];
+    if (selector === "[data-paper-input]") return [draft];
+    if (selector === "[data-paper-draft-view]") return [editButton, previewButton];
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const katexCalls = [];
+const window = {{
+  location: {{ hash: "#paper-writing" }},
+  history: {{ replaceState() {{}} }},
+  addEventListener() {{}},
+  localStorage: {{ getItem() {{ return null; }}, setItem() {{}}, removeItem() {{}} }},
+  matchMedia() {{ return {{ matches: false }}; }},
+  katex: {{
+    render(math, node, options) {{
+      katexCalls.push({{ math, displayMode: options.displayMode }});
+      node.textContent = `[rendered:${{math}}]`;
+    }},
+  }},
+}};
+const fetch = async () => ({{ ok: true, json: async () => ({{ runs: [] }}) }});
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+  JSON,
+}};
+
+vm.runInNewContext(code, context);
+draft.value = "# Draft\\n\\nShow $x^2$.";
+context.renderPaperDraftPreview();
+if (!preview.innerHTML.includes("<h1>Draft</h1>")) throw new Error(preview.innerHTML);
+if (!preview.innerHTML.includes('class="math-source inline"')) throw new Error(preview.innerHTML);
+if (katexCalls.length !== 1) throw new Error(`expected draft preview KaTeX call, got ${{katexCalls.length}}`);
+context.setPaperDraftView("preview");
+if (draft.hidden !== true) throw new Error("draft editor should be hidden in preview mode");
+if (preview.hidden !== false) throw new Error("draft preview should be visible in preview mode");
+context.setPaperDraftView("edit");
+if (draft.hidden !== false) throw new Error("draft editor should be visible in edit mode");
+if (preview.hidden !== true) throw new Error("draft preview should be hidden in edit mode");
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 

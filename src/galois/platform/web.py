@@ -73,6 +73,8 @@ class CitationValidateRequest(BaseModel):
 class WritingProjectCreateRequest(BaseModel):
     title: str | None = None
     project_type: str = "paper"
+    draft_markdown: str = ""
+    references_markdown: str = ""
     manuscript_markdown: str = ""
     theorem_statement: str = ""
     proof_draft: str = ""
@@ -80,6 +82,11 @@ class WritingProjectCreateRequest(BaseModel):
     reviewer_comments: str = ""
     target_journal: str = ""
     requested_work: str = "Review and improve this mathematical manuscript."
+    min_references: int | None = Field(default=None, ge=0, le=200)
+    max_references: int | None = Field(default=None, ge=0, le=200)
+    min_pages: int | None = Field(default=None, ge=1, le=300)
+    max_pages: int | None = Field(default=None, ge=1, le=300)
+    review_rounds: int = Field(default=1, ge=0, le=5)
     model: str = DEFAULT_MODEL
 
 
@@ -103,10 +110,29 @@ def _write_web_writing_input(run_dir: Path, payload: WritingProjectCreateRequest
     writing_dir = run_dir / "writing"
     writing_dir.mkdir(parents=True, exist_ok=True)
     input_path = writing_dir / "input.md"
+    draft = payload.draft_markdown.strip()
+    if not draft:
+        legacy_parts = []
+        if payload.theorem_statement.strip():
+            legacy_parts.extend(["### Theorem Statement", "", payload.theorem_statement.strip(), ""])
+        if payload.proof_draft.strip():
+            legacy_parts.extend(["### Proof Draft", "", payload.proof_draft.strip(), ""])
+        if payload.manuscript_markdown.strip():
+            legacy_parts.extend(["### Manuscript Draft", "", payload.manuscript_markdown.strip(), ""])
+        draft = "\n".join(legacy_parts).strip()
+    references = payload.references_markdown.strip() or payload.bibliography.strip()
     sections = [
         "# Galois Paper Writing Request",
         "",
         f"project_type: {payload.project_type.strip() or 'paper'}",
+        "",
+        "## Writing Parameters",
+        "",
+        f"min_references: {payload.min_references if payload.min_references is not None else 'Not specified.'}",
+        f"max_references: {payload.max_references if payload.max_references is not None else 'Not specified.'}",
+        f"min_pages: {payload.min_pages if payload.min_pages is not None else 'Not specified.'}",
+        f"max_pages: {payload.max_pages if payload.max_pages is not None else 'Not specified.'}",
+        f"review_rounds: {payload.review_rounds}",
         "",
         "## Title",
         "",
@@ -120,21 +146,13 @@ def _write_web_writing_input(run_dir: Path, payload: WritingProjectCreateRequest
         "",
         payload.requested_work.strip() or "Review and improve this mathematical manuscript.",
         "",
-        "## Theorem Statement",
+        "## Draft",
         "",
-        payload.theorem_statement.strip() or "Not provided.",
+        draft or "Not provided.",
         "",
-        "## Proof Draft",
+        "## References",
         "",
-        payload.proof_draft.strip() or "Not provided.",
-        "",
-        "## Manuscript Draft",
-        "",
-        payload.manuscript_markdown.strip() or "Not provided.",
-        "",
-        "## Bibliography",
-        "",
-        payload.bibliography.strip() or "Not provided.",
+        references or "Not provided.",
         "",
         "## Reviewer Comments",
         "",
@@ -565,13 +583,23 @@ def create_app(config_path: Path | None = None) -> FastAPI:
             value.strip()
             for value in (
                 payload.manuscript_markdown,
+                payload.draft_markdown,
                 payload.theorem_statement,
                 payload.proof_draft,
                 payload.bibliography,
+                payload.references_markdown,
                 payload.reviewer_comments,
             )
         ):
             raise HTTPException(status_code=400, detail="writing project content must not be blank")
+        if (
+            payload.min_references is not None
+            and payload.max_references is not None
+            and payload.min_references > payload.max_references
+        ):
+            raise HTTPException(status_code=400, detail="min_references must be <= max_references")
+        if payload.min_pages is not None and payload.max_pages is not None and payload.min_pages > payload.max_pages:
+            raise HTTPException(status_code=400, detail="min_pages must be <= max_pages")
 
         run_id, project_id, input_path = _create_prepared_writing_run(config_path=config_path, payload=payload)
         return JSONResponse(

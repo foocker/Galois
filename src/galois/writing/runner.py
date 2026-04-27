@@ -125,6 +125,9 @@ def _build_prompts(
         f"Primary deliverables must be written to {project_dir}: "
         "`manuscript_draft.md`, `review_report.md`, `citation_report.md`, `revision_tasks.json`, and `export_bundle.json`. "
         "Use English only. Preserve mathematical claims. Do not invent citations. Do not claim a proof is correct; report inspected risks. "
+        "Treat the input `Requested Work` as the primary objective. The `Draft`, `References`, and `Reviewer Comments` sections are materials, "
+        "not fixed modes; use any provided writing parameters for reference-count targets, page-count targets, and self-review revision rounds. "
+        "Make `citation_report.md` begin with `# References` and a numbered list of verified references; put missing, unused, or lookup-only items later under `## Citation Audit`. "
         "Use `$math-paper-writing`, `$math-review`, and `$literature-citation` as appropriate. "
         "The final response may be brief, but the files must contain the substantive work."
     )

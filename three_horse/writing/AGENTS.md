@@ -25,12 +25,10 @@ Use this directory for static agent assets and the run-local directories supplie
 The input is a Markdown file that may contain:
 
 - project type: paper, survey, thesis, reading report, or reviewer response;
+- writing parameters: target reference count, target page count, and review-revision rounds;
 - title or research problem;
-- abstract draft;
-- theorem statements;
-- proof draft;
-- manuscript text;
-- BibTeX or a literature list;
+- a single `Draft` section containing a theorem, proof draft, rough notes, or manuscript text;
+- a `References` section containing BibTeX, arXiv IDs, DOI lists, seed papers, or literature notes;
 - reviewer comments;
 - target journal instructions.
 
@@ -59,7 +57,10 @@ Always write the following files:
    - Label uncertain judgments as personal inference.
 
 3. `citation_report.md`
-   - List cited items, missing citations, unused bibliography entries, and lookup tasks.
+   - Begin with `# References`.
+   - Put verified cited items in a numbered reference list before any audit notes.
+   - Each reference should use a standard bibliographic shape: authors, title, venue or preprint source, year, and DOI/arXiv/URL when known.
+   - Put missing citations, unused bibliography entries, and lookup tasks under a later `## Citation Audit` section.
    - Never invent bibliographic metadata.
 
 4. `revision_tasks.json`
@@ -80,10 +81,12 @@ Always write the following files:
 
 ## Workflow
 
-1. Classify the requested mode: generate, revise, review, cite, respond, survey, thesis, or export.
-2. Extract manuscript blocks, theorem blocks, proof blocks, notation, citations, and reviewer comments.
-3. Use `$math-paper-writing` to improve the requested writing surface.
-4. Use `$math-review` to produce a self-referee style quality report.
-5. Use `$literature-citation` to produce citation and literature-positioning findings.
-6. Convert all findings into revision tasks.
-7. Write all required artifacts before stopping.
+1. Interpret `Requested Work` as the primary objective. Do not force the task into a fixed mode if the user gave a natural-language goal.
+2. Extract the available material from `Draft`, `References`, and `Reviewer Comments`; each section may be empty except that at least one should contain user material.
+3. Read `Writing Parameters`; respect reference count, page count, and review-round targets as constraints when feasible.
+4. Use `$literature-citation` to validate seed references and identify lookup or expansion tasks. Runtime source lookup is limited to arXiv, Crossref, and OpenAlex unless the user supplies other sources manually.
+5. Use `$math-paper-writing` to produce the requested manuscript version: complete paper, expanded draft, revised section, response draft, or reference-informed rewrite.
+6. If reviewer comments are present, incorporate them as required revision constraints and record response-relevant changes.
+7. If `review_rounds` is greater than zero, run a self-referee pass with `$math-review`, revise the manuscript against the findings, and record each round's key findings in `review_report.md`. Repeat up to the requested number of rounds, bounded by the available evidence and time.
+8. Convert unresolved writing, proof, citation, and source issues into revision tasks.
+9. Write all required artifacts before stopping.

@@ -10,7 +10,7 @@
       integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="/assets/styles.css?v=matlas-4" />
+    <link rel="stylesheet" href="/assets/styles.css?v=paper-writing-3" />
   </head>
   <body>
     <div class="app-shell">
@@ -289,6 +289,28 @@
                 <span data-i18n="paper.targetJournal">Target Journal</span>
                 <input id="paper-journal-input" type="text" placeholder="Not specified" data-i18n-placeholder="paper.targetJournalPlaceholder" />
               </label>
+              <div class="paper-parameter-grid" aria-label="Paper writing parameters">
+                <label class="paper-field compact" for="paper-min-refs">
+                  <span data-i18n="paper.minReferences">Min Refs</span>
+                  <input id="paper-min-refs" type="number" min="0" max="200" inputmode="numeric" placeholder="0" />
+                </label>
+                <label class="paper-field compact" for="paper-max-refs">
+                  <span data-i18n="paper.maxReferences">Max Refs</span>
+                  <input id="paper-max-refs" type="number" min="0" max="200" inputmode="numeric" placeholder="20" />
+                </label>
+                <label class="paper-field compact" for="paper-min-pages">
+                  <span data-i18n="paper.minPages">Min Pages</span>
+                  <input id="paper-min-pages" type="number" min="1" max="300" inputmode="numeric" placeholder="4" />
+                </label>
+                <label class="paper-field compact" for="paper-max-pages">
+                  <span data-i18n="paper.maxPages">Max Pages</span>
+                  <input id="paper-max-pages" type="number" min="1" max="300" inputmode="numeric" placeholder="12" />
+                </label>
+                <label class="paper-field compact" for="paper-review-rounds">
+                  <span data-i18n="paper.reviewRounds">Review Rounds</span>
+                  <input id="paper-review-rounds" type="number" min="0" max="5" inputmode="numeric" value="1" />
+                </label>
+              </div>
               <label class="paper-field" for="paper-request-input">
                 <span data-i18n="paper.requestedWork">Requested Work</span>
                 <textarea id="paper-request-input" rows="5" data-i18n-placeholder="paper.requestedWorkPlaceholder" placeholder="Review and improve this mathematical manuscript."></textarea>
@@ -299,16 +321,21 @@
 
             <section class="paper-editor-panel">
               <div class="paper-tabs" role="tablist" aria-label="Paper inputs">
-                <button class="paper-tab active" type="button" data-paper-tab="manuscript" data-i18n="paper.tabManuscript">Manuscript</button>
-                <button class="paper-tab" type="button" data-paper-tab="theorem" data-i18n="paper.tabTheorem">Theorem</button>
-                <button class="paper-tab" type="button" data-paper-tab="proof" data-i18n="paper.tabProof">Proof</button>
-                <button class="paper-tab" type="button" data-paper-tab="bibliography" data-i18n="paper.tabBibliography">Bibliography</button>
+                <button class="paper-tab active" type="button" data-paper-tab="draft" data-i18n="paper.tabDraft">Draft</button>
+                <button class="paper-tab" type="button" data-paper-tab="references" data-i18n="paper.tabReferences">References</button>
                 <button class="paper-tab" type="button" data-paper-tab="reviewer" data-i18n="paper.tabReviewer">Reviewer</button>
               </div>
-              <textarea id="paper-manuscript" class="paper-input active" rows="18" data-paper-input="manuscript" data-i18n-placeholder="paper.manuscriptPlaceholder" placeholder="Paste or write your LaTeX/Markdown manuscript draft here."></textarea>
-              <textarea id="paper-theorem" class="paper-input" rows="18" data-paper-input="theorem" data-i18n-placeholder="paper.theoremPlaceholder" placeholder="Paste the main theorem statement here."></textarea>
-              <textarea id="paper-proof" class="paper-input" rows="18" data-paper-input="proof" data-i18n-placeholder="paper.proofPlaceholder" placeholder="Paste the proof draft here."></textarea>
-              <textarea id="paper-bibliography" class="paper-input" rows="18" data-paper-input="bibliography" data-i18n-placeholder="paper.bibliographyPlaceholder" placeholder="Paste BibTeX or a literature list here."></textarea>
+              <div class="paper-draft-panel active" data-paper-panel="draft">
+                <div class="paper-draft-toolbar" role="group" aria-label="Draft view">
+                  <button class="paper-draft-view active" type="button" data-paper-draft-view="edit" aria-pressed="true" data-i18n="paper.draftEdit">Edit</button>
+                  <button class="paper-draft-view" type="button" data-paper-draft-view="preview" aria-pressed="false" data-i18n="paper.draftPreview">Preview</button>
+                </div>
+                <div class="paper-draft-surface">
+                  <textarea id="paper-draft" class="paper-input active paper-draft-editor" rows="18" data-paper-input="draft" data-i18n-placeholder="paper.draftPlaceholder" placeholder="Paste a theorem, proof draft, rough notes, or manuscript here."></textarea>
+                  <article id="paper-draft-preview" class="paper-draft-preview output-sheet" aria-live="polite" hidden></article>
+                </div>
+              </div>
+              <textarea id="paper-references" class="paper-input" rows="18" data-paper-input="references" data-i18n-placeholder="paper.referencesPlaceholder" placeholder="Paste seed BibTeX, arXiv IDs, DOI list, or literature notes here."></textarea>
               <textarea id="paper-reviewer" class="paper-input" rows="18" data-paper-input="reviewer" data-i18n-placeholder="paper.reviewerPlaceholder" placeholder="Paste reviewer comments here."></textarea>
             </section>
 
@@ -329,12 +356,9 @@
               </dl>
               <section class="paper-output-actions" aria-label="Writing outputs">
                 <button class="paper-output-choice active" type="button" data-paper-output="manuscript_draft" data-i18n="paper.outputManuscript">Manuscript</button>
-                <button class="paper-output-choice" type="button" data-paper-output="review_report" data-i18n="paper.outputReview">Review</button>
                 <button class="paper-output-choice" type="button" data-paper-output="citation_report" data-i18n="paper.outputCitations">Citations</button>
               </section>
-              <article id="paper-output" class="output-sheet paper-output" aria-live="polite">
-                <p data-i18n="paper.outputEmpty">Writing agent output will appear here.</p>
-              </article>
+              <article id="paper-output" class="output-sheet paper-output" aria-live="polite"></article>
             </aside>
           </section>
         </main>
@@ -361,6 +385,6 @@
       src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
       defer
     ></script>
-    <script src="/assets/app.js?v=matlas-4" defer></script>
+    <script src="/assets/app.js?v=paper-writing-3" defer></script>
   </body>
 </html>

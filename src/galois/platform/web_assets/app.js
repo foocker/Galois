@@ -6,7 +6,10 @@ const state = {
   runs: [],
   proofMarkdown: '',
   paperOutputKind: 'manuscript_draft',
+  lastWritingSnapshot: null,
 };
+
+const paperOutputKinds = new Set(['manuscript_draft', 'citation_report']);
 
 const elements = {
   form: document.querySelector('#run-form'),
@@ -45,11 +48,20 @@ const elements = {
   paperTypeChoices: [...document.querySelectorAll('input[name="paper-type"]')],
   paperTitle: document.querySelector('#paper-title-input'),
   paperJournal: document.querySelector('#paper-journal-input'),
+  paperMinRefs: document.querySelector('#paper-min-refs'),
+  paperMaxRefs: document.querySelector('#paper-max-refs'),
+  paperMinPages: document.querySelector('#paper-min-pages'),
+  paperMaxPages: document.querySelector('#paper-max-pages'),
+  paperReviewRounds: document.querySelector('#paper-review-rounds'),
   paperRequest: document.querySelector('#paper-request-input'),
   paperSubmit: document.querySelector('#paper-submit-button'),
   paperMessage: document.querySelector('#paper-message'),
   paperTabs: [...document.querySelectorAll('[data-paper-tab]')],
+  paperPanels: [...document.querySelectorAll('[data-paper-panel]')],
   paperInputs: [...document.querySelectorAll('[data-paper-input]')],
+  paperDraft: document.querySelector('#paper-draft'),
+  paperDraftPreview: document.querySelector('#paper-draft-preview'),
+  paperDraftViewChoices: [...document.querySelectorAll('[data-paper-draft-view]')],
   paperStatusPill: document.querySelector('#paper-status-pill'),
   paperRunId: document.querySelector('#paper-run-id'),
   paperRunPipeline: document.querySelector('#paper-run-pipeline'),
@@ -119,9 +131,14 @@ const translations = {
     'nav.theoremSearching': 'Theorem Searching',
     'output.proofDocument': 'Proof Document',
     'paper.agentOutput': 'Agent Output',
-    'paper.bibliographyPlaceholder': 'Paste BibTeX or a literature list here.',
-    'paper.manuscriptPlaceholder': 'Paste or write your LaTeX/Markdown manuscript draft here.',
-    'paper.messageContentRequired': 'Add manuscript, theorem, proof, bibliography, or reviewer comments first.',
+    'paper.draftEdit': 'Edit',
+    'paper.draftPlaceholder': 'Paste a theorem, proof draft, rough notes, or manuscript here.',
+    'paper.draftPreview': 'Preview',
+    'paper.maxPages': 'Max Pages',
+    'paper.maxReferences': 'Max Refs',
+    'paper.messageContentRequired': 'Add a draft, references, or reviewer comments first.',
+    'paper.minPages': 'Min Pages',
+    'paper.minReferences': 'Min Refs',
     'paper.messageQueued': 'Writing project queued.',
     'paper.messageSubmitting': 'Starting writing agent...',
     'paper.modePaper': 'Paper',
@@ -129,26 +146,22 @@ const translations = {
     'paper.modeSurvey': 'Survey',
     'paper.modeThesis': 'Thesis',
     'paper.outputCitations': 'Citations',
-    'paper.outputEmpty': 'Writing agent output will appear here.',
     'paper.outputManuscript': 'Manuscript',
     'paper.outputPending': 'Waiting for writing artifacts...',
-    'paper.outputReview': 'Review',
     'paper.projectTitle': 'Project Title',
     'paper.projectTitlePlaceholder': 'Compactness and extrema',
-    'paper.proofPlaceholder': 'Paste the proof draft here.',
+    'paper.referencesPlaceholder': 'Paste seed BibTeX, arXiv IDs, DOI list, or literature notes here.',
     'paper.requestFailed': 'Writing project could not be started.',
     'paper.requestedWork': 'Requested Work',
     'paper.requestedWorkPlaceholder': 'Review and improve this mathematical manuscript.',
+    'paper.reviewRounds': 'Review Rounds',
     'paper.reviewerPlaceholder': 'Paste reviewer comments here.',
     'paper.start': 'Start Writing Agent',
-    'paper.tabBibliography': 'Bibliography',
-    'paper.tabManuscript': 'Manuscript',
-    'paper.tabProof': 'Proof',
+    'paper.tabDraft': 'Draft',
+    'paper.tabReferences': 'References',
     'paper.tabReviewer': 'Reviewer',
-    'paper.tabTheorem': 'Theorem',
     'paper.targetJournal': 'Target Journal',
     'paper.targetJournalPlaceholder': 'Not specified',
-    'paper.theoremPlaceholder': 'Paste the main theorem statement here.',
     'paper.title': 'Mathematical Paper Workspace',
     'pipeline.fastDraft': 'Fast Draft',
     'pipeline.formalCheck': 'Formal Check',
@@ -233,9 +246,14 @@ const translations = {
     'nav.theoremSearching': '定理搜索',
     'output.proofDocument': '证明文档',
     'paper.agentOutput': 'Agent 输出',
-    'paper.bibliographyPlaceholder': '在这里粘贴 BibTeX 或文献列表。',
-    'paper.manuscriptPlaceholder': '在这里粘贴或撰写 LaTeX/Markdown 论文草稿。',
-    'paper.messageContentRequired': '请先加入正文、定理、证明、参考文献或审稿意见。',
+    'paper.draftEdit': '编辑',
+    'paper.draftPlaceholder': '在这里粘贴核心定理、证明草稿、粗略想法或论文草稿。',
+    'paper.draftPreview': '预览',
+    'paper.maxPages': '最多页数',
+    'paper.maxReferences': '最多文献',
+    'paper.messageContentRequired': '请先加入草稿、参考文献或审稿意见。',
+    'paper.minPages': '最少页数',
+    'paper.minReferences': '最少文献',
     'paper.messageQueued': '论文写作项目已排队。',
     'paper.messageSubmitting': '正在启动写作 agent...',
     'paper.modePaper': '论文',
@@ -243,27 +261,23 @@ const translations = {
     'paper.modeSurvey': '综述',
     'paper.modeThesis': '学位论文',
     'paper.outputCitations': '引用',
-    'paper.outputEmpty': '写作 agent 输出会显示在这里。',
     'paper.outputManuscript': '正文',
     'paper.outputPending': '等待写作产物生成...',
-    'paper.outputReview': '评审',
     'paper.projectTitle': '项目标题',
     'paper.projectTitlePlaceholder': '紧性与极值',
-    'paper.proofPlaceholder': '在这里粘贴证明草稿。',
+    'paper.referencesPlaceholder': '在这里粘贴种子 BibTeX、arXiv ID、DOI 列表或文献笔记。',
     'paper.requestFailed': '论文写作项目启动失败。',
     'paper.requestedWork': '写作任务',
     'paper.requestedWorkPlaceholder': '评审并改进这份数学论文草稿。',
+    'paper.reviewRounds': '审核轮数',
     'paper.reviewerPlaceholder': '在这里粘贴审稿意见。',
     'paper.start': '启动写作 Agent',
-    'paper.tabBibliography': '参考文献',
-    'paper.tabManuscript': '正文',
-    'paper.tabProof': '证明',
+    'paper.tabDraft': '草稿',
+    'paper.tabReferences': '参考文献',
     'paper.tabReviewer': '审稿意见',
-    'paper.tabTheorem': '定理',
     'paper.targetJournal': '目标期刊',
     'paper.targetJournalPlaceholder': '未指定',
-    'paper.theoremPlaceholder': '在这里粘贴主定理陈述。',
-    'paper.title': '数学论文写作工作台',
+    'paper.title': '数学论文写作',
     'pipeline.fastDraft': '快速草稿',
     'pipeline.formalCheck': '形式检查',
     'pipeline.reasoningOnly': '仅推理',
@@ -596,12 +610,39 @@ function renderMarkdownLite(markdown) {
   return renderMarkdownDocument(markdown);
 }
 
+function renderPaperDraftPreview() {
+  if (!elements.paperDraft || !elements.paperDraftPreview) return;
+  const content = elements.paperDraft.value || '';
+  if (!content.trim()) {
+    elements.paperDraftPreview.innerHTML = `<p class="empty-state">${escapeHtml(translate('empty.previewPending'))}</p>`;
+    return;
+  }
+  elements.paperDraftPreview.innerHTML = renderMarkdownLite(content);
+  renderMath(elements.paperDraftPreview);
+}
+
+function setPaperDraftView(mode) {
+  const nextMode = mode === 'preview' ? 'preview' : 'edit';
+  elements.paperDraftViewChoices.forEach((choice) => {
+    const active = choice.dataset.paperDraftView === nextMode;
+    choice.classList.toggle('active', active);
+    choice.setAttribute('aria-pressed', String(active));
+  });
+  if (elements.paperDraft) elements.paperDraft.hidden = nextMode === 'preview';
+  if (elements.paperDraftPreview) elements.paperDraftPreview.hidden = nextMode !== 'preview';
+  if (nextMode === 'preview') renderPaperDraftPreview();
+}
+
 function setPaperTab(tabName) {
   elements.paperTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.paperTab === tabName));
+  elements.paperPanels.forEach((panel) => {
+    panel.classList.toggle('active', panel.dataset.paperPanel === tabName);
+  });
   elements.paperInputs.forEach((input) => {
     const active = input.dataset.paperInput === tabName;
     input.classList.toggle('active', active);
   });
+  if (tabName === 'draft') renderPaperDraftPreview();
 }
 
 function selectedPaperType() {
@@ -612,27 +653,161 @@ function paperInputValue(name) {
   return elements.paperInputs.find((input) => input.dataset.paperInput === name)?.value || '';
 }
 
+function optionalNumberValue(input) {
+  if (!input || !String(input.value || '').trim()) return null;
+  const value = Number(input.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+function normalizePaperOutputKind(kind) {
+  return paperOutputKinds.has(kind) ? kind : 'manuscript_draft';
+}
+
+function citationValueToText(value) {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  return JSON.stringify(value, null, 2);
+}
+
+function formatStructuredCitation(entry) {
+  if (typeof entry === 'string') return entry.trim();
+  if (!entry || typeof entry !== 'object') return '';
+  const authors = Array.isArray(entry.authors) ? entry.authors.join(', ') : entry.authors;
+  const title = entry.title ? `"${entry.title}"` : '';
+  const venue = entry.journal || entry.venue || entry.container_title || entry.container || entry.publisher;
+  const year = entry.year || entry.published || entry.date;
+  const doi = entry.doi ? `DOI: ${entry.doi}` : '';
+  const arxiv = entry.arxiv || entry.arxiv_id ? `arXiv: ${entry.arxiv || entry.arxiv_id}` : '';
+  const url = entry.url || entry.link || '';
+  return [authors, title, venue, year, doi, arxiv, url]
+    .filter(Boolean)
+    .join('. ')
+    .replace(/\s+/g, ' ')
+    .replace(/\.\s+\./g, '.')
+    .trim();
+}
+
+function cleanCitationItem(value) {
+  return value
+    .replace(/^\s*\[[^\]]+\]\s*/, '')
+    .replace(/^\s*\([^)]*\)\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractCitationItemsFromMarkdown(markdown) {
+  const lines = String(markdown || '').split(/\r?\n/);
+  const referenceHeading = /^(references|bibliography|works cited|cited items|cited references|validated references|citations|引用|参考文献)\b/i;
+  const auditHeading = /(missing|unused|lookup|task|audit|risk|unresolved|缺失|未使用|待查|任务|风险)/i;
+  const items = [];
+  let active = false;
+
+  lines.forEach((line) => {
+    const heading = line.match(/^\s*#{1,6}\s+(.+?)\s*$/);
+    if (heading) {
+      const title = heading[1].trim();
+      active = referenceHeading.test(title) && !auditHeading.test(title);
+      return;
+    }
+    if (!active) return;
+
+    const item = line.match(/^\s*(?:[-*+]|\d+[.)]|\[\d+\])\s+(.+?)\s*$/);
+    if (item) {
+      const cleaned = cleanCitationItem(item[1]);
+      if (cleaned) items.push(cleaned);
+      return;
+    }
+    const continuation = line.trim();
+    if (continuation && items.length) {
+      items[items.length - 1] = `${items[items.length - 1]} ${cleanCitationItem(continuation)}`;
+    }
+  });
+
+  return items;
+}
+
+function citationItemsFromValue(value) {
+  if (Array.isArray(value)) return value.map(formatStructuredCitation).filter(Boolean);
+  if (value && typeof value === 'object') {
+    const collection = value.references || value.citations || value.items || value.results;
+    if (Array.isArray(collection)) return collection.map(formatStructuredCitation).filter(Boolean);
+    const formatted = formatStructuredCitation(value);
+    if (formatted) return [formatted];
+  }
+  return extractCitationItemsFromMarkdown(citationValueToText(value));
+}
+
+function trimLinkedToken(value) {
+  const match = String(value || '').match(/^(.+?)([.,;:)]*)$/);
+  return match ? { core: match[1], suffix: match[2] } : { core: value, suffix: '' };
+}
+
+function citationLink(href, label) {
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
+}
+
+function linkifyCitationText(text) {
+  const links = [];
+  const stash = (href, label) => {
+    const token = `@@GALOIS_CITATION_LINK_${links.length}@@`;
+    links.push(citationLink(href, label));
+    return token;
+  };
+  let html = escapeHtml(text);
+  html = html.replace(/\bDOI:\s*(10\.\d{4,9}\/[^\s<]+)/gi, (_match, doi) => {
+    const { core, suffix } = trimLinkedToken(doi);
+    return `DOI: ${stash(`https://doi.org/${core}`, core)}${escapeHtml(suffix)}`;
+  });
+  html = html.replace(/\barXiv:\s*([a-z-]+\/\d{7}|[0-9]{4}\.[0-9]{4,5}(?:v\d+)?)/gi, (_match, arxivId) => {
+    const { core, suffix } = trimLinkedToken(arxivId);
+    return `arXiv: ${stash(`https://arxiv.org/abs/${core}`, core)}${escapeHtml(suffix)}`;
+  });
+  html = html.replace(/\bhttps?:\/\/[^\s<]+/g, (url) => {
+    const { core, suffix } = trimLinkedToken(url);
+    return `${stash(core, core)}${escapeHtml(suffix)}`;
+  });
+  return html.replace(/@@GALOIS_CITATION_LINK_(\d+)@@/g, (_match, index) => links[Number(index)] || '');
+}
+
+function renderCitationReport(value) {
+  const items = citationItemsFromValue(value);
+  if (!items.length) {
+    return `<section class="citation-output">${renderMarkdownLite(citationValueToText(value))}</section>`;
+  }
+  const list = items.map((item, index) => `<li><span class="citation-index">[${index + 1}]</span><span class="citation-text">${linkifyCitationText(item)}</span></li>`).join('');
+  return `<section class="citation-output"><h1>References</h1><ol class="citation-list">${list}</ol></section>`;
+}
+
 function renderPaperOutput(snapshot) {
   if (!elements.paperOutput) return;
+  state.paperOutputKind = normalizePaperOutputKind(state.paperOutputKind);
   const artifacts = snapshot?.output?.artifacts || {};
   const selected = artifacts[state.paperOutputKind];
   if (!selected) {
+    elements.paperOutput.classList.remove('citation-output-host');
     elements.paperOutput.innerHTML = `<p>${escapeHtml(translate('paper.outputPending'))}</p>`;
     return;
   }
-  const content = typeof selected.content === 'string' ? selected.content : JSON.stringify(selected.content, null, 2);
-  elements.paperOutput.innerHTML = renderMarkdownLite(content);
+  elements.paperOutput.classList.toggle('citation-output-host', state.paperOutputKind === 'citation_report');
+  if (state.paperOutputKind === 'citation_report') {
+    elements.paperOutput.innerHTML = renderCitationReport(selected.content);
+  } else {
+    const content = typeof selected.content === 'string' ? selected.content : JSON.stringify(selected.content, null, 2);
+    elements.paperOutput.innerHTML = renderMarkdownLite(content);
+  }
   renderMath(elements.paperOutput);
 }
 
 function updatePaperOutputChoice(kind) {
-  state.paperOutputKind = kind;
+  state.paperOutputKind = normalizePaperOutputKind(kind);
   elements.paperOutputChoices.forEach((choice) => {
-    choice.classList.toggle('active', choice.dataset.paperOutput === kind);
+    choice.classList.toggle('active', choice.dataset.paperOutput === state.paperOutputKind);
   });
+  if (state.lastWritingSnapshot) renderPaperOutput(state.lastWritingSnapshot);
 }
 
 function renderWritingSnapshot(snapshot) {
+  state.lastWritingSnapshot = snapshot;
   const status = snapshot.status || 'unknown';
   if (elements.paperStatusPill) {
     elements.paperStatusPill.textContent = snapshotStatusLabel(snapshot);
@@ -1217,12 +1392,10 @@ async function submitRun(event) {
 }
 
 async function submitWritingProject() {
-  const manuscript = paperInputValue('manuscript');
-  const theorem = paperInputValue('theorem');
-  const proof = paperInputValue('proof');
-  const bibliography = paperInputValue('bibliography');
+  const draft = paperInputValue('draft');
+  const references = paperInputValue('references');
   const reviewer = paperInputValue('reviewer');
-  if (![manuscript, theorem, proof, bibliography, reviewer].some((value) => value.trim())) {
+  if (![draft, references, reviewer].some((value) => value.trim())) {
     setPaperMessage(translate('paper.messageContentRequired'), 'error');
     return;
   }
@@ -1236,13 +1409,16 @@ async function submitWritingProject() {
       body: JSON.stringify({
         title: elements.paperTitle?.value.trim() || null,
         project_type: selectedPaperType(),
-        manuscript_markdown: manuscript,
-        theorem_statement: theorem,
-        proof_draft: proof,
-        bibliography,
+        draft_markdown: draft,
+        references_markdown: references,
         reviewer_comments: reviewer,
         target_journal: elements.paperJournal?.value.trim() || '',
         requested_work: elements.paperRequest?.value.trim() || translate('paper.requestedWorkPlaceholder'),
+        min_references: optionalNumberValue(elements.paperMinRefs),
+        max_references: optionalNumberValue(elements.paperMaxRefs),
+        min_pages: optionalNumberValue(elements.paperMinPages),
+        max_pages: optionalNumberValue(elements.paperMaxPages),
+        review_rounds: optionalNumberValue(elements.paperReviewRounds) ?? 1,
         model: elements.model.value,
       }),
     });
@@ -1293,6 +1469,10 @@ function wireEvents() {
   });
   elements.paperTabs.forEach((tab) => {
     tab.addEventListener('click', () => setPaperTab(tab.dataset.paperTab));
+  });
+  elements.paperDraft?.addEventListener('input', renderPaperDraftPreview);
+  elements.paperDraftViewChoices.forEach((choice) => {
+    choice.addEventListener('click', () => setPaperDraftView(choice.dataset.paperDraftView));
   });
   elements.paperOutputChoices.forEach((choice) => {
     choice.addEventListener('click', () => {
@@ -1357,6 +1537,8 @@ applyTheme(preferredTheme());
 applyLocale(supportedLocales.has(storageGet(languageStorageKey)) ? storageGet(languageStorageKey) : 'en');
 setView(getViewFromHash() || defaultView, { updateHash: false });
 if (elements.matlasResults && !elements.matlasResults.innerHTML.trim()) setMatlasResultsHidden(true);
+renderPaperDraftPreview();
+setPaperDraftView('edit');
 updateProblemPreview();
 loadRecentRuns()
   .then(() => restoreCurrentRun())
