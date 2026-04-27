@@ -14,6 +14,7 @@ from pathlib import Path
 from .benchmark import build_suite_plan, discover_reasoning_data_suite, load_suite, suite_to_dict, write_suite
 from .artifacts import (
     archive_reasoning_blueprint,
+    archive_writing_project,
     call_verification_api,
     next_artifact_revision,
     normalize_verification_response,
@@ -40,6 +41,7 @@ from .run_registry import (
 from .serialization import sanitize_for_run_artifact
 from .subagents import SubagentManager
 from .workflows import build_workflow_plan
+from .workflows import build_writing_workflow_plan
 
 
 @dataclass(slots=True)
@@ -114,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pipeline",
         choices=PIPELINE_CHOICES,
         default=None,
-        help="Top-level system combination. Supported values: reasoning-only, reasoning-verification.",
+        help="Top-level system combination. Supported values: reasoning-only, reasoning-verification, writing-only.",
     )
     plan_parser.add_argument("--reasoning-only", action="store_true", help="Run only natural-language reasoning.")
     plan_parser.add_argument(
@@ -160,7 +162,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pipeline",
         choices=PIPELINE_CHOICES,
         default=None,
-        help="Top-level system combination. Supported values: reasoning-only, reasoning-verification.",
+        help="Top-level system combination. Supported values: reasoning-only, reasoning-verification, writing-only.",
     )
     launch_parser.add_argument("--reasoning-only", action="store_true", help="Run only natural-language reasoning.")
     launch_parser.add_argument(
@@ -227,6 +229,8 @@ def cmd_show_config(config_path: Path | None) -> int:
     print(f"reasoning_enabled={config.reasoning.enabled}")
     print(f"verification_dir={config.verification.workdir}")
     print(f"verification_enabled={config.verification.enabled}")
+    print(f"writing_dir={config.writing.workdir}")
+    print(f"writing_enabled={config.writing.enabled}")
     print(f"max_repair_rounds={config.max_repair_rounds}")
     print(f"project_root={config.project_root}")
     print(f"run_root={config.run_root}")
@@ -425,6 +429,8 @@ def _resolve_run_feature_flags(
         verification_enabled = False
     elif selected_pipeline == PipelinePreset.REASONING_VERIFICATION:
         verification_enabled = True
+    elif selected_pipeline == PipelinePreset.WRITING_ONLY:
+        verification_enabled = False
     else:
         raise ValueError(f"unsupported pipeline: {selected_pipeline}")
 
@@ -467,6 +473,33 @@ def _prepare_verification_workspace(run_dir: Path, repo_root: Path) -> Path:
     for relative in ("memory", "results"):
         (workspace_dir / relative).mkdir(parents=True, exist_ok=True)
     return workspace_dir
+
+
+def _prepare_writing_workspace(run_dir: Path, repo_root: Path) -> Path:
+    workspace_dir = run_dir / "writing" / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+
+    for relative in ("memory", "results", "citations", "downloads"):
+        (workspace_dir / relative).mkdir(parents=True, exist_ok=True)
+    return workspace_dir
+
+
+def _stage_input_for_writing_workspace(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    problem: ProblemInput,
+) -> None:
+    source_path = Path(problem.problem_path)
+    if not source_path.is_absolute():
+        source_path = repo_root / source_path
+    source_path = source_path.resolve()
+    writing_input = run_dir / "writing" / "input.md"
+    if writing_input.exists():
+        return
+    if source_path.exists() and source_path != writing_input:
+        writing_input.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_path, writing_input)
 
 
 def _stage_problem_for_reasoning_workspace(
@@ -557,6 +590,7 @@ def _compute_run_metrics(run_dir: Path, results: list[WorkflowResult]) -> dict[s
         "total_runtime_seconds": 0,
         "reasoning_runtime_seconds": 0,
         "verification_runtime_seconds": 0,
+        "writing_runtime_seconds": 0,
         "reasoning_attempts": 0,
         "verification_calls": 0,
         "search_calls": 0,
@@ -574,6 +608,8 @@ def _compute_run_metrics(run_dir: Path, results: list[WorkflowResult]) -> dict[s
             metrics["reasoning_runtime_seconds"] += duration
         elif result.workflow == WorkflowKind.VERIFICATION.value:
             metrics["verification_runtime_seconds"] += duration
+        elif result.workflow == WorkflowKind.WRITING.value:
+            metrics["writing_runtime_seconds"] += duration
 
     events = _load_run_events(run_dir)
     metrics["reasoning_attempts"] = sum(1 for event in events if event.get("event_type") == "reasoning_iteration_started")
@@ -634,6 +670,7 @@ def _write_summary(run_dir: Path, results: list[WorkflowResult], feature_flags: 
             f"- total_runtime_seconds: `{metrics['total_runtime_seconds']}`",
             f"- reasoning_runtime_seconds: `{metrics['reasoning_runtime_seconds']}`",
             f"- verification_runtime_seconds: `{metrics['verification_runtime_seconds']}`",
+            f"- writing_runtime_seconds: `{metrics['writing_runtime_seconds']}`",
             f"- reasoning_attempts: `{metrics['reasoning_attempts']}`",
             f"- verification_calls: `{metrics['verification_calls']}`",
             f"- search_calls: `{metrics['search_calls']}`",
@@ -825,6 +862,31 @@ def _wire_reasoning_to_downstream(
     return normalized.decision
 
 
+def _wire_writing_to_downstream(
+    *,
+    run_dir: Path,
+    run_id: str,
+    problem: ProblemInput,
+) -> str:
+    revision = next_artifact_revision(run_dir, "writing", "paper_project_r*.json")
+    project = archive_writing_project(run_dir, problem, revision=revision)
+    append_event(
+        run_dir,
+        run_id=run_id,
+        workflow="writing",
+        event_type="artifact_collected",
+        payload={
+            "artifact": "paper_project",
+            "revision": revision,
+            "found": project.found,
+            "project_id": project.project_id,
+            "source_dir": project.source_dir,
+            "artifact_paths": project.artifact_paths or {},
+        },
+    )
+    return "writing_artifacts_collected" if project.found else "writing_artifacts_missing"
+
+
 def _find_launch(launches: list[WorkflowLaunch], kind: WorkflowKind) -> WorkflowLaunch | None:
     for launch in launches:
         if launch.kind == kind:
@@ -872,6 +934,11 @@ def cmd_plan_run(
         problem=problem,
         run_dir=run_dir,
         verification_enabled=feature_flags.verification_enabled,
+    ) if feature_flags.pipeline != PipelinePreset.WRITING_ONLY else build_writing_workflow_plan(
+        config=config,
+        paths=paths,
+        problem=problem,
+        run_dir=run_dir,
     )
     manifest.pipeline = feature_flags.pipeline
     manifest.features = _feature_payload(feature_flags)
@@ -915,6 +982,7 @@ def execute_run_workflows(
     final_status = RunStatus.SUCCEEDED
     service_error: str | None = None
     reasoning_launch = _find_launch(launches, WorkflowKind.REASONING)
+    writing_launch = _find_launch(launches, WorkflowKind.WRITING)
     try:
         verification_url: str | None = None
         for launch in launches:
@@ -932,7 +1000,7 @@ def execute_run_workflows(
                     verification_url = "http://127.0.0.1:8091/verify"
 
         for launch in launches:
-            if launch.mode == LaunchMode.SERVICE or launch.kind == WorkflowKind.REASONING:
+            if launch.mode == LaunchMode.SERVICE or launch.kind in {WorkflowKind.REASONING, WorkflowKind.WRITING}:
                 continue
             result = run_workflow(run_dir=run_dir, run_id=manifest.run_id, launch=launch, manager=manager)
             results.append(result)
@@ -1014,6 +1082,41 @@ def execute_run_workflows(
                     reasoning_workspace_dir(run_dir) / "contracts" / repair_path.name
                 )
                 reasoning_launch.environment["RESUME"] = "auto" if config.resume_enabled else "0"
+        if final_status == RunStatus.SUCCEEDED and writing_launch is not None:
+            append_event(
+                run_dir,
+                run_id=manifest.run_id,
+                workflow="writing",
+                event_type="writing_iteration_started",
+                payload={"attempt": 1},
+            )
+            print(f"[{writing_launch.kind.value}] status=running attempt=1")
+            writing_result = run_workflow(
+                run_dir=run_dir,
+                run_id=manifest.run_id,
+                launch=writing_launch,
+                manager=manager,
+            )
+            results.append(writing_result)
+            print(f"[{writing_result.workflow}] status={writing_result.status} exit_code={writing_result.exit_code}")
+            if writing_result.status != "succeeded":
+                final_status = RunStatus.FAILED
+            else:
+                decision = _wire_writing_to_downstream(
+                    run_dir=run_dir,
+                    run_id=manifest.run_id,
+                    problem=problem,
+                )
+                append_event(
+                    run_dir,
+                    run_id=manifest.run_id,
+                    workflow="writing",
+                    event_type="writing_iteration_finished",
+                    payload={
+                        "attempt": 1,
+                        "decision": decision,
+                    },
+                )
     except Exception as exc:
         final_status = RunStatus.FAILED
         service_error = str(exc)
@@ -1097,6 +1200,11 @@ def cmd_launch_run(
         problem=problem,
         run_dir=run_dir,
         verification_enabled=feature_flags.verification_enabled,
+    ) if feature_flags.pipeline != PipelinePreset.WRITING_ONLY else build_writing_workflow_plan(
+        config=config,
+        paths=paths,
+        problem=problem,
+        run_dir=run_dir,
     )
     if skip_services:
         launches = [launch for launch in launches if launch.mode.value != "service"]
@@ -1105,6 +1213,9 @@ def cmd_launch_run(
         _stage_problem_for_reasoning_workspace(run_dir=run_dir, repo_root=paths.repo_root, problem=problem)
     if _find_launch(launches, WorkflowKind.VERIFICATION) is not None:
         _prepare_verification_workspace(run_dir, paths.repo_root)
+    if _find_launch(launches, WorkflowKind.WRITING) is not None:
+        _prepare_writing_workspace(run_dir, paths.repo_root)
+        _stage_input_for_writing_workspace(run_dir=run_dir, repo_root=paths.repo_root, problem=problem)
     manifest.pipeline = feature_flags.pipeline
     manifest.features = _feature_payload(feature_flags)
     manifest.workflows = [launch.kind for launch in launches]

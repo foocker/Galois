@@ -13,6 +13,7 @@ from galois.platform.artifacts import (
     BlueprintArchiveResult,
     VerificationRequestResult,
     archive_reasoning_blueprint,
+    archive_writing_project,
     call_verification_api,
     next_artifact_revision,
     normalize_verification_response,
@@ -205,12 +206,128 @@ run_root = "{run_root}"
 def test_reasoning_and_verification_adapters_exist() -> None:
     from galois.reasoning.runner import run_reasoning_resume, vendored_reasoning_dir
     from galois.verification.service import app
+    from galois.writing.runner import run_writing_project, vendored_writing_dir
 
     repo_root = Path(__file__).resolve().parents[1]
     assert vendored_reasoning_dir(repo_root) == repo_root / "three_horse" / "reasoning"
+    assert vendored_writing_dir(repo_root) == repo_root / "three_horse" / "writing"
     assert callable(run_reasoning_resume)
+    assert callable(run_writing_project)
     assert not (repo_root / "three_horse" / "reasoning" / "tests" / "run_example_resume.sh").exists()
     assert app.title == "Verification Agent API"
+
+
+def test_writing_runner_builds_command_and_saves_session(tmp_path: Path) -> None:
+    from galois.writing.runner import run_writing_project
+
+    workdir = tmp_path / "writing-assets"
+    data_dir = workdir / "data"
+    data_dir.mkdir(parents=True)
+    (workdir / "AGENTS.md").write_text("writing instructions", encoding="utf-8")
+    (data_dir / "paper.md").write_text("# Paper\nDraft.", encoding="utf-8")
+
+    fake_codex = tmp_path / "fake_codex.py"
+    fake_codex.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import os, pathlib, sys",
+                "pathlib.Path('codex_args.txt').write_text('\\n'.join(sys.argv[1:]), encoding='utf-8')",
+                "prompt = sys.stdin.read()",
+                "pathlib.Path('codex_stdin.txt').write_text(prompt, encoding='utf-8')",
+                "project = pathlib.Path(os.environ['RESULTS_DIR']) / os.environ['GALOIS_WRITING_PROJECT_ID']",
+                "project.mkdir(parents=True, exist_ok=True)",
+                "(project / 'manuscript_draft.md').write_text('# Draft\\n', encoding='utf-8')",
+                "(project / 'review_report.md').write_text('# Review\\n', encoding='utf-8')",
+                "(project / 'citation_report.md').write_text('# Citations\\n', encoding='utf-8')",
+                "(project / 'revision_tasks.json').write_text('{\"tasks\": []}\\n', encoding='utf-8')",
+                "(project / 'export_bundle.json').write_text('{\"artifact_paths\": {}}\\n', encoding='utf-8')",
+                "print('session id: 123e4567-e89b-12d3-a456-426614174000')",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    runtime = tmp_path / "runtime"
+    session_file = tmp_path / "session.txt"
+    exit_code = run_writing_project(
+        repo_root=Path(__file__).resolve().parents[1],
+        workdir=workdir,
+        env={
+            "CODEX_BIN": str(fake_codex),
+            "WRITING_FILE": "data/paper.md",
+            "GALOIS_WRITING_PROJECT_ID": "paper",
+            "GALOIS_WRITING_RUNTIME_DIR": str(runtime),
+            "LOG_DIR": str(tmp_path / "logs"),
+            "RESULTS_DIR": str(runtime / "results"),
+            "SESSION_FILE": str(session_file),
+            "RESUME": "0",
+            "MODEL": "test-model",
+            "REASONING_EFFORT": "low",
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+        },
+    )
+
+    assert exit_code == 0
+    assert session_file.read_text(encoding="utf-8").strip() == "123e4567-e89b-12d3-a456-426614174000"
+    stdin_text = (runtime / "codex_stdin.txt").read_text(encoding="utf-8")
+    assert "Galois Paper Writing workflow" in stdin_text
+    assert "manuscript_draft.md" in stdin_text
+    assert (runtime / "results" / "paper" / "review_report.md").exists()
+
+
+def test_writing_workflow_plan_targets_three_horse_writing(tmp_path: Path) -> None:
+    from galois.platform.workflows import build_writing_workflow_plan
+
+    repo_root = Path(__file__).resolve().parents[1]
+    config = PlatformConfig(
+        backend="codex",
+        model="gpt-5.4",
+        model_reasoning_effort="xhigh",
+        personality="pragmatic",
+        codex=CodexConfig(bin="codex", base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY"),
+        reasoning=WorkflowAreaConfig(enabled=True, workdir="three_horse/reasoning"),
+        verification=WorkflowAreaConfig(enabled=True, workdir="three_horse/verification"),
+        writing=WorkflowAreaConfig(enabled=True, workdir="three_horse/writing"),
+        resume_enabled=True,
+        max_repair_rounds=1,
+        benchmark_root="benchmarks",
+        run_root=str(tmp_path / "runs"),
+        project_root=str(tmp_path),
+        config_path=tmp_path / "config.toml",
+        repo_root=repo_root,
+    )
+    paths = resolve_paths(config)
+    run_dir = tmp_path / "runs" / "run-1"
+    problem = ProblemInput(problem_id="paper", problem_path="three_horse/writing/data/example.md", title="Paper")
+
+    launches = build_writing_workflow_plan(config=config, paths=paths, problem=problem, run_dir=run_dir)
+
+    assert [launch.kind for launch in launches] == [WorkflowKind.WRITING]
+    launch = launches[0]
+    assert launch.cwd == str(repo_root / "three_horse" / "writing")
+    assert launch.environment["WRITING_FILE"] == str(run_dir / "writing" / "input.md")
+    assert launch.environment["GALOIS_WRITING_PROJECT_ID"] == "paper"
+    assert "galois.writing.runner" in " ".join(launch.arguments)
+
+
+def test_archive_writing_project_copies_standard_artifacts(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    project_dir = run_dir / "writing" / "workspace" / "results" / "paper"
+    project_dir.mkdir(parents=True)
+    (project_dir / "manuscript_draft.md").write_text("# Draft\n", encoding="utf-8")
+    (project_dir / "review_report.md").write_text("# Review\n", encoding="utf-8")
+    (project_dir / "citation_report.md").write_text("# Citations\n", encoding="utf-8")
+    (project_dir / "revision_tasks.json").write_text('{"tasks": []}\n', encoding="utf-8")
+    (project_dir / "export_bundle.json").write_text('{"artifact_paths": {}}\n', encoding="utf-8")
+
+    result = archive_writing_project(run_dir, ProblemInput(problem_id="paper", problem_path="paper.md"), revision=1)
+
+    assert result.found is True
+    assert (run_dir / "writing" / "manuscript_draft_r1.md").read_text(encoding="utf-8") == "# Draft\n"
+    assert (run_dir / "writing" / "paper_project_r1.json").exists()
 
 
 def test_reasoning_runner_builds_resume_command_and_saves_session(tmp_path: Path) -> None:
@@ -360,6 +477,7 @@ def test_copy_problem_artifacts_translates_non_english_statement_to_canonical_en
         codex=CodexConfig(bin="codex", base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY"),
         reasoning=WorkflowAreaConfig(enabled=True, workdir="three_horse/reasoning"),
         verification=WorkflowAreaConfig(enabled=True, workdir="three_horse/verification"),
+        writing=WorkflowAreaConfig(enabled=True, workdir="three_horse/writing"),
         resume_enabled=True,
         max_repair_rounds=1,
         benchmark_root="benchmarks",
@@ -720,6 +838,7 @@ def test_build_workflow_plan_normalizes_reasoning_problem_path() -> None:
         codex=CodexConfig(bin="codex", base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY"),
         reasoning=WorkflowAreaConfig(enabled=True, workdir="three_horse/reasoning"),
         verification=WorkflowAreaConfig(enabled=True, workdir="three_horse/verification"),
+        writing=WorkflowAreaConfig(enabled=True, workdir="three_horse/writing"),
         resume_enabled=True,
         max_repair_rounds=1,
         benchmark_root="benchmarks",
@@ -757,6 +876,7 @@ def test_run_workflow_captures_stdout_stderr_and_events(tmp_path: Path) -> None:
         codex=CodexConfig(bin="codex", base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY"),
         reasoning=WorkflowAreaConfig(enabled=False, workdir="three_horse/reasoning"),
         verification=WorkflowAreaConfig(enabled=False, workdir="three_horse/verification"),
+        writing=WorkflowAreaConfig(enabled=True, workdir="three_horse/writing"),
         resume_enabled=True,
         max_repair_rounds=1,
         benchmark_root="benchmarks",
@@ -779,6 +899,7 @@ def test_run_workflow_captures_stdout_stderr_and_events(tmp_path: Path) -> None:
             codex=config.codex,
             reasoning=WorkflowAreaConfig(enabled=True, workdir="three_horse/reasoning"),
             verification=WorkflowAreaConfig(enabled=False, workdir="three_horse/verification"),
+            writing=WorkflowAreaConfig(enabled=True, workdir="three_horse/writing"),
             resume_enabled=config.resume_enabled,
             max_repair_rounds=config.max_repair_rounds,
             benchmark_root=config.benchmark_root,
@@ -1392,6 +1513,7 @@ def test_build_workflow_plan_can_disable_verification_service() -> None:
         codex=CodexConfig(bin="codex", base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY"),
         reasoning=WorkflowAreaConfig(enabled=True, workdir="three_horse/reasoning"),
         verification=WorkflowAreaConfig(enabled=True, workdir="three_horse/verification"),
+        writing=WorkflowAreaConfig(enabled=True, workdir="three_horse/writing"),
         resume_enabled=True,
         max_repair_rounds=1,
         benchmark_root="benchmarks",
@@ -1430,6 +1552,7 @@ def test_build_workflow_plan_stages_external_problem_under_run_workspace(tmp_pat
         codex=CodexConfig(bin="codex", base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY"),
         reasoning=WorkflowAreaConfig(enabled=True, workdir="three_horse/reasoning"),
         verification=WorkflowAreaConfig(enabled=False, workdir="three_horse/verification"),
+        writing=WorkflowAreaConfig(enabled=True, workdir="three_horse/writing"),
         resume_enabled=True,
         max_repair_rounds=1,
         benchmark_root="benchmarks",

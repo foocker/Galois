@@ -49,6 +49,14 @@ class ReasoningRepairInputResult:
     path: str | None = None
 
 
+@dataclass(slots=True)
+class WritingArchiveResult:
+    found: bool
+    project_id: str
+    source_dir: str | None = None
+    artifact_paths: dict[str, str] | None = None
+
+
 def resolve_problem_statement(problem: ProblemInput, repo_root: Path, run_dir: Path | None = None) -> tuple[str, Path]:
     if run_dir is not None:
         staged_path = run_dir / "problem" / "statement.md"
@@ -67,6 +75,10 @@ def reasoning_problem_id(problem: ProblemInput) -> str:
 
 def reasoning_workspace_dir(run_dir: Path) -> Path:
     return run_dir / "reasoning" / "workspace"
+
+
+def writing_workspace_dir(run_dir: Path) -> Path:
+    return run_dir / "writing" / "workspace"
 
 
 def next_artifact_revision(run_dir: Path, workflow: str, pattern: str) -> int:
@@ -149,6 +161,72 @@ def archive_reasoning_blueprint(run_dir: Path, problem: ProblemInput, revision: 
         markdown_path=str(destination_md),
         json_path=str(destination_json),
         content=content,
+    )
+
+
+def discover_writing_project_dir(run_dir: Path, problem: ProblemInput) -> Path | None:
+    candidates = [
+        writing_workspace_dir(run_dir) / "results" / problem.problem_id,
+        run_dir / "writing" / "results" / problem.problem_id,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    results_root = writing_workspace_dir(run_dir) / "results"
+    if not results_root.exists():
+        return None
+    discovered = sorted(candidate for candidate in results_root.iterdir() if candidate.is_dir())
+    return discovered[0] if discovered else None
+
+
+def archive_writing_project(run_dir: Path, problem: ProblemInput, revision: int = 1) -> WritingArchiveResult:
+    source_dir = discover_writing_project_dir(run_dir, problem)
+    if source_dir is None:
+        return WritingArchiveResult(found=False, project_id=problem.problem_id)
+
+    artifact_names = (
+        "manuscript_draft.md",
+        "review_report.md",
+        "citation_report.md",
+        "revision_tasks.json",
+        "export_bundle.json",
+    )
+    destination_dir = run_dir / "writing"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    artifact_paths: dict[str, str] = {}
+    for name in artifact_names:
+        source_path = source_dir / name
+        if not source_path.exists():
+            continue
+        destination_path = destination_dir / f"{Path(name).stem}_r{revision}{Path(name).suffix}"
+        shutil.copyfile(source_path, destination_path)
+        artifact_paths[name] = str(destination_path)
+
+    manifest_path = destination_dir / f"paper_project_r{revision}.json"
+    manifest_path.write_text(
+        json.dumps(
+            sanitize_for_run_artifact(
+                {
+                    "project_id": problem.problem_id,
+                    "revision": revision,
+                    "source_dir": str(source_dir),
+                    "artifact_paths": artifact_paths,
+                },
+                run_dir=run_dir,
+            ),
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    artifact_paths["paper_project"] = str(manifest_path)
+    return WritingArchiveResult(
+        found=bool(artifact_paths),
+        project_id=problem.problem_id,
+        source_dir=str(source_dir),
+        artifact_paths=artifact_paths,
     )
 
 

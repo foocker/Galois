@@ -1,8 +1,11 @@
 const state = {
   currentRunId: null,
+  currentWritingRunId: null,
   pollHandle: null,
+  writingPollHandle: null,
   runs: [],
   proofMarkdown: '',
+  paperOutputKind: 'manuscript_draft',
 };
 
 const elements = {
@@ -39,6 +42,19 @@ const elements = {
   matlasCount: document.querySelector('#matlas-count'),
   matlasMessage: document.querySelector('#matlas-message'),
   matlasResults: document.querySelector('#matlas-results'),
+  paperTypeChoices: [...document.querySelectorAll('input[name="paper-type"]')],
+  paperTitle: document.querySelector('#paper-title-input'),
+  paperJournal: document.querySelector('#paper-journal-input'),
+  paperRequest: document.querySelector('#paper-request-input'),
+  paperSubmit: document.querySelector('#paper-submit-button'),
+  paperMessage: document.querySelector('#paper-message'),
+  paperTabs: [...document.querySelectorAll('[data-paper-tab]')],
+  paperInputs: [...document.querySelectorAll('[data-paper-input]')],
+  paperStatusPill: document.querySelector('#paper-status-pill'),
+  paperRunId: document.querySelector('#paper-run-id'),
+  paperRunPipeline: document.querySelector('#paper-run-pipeline'),
+  paperOutputChoices: [...document.querySelectorAll('[data-paper-output]')],
+  paperOutput: document.querySelector('#paper-output'),
 };
 
 const defaultView = 'problem-solving';
@@ -50,6 +66,7 @@ const viewNames = new Set(['problem-solving', 'dashboard', 'math-learning', 'the
 const languageStorageKey = 'galois-language';
 const themeStorageKey = 'galois-theme';
 const currentRunStorageKey = 'galois-current-run-id';
+const currentWritingRunStorageKey = 'galois-current-writing-run-id';
 const supportedLocales = new Set(['en', 'zh']);
 const supportedThemes = new Set(['light', 'dark']);
 const rootElement = document.documentElement || { lang: 'en', dataset: {} };
@@ -101,6 +118,38 @@ const translations = {
     'nav.problemSolving': 'Problem Solving',
     'nav.theoremSearching': 'Theorem Searching',
     'output.proofDocument': 'Proof Document',
+    'paper.agentOutput': 'Agent Output',
+    'paper.bibliographyPlaceholder': 'Paste BibTeX or a literature list here.',
+    'paper.manuscriptPlaceholder': 'Paste or write your LaTeX/Markdown manuscript draft here.',
+    'paper.messageContentRequired': 'Add manuscript, theorem, proof, bibliography, or reviewer comments first.',
+    'paper.messageQueued': 'Writing project queued.',
+    'paper.messageSubmitting': 'Starting writing agent...',
+    'paper.modePaper': 'Paper',
+    'paper.modeResponse': 'Response',
+    'paper.modeSurvey': 'Survey',
+    'paper.modeThesis': 'Thesis',
+    'paper.outputCitations': 'Citations',
+    'paper.outputEmpty': 'Writing agent output will appear here.',
+    'paper.outputManuscript': 'Manuscript',
+    'paper.outputPending': 'Waiting for writing artifacts...',
+    'paper.outputReview': 'Review',
+    'paper.projectTitle': 'Project Title',
+    'paper.projectTitlePlaceholder': 'Compactness and extrema',
+    'paper.proofPlaceholder': 'Paste the proof draft here.',
+    'paper.requestFailed': 'Writing project could not be started.',
+    'paper.requestedWork': 'Requested Work',
+    'paper.requestedWorkPlaceholder': 'Review and improve this mathematical manuscript.',
+    'paper.reviewerPlaceholder': 'Paste reviewer comments here.',
+    'paper.start': 'Start Writing Agent',
+    'paper.tabBibliography': 'Bibliography',
+    'paper.tabManuscript': 'Manuscript',
+    'paper.tabProof': 'Proof',
+    'paper.tabReviewer': 'Reviewer',
+    'paper.tabTheorem': 'Theorem',
+    'paper.targetJournal': 'Target Journal',
+    'paper.targetJournalPlaceholder': 'Not specified',
+    'paper.theoremPlaceholder': 'Paste the main theorem statement here.',
+    'paper.title': 'Mathematical Paper Workspace',
     'pipeline.fastDraft': 'Fast Draft',
     'pipeline.formalCheck': 'Formal Check',
     'pipeline.reasoningOnly': 'Reasoning-Only',
@@ -183,6 +232,38 @@ const translations = {
     'nav.problemSolving': '问题求解',
     'nav.theoremSearching': '定理搜索',
     'output.proofDocument': '证明文档',
+    'paper.agentOutput': 'Agent 输出',
+    'paper.bibliographyPlaceholder': '在这里粘贴 BibTeX 或文献列表。',
+    'paper.manuscriptPlaceholder': '在这里粘贴或撰写 LaTeX/Markdown 论文草稿。',
+    'paper.messageContentRequired': '请先加入正文、定理、证明、参考文献或审稿意见。',
+    'paper.messageQueued': '论文写作项目已排队。',
+    'paper.messageSubmitting': '正在启动写作 agent...',
+    'paper.modePaper': '论文',
+    'paper.modeResponse': '回复',
+    'paper.modeSurvey': '综述',
+    'paper.modeThesis': '学位论文',
+    'paper.outputCitations': '引用',
+    'paper.outputEmpty': '写作 agent 输出会显示在这里。',
+    'paper.outputManuscript': '正文',
+    'paper.outputPending': '等待写作产物生成...',
+    'paper.outputReview': '评审',
+    'paper.projectTitle': '项目标题',
+    'paper.projectTitlePlaceholder': '紧性与极值',
+    'paper.proofPlaceholder': '在这里粘贴证明草稿。',
+    'paper.requestFailed': '论文写作项目启动失败。',
+    'paper.requestedWork': '写作任务',
+    'paper.requestedWorkPlaceholder': '评审并改进这份数学论文草稿。',
+    'paper.reviewerPlaceholder': '在这里粘贴审稿意见。',
+    'paper.start': '启动写作 Agent',
+    'paper.tabBibliography': '参考文献',
+    'paper.tabManuscript': '正文',
+    'paper.tabProof': '证明',
+    'paper.tabReviewer': '审稿意见',
+    'paper.tabTheorem': '定理',
+    'paper.targetJournal': '目标期刊',
+    'paper.targetJournalPlaceholder': '未指定',
+    'paper.theoremPlaceholder': '在这里粘贴主定理陈述。',
+    'paper.title': '数学论文写作工作台',
     'pipeline.fastDraft': '快速草稿',
     'pipeline.formalCheck': '形式检查',
     'pipeline.reasoningOnly': '仅推理',
@@ -303,9 +384,20 @@ function setMessage(text, tone = 'neutral') {
   elements.message.dataset.tone = tone;
 }
 
+function setPaperMessage(text, tone = 'neutral') {
+  if (!elements.paperMessage) return;
+  elements.paperMessage.textContent = text;
+  elements.paperMessage.dataset.tone = tone;
+}
+
 function setSubmitDisabled(disabled) {
   elements.submit.disabled = disabled;
   elements.submitProxy.disabled = disabled;
+}
+
+function setPaperSubmitDisabled(disabled) {
+  if (!elements.paperSubmit) return;
+  elements.paperSubmit.disabled = disabled;
 }
 
 function getViewFromHash() {
@@ -502,6 +594,53 @@ function renderMarkdownDocument(markdown) {
 
 function renderMarkdownLite(markdown) {
   return renderMarkdownDocument(markdown);
+}
+
+function setPaperTab(tabName) {
+  elements.paperTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.paperTab === tabName));
+  elements.paperInputs.forEach((input) => {
+    const active = input.dataset.paperInput === tabName;
+    input.classList.toggle('active', active);
+  });
+}
+
+function selectedPaperType() {
+  return elements.paperTypeChoices.find((choice) => choice.checked)?.value || 'paper';
+}
+
+function paperInputValue(name) {
+  return elements.paperInputs.find((input) => input.dataset.paperInput === name)?.value || '';
+}
+
+function renderPaperOutput(snapshot) {
+  if (!elements.paperOutput) return;
+  const artifacts = snapshot?.output?.artifacts || {};
+  const selected = artifacts[state.paperOutputKind];
+  if (!selected) {
+    elements.paperOutput.innerHTML = `<p>${escapeHtml(translate('paper.outputPending'))}</p>`;
+    return;
+  }
+  const content = typeof selected.content === 'string' ? selected.content : JSON.stringify(selected.content, null, 2);
+  elements.paperOutput.innerHTML = renderMarkdownLite(content);
+  renderMath(elements.paperOutput);
+}
+
+function updatePaperOutputChoice(kind) {
+  state.paperOutputKind = kind;
+  elements.paperOutputChoices.forEach((choice) => {
+    choice.classList.toggle('active', choice.dataset.paperOutput === kind);
+  });
+}
+
+function renderWritingSnapshot(snapshot) {
+  const status = snapshot.status || 'unknown';
+  if (elements.paperStatusPill) {
+    elements.paperStatusPill.textContent = snapshotStatusLabel(snapshot);
+    elements.paperStatusPill.className = `status-pill ${status}`;
+  }
+  if (elements.paperRunId) elements.paperRunId.textContent = snapshot.run_id || '—';
+  if (elements.paperRunPipeline) elements.paperRunPipeline.textContent = snapshot.pipeline || 'writing-only';
+  renderPaperOutput(snapshot);
 }
 
 function renderMathFallback(container) {
@@ -825,6 +964,11 @@ function clearCurrentRunStorage(runId = null) {
   storageRemove(currentRunStorageKey);
 }
 
+function clearCurrentWritingRunStorage(runId = null) {
+  if (runId && storageGet(currentWritingRunStorageKey) !== runId) return;
+  storageRemove(currentWritingRunStorageKey);
+}
+
 function resetRunStatus() {
   elements.currentTitle.textContent = translate('status.noActiveRun');
   elements.statusPill.textContent = translate('status.idle');
@@ -849,6 +993,13 @@ function stopPolling() {
   if (state.pollHandle) {
     clearInterval(state.pollHandle);
     state.pollHandle = null;
+  }
+}
+
+function stopWritingPolling() {
+  if (state.writingPollHandle) {
+    clearInterval(state.writingPollHandle);
+    state.writingPollHandle = null;
   }
 }
 
@@ -914,6 +1065,20 @@ async function pollRun(runId) {
   }
 }
 
+async function pollWritingRun(runId) {
+  const snapshot = await fetchJson(`/api/runs/${encodeURIComponent(runId)}`);
+  renderWritingSnapshot(snapshot);
+  if (['succeeded', 'failed'].includes(snapshot.status)) {
+    stopWritingPolling();
+    if (state.currentWritingRunId === runId) {
+      state.currentWritingRunId = null;
+      clearCurrentWritingRunStorage(runId);
+    }
+    setPaperSubmitDisabled(false);
+    await loadRecentRuns();
+  }
+}
+
 function startPolling(runId, viewName = defaultView) {
   state.currentRunId = runId;
   storageSet(currentRunStorageKey, runId);
@@ -922,6 +1087,17 @@ function startPolling(runId, viewName = defaultView) {
   pollRun(runId).catch((error) => setMessage(error.message, 'error'));
   state.pollHandle = setInterval(() => {
     pollRun(runId).catch((error) => setMessage(error.message, 'error'));
+  }, 2500);
+}
+
+function startWritingPolling(runId) {
+  state.currentWritingRunId = runId;
+  storageSet(currentWritingRunStorageKey, runId);
+  setView('paper-writing');
+  if (state.writingPollHandle) clearInterval(state.writingPollHandle);
+  pollWritingRun(runId).catch((error) => setPaperMessage(error.message, 'error'));
+  state.writingPollHandle = setInterval(() => {
+    pollWritingRun(runId).catch((error) => setPaperMessage(error.message, 'error'));
   }, 2500);
 }
 
@@ -961,6 +1137,23 @@ async function restoreCurrentRun() {
       setMessage(error.message, 'error');
     }
     return;
+  }
+}
+
+async function restoreCurrentWritingRun() {
+  const savedRunId = storageGet(currentWritingRunStorageKey);
+  if (!savedRunId) return;
+  try {
+    const snapshot = await fetchJson(`/api/runs/${encodeURIComponent(savedRunId)}`);
+    if (isActiveRun(snapshot)) {
+      startWritingPolling(savedRunId);
+    } else {
+      renderWritingSnapshot(snapshot);
+      clearCurrentWritingRunStorage(savedRunId);
+    }
+  } catch (error) {
+    clearCurrentWritingRunStorage(savedRunId);
+    setPaperMessage(error.message, 'error');
   }
 }
 
@@ -1023,6 +1216,52 @@ async function submitRun(event) {
   }
 }
 
+async function submitWritingProject() {
+  const manuscript = paperInputValue('manuscript');
+  const theorem = paperInputValue('theorem');
+  const proof = paperInputValue('proof');
+  const bibliography = paperInputValue('bibliography');
+  const reviewer = paperInputValue('reviewer');
+  if (![manuscript, theorem, proof, bibliography, reviewer].some((value) => value.trim())) {
+    setPaperMessage(translate('paper.messageContentRequired'), 'error');
+    return;
+  }
+
+  setPaperSubmitDisabled(true);
+  setPaperMessage(translate('paper.messageSubmitting'));
+  try {
+    const created = await fetchJson('/api/writing/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: elements.paperTitle?.value.trim() || null,
+        project_type: selectedPaperType(),
+        manuscript_markdown: manuscript,
+        theorem_statement: theorem,
+        proof_draft: proof,
+        bibliography,
+        reviewer_comments: reviewer,
+        target_journal: elements.paperJournal?.value.trim() || '',
+        requested_work: elements.paperRequest?.value.trim() || translate('paper.requestedWorkPlaceholder'),
+        model: elements.model.value,
+      }),
+    });
+    setPaperMessage(`${translate('paper.messageQueued')}: ${created.run_id}`);
+    renderWritingSnapshot({
+      run_id: created.run_id,
+      status: 'queued',
+      pipeline: created.pipeline,
+      model: created.model,
+      output: null,
+    });
+    startWritingPolling(created.run_id);
+    await loadRecentRuns();
+  } catch (error) {
+    setPaperSubmitDisabled(false);
+    setPaperMessage(`${translate('paper.requestFailed')} ${error.message}`, 'error');
+  }
+}
+
 function wireEvents() {
   elements.viewButtons.forEach((item) => {
     item.addEventListener('click', () => {
@@ -1051,6 +1290,20 @@ function wireEvents() {
     const button = event.target.closest('[data-matlas-feedback]');
     if (!button) return;
     sendMatlasFeedback(button);
+  });
+  elements.paperTabs.forEach((tab) => {
+    tab.addEventListener('click', () => setPaperTab(tab.dataset.paperTab));
+  });
+  elements.paperOutputChoices.forEach((choice) => {
+    choice.addEventListener('click', () => {
+      updatePaperOutputChoice(choice.dataset.paperOutput);
+      if (state.currentWritingRunId) {
+        pollWritingRun(state.currentWritingRunId).catch((error) => setPaperMessage(error.message, 'error'));
+      }
+    });
+  });
+  elements.paperSubmit?.addEventListener('click', () => {
+    submitWritingProject().catch((error) => setPaperMessage(error.message, 'error'));
   });
   elements.markdown.addEventListener('input', updateProblemPreview);
   elements.copyProofMarkdown.addEventListener('click', () => {
@@ -1107,4 +1360,5 @@ if (elements.matlasResults && !elements.matlasResults.innerHTML.trim()) setMatla
 updateProblemPreview();
 loadRecentRuns()
   .then(() => restoreCurrentRun())
+  .then(() => restoreCurrentWritingRun())
   .catch((error) => setMessage(error.message, 'error'));

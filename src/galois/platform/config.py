@@ -64,6 +64,7 @@ class PlatformConfig:
     codex: CodexConfig
     reasoning: WorkflowAreaConfig
     verification: WorkflowAreaConfig
+    writing: WorkflowAreaConfig
     resume_enabled: bool
     max_repair_rounds: int
     benchmark_root: str
@@ -154,6 +155,10 @@ def load_config(path: Path | None = None) -> PlatformConfig:
         verification=WorkflowAreaConfig(
             enabled=bool(raw["verification"]["enabled"]),
             workdir=str(raw["verification"]["workdir"]),
+        ),
+        writing=WorkflowAreaConfig(
+            enabled=bool(raw.get("writing", {}).get("enabled", True)),
+            workdir=str(raw.get("writing", {}).get("workdir", "three_horse/writing")),
         ),
         resume_enabled=bool(raw["platform"]["resume_enabled"]),
         max_repair_rounds=int(raw["platform"].get("max_repair_rounds", 1)),

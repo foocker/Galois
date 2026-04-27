@@ -41,6 +41,10 @@ workdir = "three_horse/reasoning"
 enabled = true
 workdir = "three_horse/verification"
 
+[writing]
+enabled = true
+workdir = "three_horse/writing"
+
 [platform]
 resume_enabled = true
 max_repair_rounds = 1
@@ -114,6 +118,9 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert 'data-view="math-learning"' in response.text
     assert 'data-view="theorem-searching"' in response.text
     assert 'data-view="paper-writing"' in response.text
+    assert 'class="paper-writing-view app-view" data-view="paper-writing"' in response.text
+    assert 'id="paper-submit-button"' in response.text
+    assert 'id="paper-manuscript"' in response.text
     assert 'id="ledger-runs"' in response.text
     assert 'id="problem-preview"' in response.text
     assert 'id="proof-sheet" class="output-sheet" aria-labelledby="output-title" hidden' in response.text
@@ -244,6 +251,49 @@ def test_frontend_sanitizes_local_artifact_paths(tmp_path: Path) -> None:
     assert "problemSource" not in response.text
 
 
+def test_writing_project_api_creates_independent_writing_run(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example.test/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    launches = []
+
+    def fake_start_run_thread(**kwargs):
+      launches.append(kwargs)
+
+    monkeypatch.setattr(web, "_start_run_thread", fake_start_run_thread)
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post(
+        "/api/writing/projects",
+        json={
+            "title": "Compactness paper",
+            "project_type": "paper",
+            "manuscript_markdown": "We prove the result.",
+            "theorem_statement": "Let $X$ be compact.",
+            "proof_draft": "Use compact image.",
+            "bibliography": "",
+            "reviewer_comments": "",
+            "target_journal": "",
+            "requested_work": "Improve and review.",
+            "model": "gpt-5.4",
+        },
+    )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["pipeline"] == "writing-only"
+    assert payload["project_id"] == "compactness-paper"
+    assert launches
+    launch = launches[0]["launches"][0]
+    assert launch.kind.value == "writing"
+    assert launches[0]["feature_flags"].pipeline.value == "writing-only"
+    input_path = Path(payload["input_path"])
+    assert input_path.exists()
+    assert "## Manuscript Draft" in input_path.read_text(encoding="utf-8")
+
+
 def test_matlas_search_proxy_posts_to_public_api(monkeypatch, tmp_path: Path) -> None:
     from galois.platform import web
 
@@ -302,6 +352,105 @@ def test_matlas_feedback_proxy_posts_relevance_label(monkeypatch, tmp_path: Path
             {"query": "Riemann hypothesis", "candidate_id": "candidate-1", "label": "relevant"},
         )
     ]
+
+
+def test_citation_lookup_api_resolves_identifier(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    calls = []
+
+    class FakeCitationLookupService:
+        def __init__(self, **kwargs):
+            calls.append(("init", kwargs))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return None
+
+        def resolve(self, identifier, sources=None):
+            calls.append(("resolve", identifier, sources))
+            return {"identifier": identifier, "sources": sources, "verification_level": "metadata_found"}
+
+    monkeypatch.setattr(web, "CitationLookupService", FakeCitationLookupService)
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post(
+        "/api/citations/resolve",
+        json={"identifier": "10.1234/example", "sources": ["crossref"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["verification_level"] == "metadata_found"
+    assert calls[1] == ("resolve", "10.1234/example", ["crossref"])
+
+
+def test_citation_lookup_api_searches_sources(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    calls = []
+
+    class FakeCitationLookupService:
+        def __init__(self, **kwargs):
+            calls.append(("init", kwargs))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return None
+
+        def search(self, query, sources=None, limit=10):
+            calls.append(("search", query, sources, limit))
+            return {"query": query, "sources": sources, "records": [{"source": "arxiv", "status": "ok"}]}
+
+    monkeypatch.setattr(web, "CitationLookupService", FakeCitationLookupService)
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post(
+        "/api/citations/search",
+        json={"query": "compactness theorem", "sources": ["arxiv"], "limit": 5},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["records"] == [{"source": "arxiv", "status": "ok"}]
+    assert calls[1] == ("search", "compactness theorem", ["arxiv"], 5)
+
+
+def test_citation_lookup_api_validates_bibtex(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    calls = []
+
+    class FakeCitationLookupService:
+        def __init__(self, **kwargs):
+            calls.append(("init", kwargs))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return None
+
+        def validate_bibtex(self, bibtex, sources=None):
+            calls.append(("validate", bibtex, sources))
+            return {"entry_count": 1, "entries": [{"key": "x", "status": "verified"}]}
+
+    monkeypatch.setattr(web, "CitationLookupService", FakeCitationLookupService)
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post(
+        "/api/citations/validate",
+        json={"bibtex": "@article{x, title={T}, author={A}, year={2024}, doi={10.1/x}}", "sources": ["crossref"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["entries"][0]["status"] == "verified"
+    assert calls[1][0] == "validate"
 
 
 def test_frontend_matlas_search_renders_returned_results() -> None:

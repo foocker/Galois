@@ -111,6 +111,59 @@ def build_verification_launch(
         healthcheck_url="http://127.0.0.1:8091/health",
     )
 
+
+def _writing_input_path(problem: ProblemInput, paths: RepoPaths, run_dir: Path | None = None) -> str:
+    if run_dir is not None:
+        return str(run_dir / "writing" / "input.md")
+    return _resolve_problem_path(problem, paths).as_posix()
+
+
+def build_writing_launch(
+    *,
+    config: PlatformConfig,
+    paths: RepoPaths,
+    problem: ProblemInput,
+    run_dir: Path | None = None,
+) -> WorkflowLaunch:
+    cwd = paths.writing_dir
+    runtime_dir = cwd if run_dir is None else run_dir / "writing" / "workspace"
+    environment = {
+        "CODEX_BIN": config.codex.bin,
+        "MODEL": config.model,
+        "REASONING_EFFORT": config.model_reasoning_effort,
+        "WRITING_FILE": _writing_input_path(problem, paths, run_dir=run_dir),
+        "GALOIS_WRITING_PROJECT_ID": problem.problem_id,
+        "RESUME": "auto" if config.resume_enabled else "0",
+        **model_runtime_environment(config),
+    }
+    if run_dir is not None:
+        environment.update(
+            {
+                "GALOIS_WRITING_RUNTIME_DIR": str(runtime_dir),
+                "LOG_DIR": str(run_dir / "writing" / "logs"),
+                "RESULTS_DIR": str(runtime_dir / "results"),
+                "MEMORY_DIR": str(runtime_dir / "memory"),
+                "CITATIONS_DIR": str(runtime_dir / "citations"),
+                "DOWNLOADS_DIR": str(runtime_dir / "downloads"),
+                "SESSION_FILE": str(run_dir / "writing" / "session.txt"),
+            }
+        )
+    return WorkflowLaunch(
+        kind=WorkflowKind.WRITING,
+        cwd=str(cwd),
+        entrypoint=sys.executable,
+        arguments=[
+            "-m",
+            "galois.writing.runner",
+            "--repo-root",
+            str(paths.repo_root),
+            "--workdir",
+            str(cwd),
+        ],
+        environment=environment,
+    )
+
+
 def build_workflow_plan(
     *,
     config: PlatformConfig,
@@ -134,3 +187,15 @@ def build_workflow_plan(
     if effective_verification_enabled:
         launches.append(build_verification_launch(config=config, paths=paths, run_dir=run_dir))
     return launches
+
+
+def build_writing_workflow_plan(
+    *,
+    config: PlatformConfig,
+    paths: RepoPaths,
+    problem: ProblemInput,
+    run_dir: Path | None = None,
+) -> list[WorkflowLaunch]:
+    if not config.writing.enabled:
+        return []
+    return [build_writing_launch(config=config, paths=paths, problem=problem, run_dir=run_dir)]

@@ -1610,8 +1610,196 @@ textarea:focus {
     max-height: 38vh;
   }
 
-  .pipeline-option,
+.pipeline-option,
   .run-meta div {
+    grid-template-columns: 1fr;
+  }
+}
+
+.paper-writing-view {
+  min-height: calc(100vh - 4.5rem);
+  padding: clamp(1.4rem, 2vw, 2.5rem);
+  background: var(--sheet);
+}
+
+.paper-workbench {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.78fr) minmax(22rem, 1.45fr) minmax(18rem, 1fr);
+  gap: 1px;
+  min-height: calc(100vh - 8rem);
+  border: 1px solid var(--rule);
+  background: var(--rule);
+}
+
+.paper-sidebar,
+.paper-editor-panel,
+.paper-output-panel {
+  min-width: 0;
+  background: var(--sheet);
+}
+
+.paper-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  padding: 1.45rem;
+}
+
+.paper-sidebar h1 {
+  margin: 0;
+  color: var(--navy-ink);
+  font-size: clamp(1.7rem, 2.8vw, 2.6rem);
+  line-height: 1.02;
+}
+
+.paper-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.paper-mode-grid label,
+.paper-tab,
+.paper-output-choice {
+  display: inline-grid;
+  place-items: center;
+  min-height: 2.65rem;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--sheet) 86%, var(--paper));
+  color: var(--ink);
+  font-family: "Courier New", monospace;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.paper-mode-grid input {
+  position: absolute;
+  opacity: 0;
+}
+
+.paper-mode-grid label:has(input:checked),
+.paper-tab.active,
+.paper-output-choice.active {
+  border-color: var(--rule);
+  background: var(--navy);
+  color: var(--sheet);
+}
+
+.paper-field {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.paper-field input,
+.paper-field textarea,
+.paper-input {
+  width: 100%;
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  background: var(--sheet-cool);
+  color: var(--ink);
+  font-family: "Georgia", "Times New Roman", serif;
+  font-size: 1rem;
+  letter-spacing: 0;
+  line-height: 1.6;
+  text-transform: none;
+}
+
+.paper-field input {
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+}
+
+.paper-field textarea {
+  min-height: 7rem;
+  padding: 0.75rem 0.8rem;
+  resize: vertical;
+}
+
+.paper-editor-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.paper-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-bottom: 1px solid var(--rule);
+}
+
+.paper-tab {
+  border-width: 0 1px 0 0;
+}
+
+.paper-input {
+  display: none;
+  min-height: 100%;
+  border: 0;
+  padding: clamp(1rem, 2vw, 1.55rem);
+  resize: none;
+}
+
+.paper-input.active {
+  display: block;
+}
+
+.paper-output-panel {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.paper-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.run-meta.compact {
+  margin: 0;
+}
+
+.paper-output-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.paper-output {
+  overflow: auto;
+  min-height: 18rem;
+  max-height: calc(100vh - 19rem);
+}
+
+@media (max-width: 1180px) {
+  .paper-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .paper-editor-panel,
+  .paper-output-panel {
+    min-height: 26rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .paper-writing-view {
+    padding: 1rem;
+  }
+
+  .paper-mode-grid,
+  .paper-tabs,
+  .paper-output-actions {
     grid-template-columns: 1fr;
   }
 }

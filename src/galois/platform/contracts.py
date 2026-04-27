@@ -9,6 +9,7 @@ from enum import Enum
 class WorkflowKind(str, Enum):
     REASONING = "reasoning"
     VERIFICATION = "verification"
+    WRITING = "writing"
 
 
 class RunStatus(str, Enum):
@@ -26,6 +27,7 @@ class LaunchMode(str, Enum):
 class PipelinePreset(str, Enum):
     REASONING_ONLY = "reasoning-only"
     REASONING_VERIFICATION = "reasoning-verification"
+    WRITING_ONLY = "writing-only"
 
 
 @dataclass(slots=True)

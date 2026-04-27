@@ -270,11 +270,72 @@
           </section>
         </main>
 
-        <main class="placeholder-view app-view" data-view="paper-writing" hidden>
-          <section class="placeholder-panel">
-            <p class="kicker" data-i18n="nav.paperWriting">Paper Writing</p>
-            <h1 data-i18n="placeholder.soonTitle">待实现</h1>
-            <p data-i18n="placeholder.paperWriting">Drafting, polishing, and mathematical exposition tools will live here.</p>
+        <main class="paper-writing-view app-view" data-view="paper-writing" hidden>
+          <section class="paper-workbench" aria-labelledby="paper-writing-title">
+            <aside class="paper-sidebar">
+              <p class="kicker" data-i18n="nav.paperWriting">Paper Writing</p>
+              <h1 id="paper-writing-title" data-i18n="paper.title">Mathematical Paper Workspace</h1>
+              <div class="paper-mode-grid" role="group" aria-label="Paper writing mode">
+                <label><input type="radio" name="paper-type" value="paper" checked /> <span data-i18n="paper.modePaper">Paper</span></label>
+                <label><input type="radio" name="paper-type" value="survey" /> <span data-i18n="paper.modeSurvey">Survey</span></label>
+                <label><input type="radio" name="paper-type" value="thesis" /> <span data-i18n="paper.modeThesis">Thesis</span></label>
+                <label><input type="radio" name="paper-type" value="response" /> <span data-i18n="paper.modeResponse">Response</span></label>
+              </div>
+              <label class="paper-field" for="paper-title-input">
+                <span data-i18n="paper.projectTitle">Project Title</span>
+                <input id="paper-title-input" type="text" placeholder="Compactness and extrema" data-i18n-placeholder="paper.projectTitlePlaceholder" />
+              </label>
+              <label class="paper-field" for="paper-journal-input">
+                <span data-i18n="paper.targetJournal">Target Journal</span>
+                <input id="paper-journal-input" type="text" placeholder="Not specified" data-i18n-placeholder="paper.targetJournalPlaceholder" />
+              </label>
+              <label class="paper-field" for="paper-request-input">
+                <span data-i18n="paper.requestedWork">Requested Work</span>
+                <textarea id="paper-request-input" rows="5" data-i18n-placeholder="paper.requestedWorkPlaceholder" placeholder="Review and improve this mathematical manuscript."></textarea>
+              </label>
+              <button id="paper-submit-button" class="primary-action" type="button" data-i18n="paper.start">Start Writing Agent</button>
+              <p id="paper-message" class="form-message" role="status" aria-live="polite"></p>
+            </aside>
+
+            <section class="paper-editor-panel">
+              <div class="paper-tabs" role="tablist" aria-label="Paper inputs">
+                <button class="paper-tab active" type="button" data-paper-tab="manuscript" data-i18n="paper.tabManuscript">Manuscript</button>
+                <button class="paper-tab" type="button" data-paper-tab="theorem" data-i18n="paper.tabTheorem">Theorem</button>
+                <button class="paper-tab" type="button" data-paper-tab="proof" data-i18n="paper.tabProof">Proof</button>
+                <button class="paper-tab" type="button" data-paper-tab="bibliography" data-i18n="paper.tabBibliography">Bibliography</button>
+                <button class="paper-tab" type="button" data-paper-tab="reviewer" data-i18n="paper.tabReviewer">Reviewer</button>
+              </div>
+              <textarea id="paper-manuscript" class="paper-input active" rows="18" data-paper-input="manuscript" data-i18n-placeholder="paper.manuscriptPlaceholder" placeholder="Paste or write your LaTeX/Markdown manuscript draft here."></textarea>
+              <textarea id="paper-theorem" class="paper-input" rows="18" data-paper-input="theorem" data-i18n-placeholder="paper.theoremPlaceholder" placeholder="Paste the main theorem statement here."></textarea>
+              <textarea id="paper-proof" class="paper-input" rows="18" data-paper-input="proof" data-i18n-placeholder="paper.proofPlaceholder" placeholder="Paste the proof draft here."></textarea>
+              <textarea id="paper-bibliography" class="paper-input" rows="18" data-paper-input="bibliography" data-i18n-placeholder="paper.bibliographyPlaceholder" placeholder="Paste BibTeX or a literature list here."></textarea>
+              <textarea id="paper-reviewer" class="paper-input" rows="18" data-paper-input="reviewer" data-i18n-placeholder="paper.reviewerPlaceholder" placeholder="Paste reviewer comments here."></textarea>
+            </section>
+
+            <aside class="paper-output-panel">
+              <div class="paper-output-header">
+                <p class="kicker" data-i18n="paper.agentOutput">Agent Output</p>
+                <span id="paper-status-pill" class="status-pill" data-status="idle" data-i18n="status.idle">Idle</span>
+              </div>
+              <dl class="run-meta compact">
+                <div>
+                  <dt data-i18n="status.runId">Run Id</dt>
+                  <dd id="paper-run-id" data-i18n="status.noActiveRun">No active run</dd>
+                </div>
+                <div>
+                  <dt data-i18n="status.pipeline">Pipeline</dt>
+                  <dd id="paper-run-pipeline">writing-only</dd>
+                </div>
+              </dl>
+              <section class="paper-output-actions" aria-label="Writing outputs">
+                <button class="paper-output-choice active" type="button" data-paper-output="manuscript_draft" data-i18n="paper.outputManuscript">Manuscript</button>
+                <button class="paper-output-choice" type="button" data-paper-output="review_report" data-i18n="paper.outputReview">Review</button>
+                <button class="paper-output-choice" type="button" data-paper-output="citation_report" data-i18n="paper.outputCitations">Citations</button>
+              </section>
+              <article id="paper-output" class="output-sheet paper-output" aria-live="polite">
+                <p data-i18n="paper.outputEmpty">Writing agent output will appear here.</p>
+              </article>
+            </aside>
           </section>
         </main>
       </div>

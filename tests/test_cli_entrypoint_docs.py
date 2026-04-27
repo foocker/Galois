@@ -35,3 +35,19 @@ def test_package_exposes_single_galois_console_script() -> None:
     assert pyproject["project"]["scripts"] == {
         "galois": "galois.platform.cli:main",
     }
+
+
+def test_cli_pipeline_help_mentions_writing_only(capsys) -> None:
+    from galois.platform.cli import build_parser
+
+    parser = build_parser()
+
+    for command in ("plan", "launch"):
+        try:
+            parser.parse_args([command, "--help"])
+        except SystemExit as exc:
+            assert exc.code == 0
+        else:
+            raise AssertionError(f"{command} --help should exit")
+        help_text = capsys.readouterr().out
+        assert "writing-only." in help_text

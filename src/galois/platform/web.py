@@ -18,7 +18,9 @@ from .cli import (
     _feature_payload,
     _prepare_reasoning_workspace,
     _prepare_verification_workspace,
+    _prepare_writing_workspace,
     _resolve_run_feature_flags,
+    _stage_input_for_writing_workspace,
     _stage_problem_for_reasoning_workspace,
     execute_run_workflows,
 )
@@ -26,7 +28,8 @@ from .config import DEFAULT_MODEL, SUPPORTED_MODELS, load_config, model_is_confi
 from .contracts import PipelinePreset, ProblemInput, WorkflowKind
 from .paths import ensure_run_layout, resolve_paths
 from .run_registry import append_event, create_run_manifest, write_manifest
-from .workflows import build_workflow_plan
+from .workflows import build_workflow_plan, build_writing_workflow_plan
+from galois.writing.citation_lookup import CitationLookupService
 
 
 ASSET_DIR = Path(__file__).with_name("web_assets")
@@ -51,6 +54,35 @@ class MatlasFeedbackRequest(BaseModel):
     label: str
 
 
+class CitationResolveRequest(BaseModel):
+    identifier: str = Field(min_length=1)
+    sources: list[str] | None = None
+
+
+class CitationSearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    sources: list[str] | None = None
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class CitationValidateRequest(BaseModel):
+    bibtex: str = Field(min_length=1)
+    sources: list[str] | None = None
+
+
+class WritingProjectCreateRequest(BaseModel):
+    title: str | None = None
+    project_type: str = "paper"
+    manuscript_markdown: str = ""
+    theorem_statement: str = ""
+    proof_draft: str = ""
+    bibliography: str = ""
+    reviewer_comments: str = ""
+    target_journal: str = ""
+    requested_work: str = "Review and improve this mathematical manuscript."
+    model: str = DEFAULT_MODEL
+
+
 def _slug(text: str) -> str:
     normalized = re.sub(r"[^a-zA-Z0-9]+", "-", text.strip().lower()).strip("-")
     return normalized[:48] or "problem"
@@ -67,6 +99,52 @@ def _write_web_problem(run_dir: Path, problem_markdown: str) -> Path:
     return statement_path
 
 
+def _write_web_writing_input(run_dir: Path, payload: WritingProjectCreateRequest) -> Path:
+    writing_dir = run_dir / "writing"
+    writing_dir.mkdir(parents=True, exist_ok=True)
+    input_path = writing_dir / "input.md"
+    sections = [
+        "# Galois Paper Writing Request",
+        "",
+        f"project_type: {payload.project_type.strip() or 'paper'}",
+        "",
+        "## Title",
+        "",
+        (payload.title or "Untitled mathematical manuscript").strip(),
+        "",
+        "## Target Journal",
+        "",
+        payload.target_journal.strip() or "Not specified.",
+        "",
+        "## Requested Work",
+        "",
+        payload.requested_work.strip() or "Review and improve this mathematical manuscript.",
+        "",
+        "## Theorem Statement",
+        "",
+        payload.theorem_statement.strip() or "Not provided.",
+        "",
+        "## Proof Draft",
+        "",
+        payload.proof_draft.strip() or "Not provided.",
+        "",
+        "## Manuscript Draft",
+        "",
+        payload.manuscript_markdown.strip() or "Not provided.",
+        "",
+        "## Bibliography",
+        "",
+        payload.bibliography.strip() or "Not provided.",
+        "",
+        "## Reviewer Comments",
+        "",
+        payload.reviewer_comments.strip() or "Not provided.",
+        "",
+    ]
+    input_path.write_text("\n".join(sections), encoding="utf-8")
+    return input_path
+
+
 def _safe_json(path: Path, fallback: Any) -> Any:
     if not path.exists():
         return fallback
@@ -77,7 +155,7 @@ def _safe_json(path: Path, fallback: Any) -> Any:
 
 
 def _latest_revision(path: Path) -> int:
-    match = re.search(r"_r(\d+)\.md$", path.name)
+    match = re.search(r"_r(\d+)\.[^.]+$", path.name)
     return int(match.group(1)) if match else 0
 
 
@@ -116,6 +194,10 @@ def _read_events(run_dir: Path, limit: int = 40) -> list[dict[str, Any]]:
 
 
 def _output_payload(run_dir: Path) -> dict[str, Any] | None:
+    writing_payload = _writing_output_payload(run_dir)
+    if writing_payload is not None:
+        return writing_payload
+
     final_blueprint_path = _final_workspace_blueprint(run_dir)
     if final_blueprint_path is not None:
         return {
@@ -142,6 +224,58 @@ def _output_payload(run_dir: Path) -> dict[str, Any] | None:
     return None
 
 
+def _latest_revisioned_file(directory: Path, pattern: str) -> Path | None:
+    files = sorted(
+        directory.glob(pattern),
+        key=lambda candidate: (_latest_revision(candidate), candidate.name),
+    )
+    return files[-1] if files else None
+
+
+def _writing_output_payload(run_dir: Path) -> dict[str, Any] | None:
+    writing_dir = run_dir / "writing"
+    if not writing_dir.exists():
+        return None
+
+    manuscript = _latest_revisioned_file(writing_dir, "manuscript_draft_r*.md")
+    review = _latest_revisioned_file(writing_dir, "review_report_r*.md")
+    citation = _latest_revisioned_file(writing_dir, "citation_report_r*.md")
+    tasks = _latest_revisioned_file(writing_dir, "revision_tasks_r*.json")
+    bundle = _latest_revisioned_file(writing_dir, "export_bundle_r*.json")
+    paper_project = _latest_revisioned_file(writing_dir, "paper_project_r*.json")
+
+    if not any((manuscript, review, citation, tasks, bundle, paper_project)):
+        return None
+
+    artifacts: dict[str, Any] = {}
+    for key, path in {
+        "manuscript_draft": manuscript,
+        "review_report": review,
+        "citation_report": citation,
+    }.items():
+        if path is not None:
+            artifacts[key] = {
+                "path": str(path),
+                "content": path.read_text(encoding="utf-8"),
+            }
+    for key, path in {
+        "revision_tasks": tasks,
+        "export_bundle": bundle,
+        "paper_project": paper_project,
+    }.items():
+        if path is not None:
+            artifacts[key] = {
+                "path": str(path),
+                "content": _safe_json(path, {}),
+            }
+    return {
+        "kind": "paper_project",
+        "path": str(paper_project or manuscript or review or citation),
+        "content": artifacts.get("manuscript_draft", {}).get("content", ""),
+        "artifacts": artifacts,
+    }
+
+
 def _post_matlas_json(endpoint: str, payload: dict[str, object]) -> Any:
     url = f"{MATLAS_BASE_URL}{endpoint}"
     try:
@@ -160,6 +294,10 @@ def _post_matlas_json(endpoint: str, payload: dict[str, object]) -> Any:
         raise HTTPException(status_code=502, detail=f"Matlas service unavailable: {exc}") from exc
 
 
+def _citation_lookup_service(cache_dir: Path) -> CitationLookupService:
+    return CitationLookupService(cache_dir=cache_dir)
+
+
 def _problem_payload(run_dir: Path) -> dict[str, Any] | None:
     for problem_path in (run_dir / "problem" / "source_statement.md", run_dir / "problem" / "statement.md"):
         if problem_path.exists():
@@ -168,6 +306,13 @@ def _problem_payload(run_dir: Path) -> dict[str, Any] | None:
                 "path": str(problem_path),
                 "content": problem_path.read_text(encoding="utf-8"),
             }
+    writing_input = run_dir / "writing" / "input.md"
+    if writing_input.exists():
+        return {
+            "kind": "writing_input",
+            "path": str(writing_input),
+            "content": writing_input.read_text(encoding="utf-8"),
+        }
     return None
 
 
@@ -270,6 +415,76 @@ def _create_prepared_run(
     return manifest.run_id, problem.problem_id, str(statement_path), feature_flags.pipeline.value
 
 
+def _create_prepared_writing_run(
+    *,
+    config_path: Path | None,
+    payload: WritingProjectCreateRequest,
+) -> tuple[str, str, str]:
+    run_config = load_config(config_path)
+    run_config.model = payload.model
+    run_paths = resolve_paths(run_config)
+    ensure_run_layout(run_paths)
+    feature_flags = _resolve_run_feature_flags(
+        verification_default=run_config.verification.enabled,
+        max_repair_rounds_default=run_config.max_repair_rounds,
+        pipeline=PipelinePreset.WRITING_ONLY,
+        reasoning_only=False,
+        verification_override=False,
+        repair_loop_override=False,
+        max_repair_rounds_override=0,
+    )
+    problem = ProblemInput(
+        problem_id=_slug(payload.title or "paper-project"),
+        problem_path="writing/input.md",
+        title=payload.title,
+        tags=["paper-writing", payload.project_type],
+    )
+    run_dir, manifest = create_run_manifest(config=run_config, paths=run_paths, problem=problem)
+    input_path = _write_web_writing_input(run_dir, payload)
+    problem.problem_path = str(input_path)
+    manifest.problem = problem
+    launches = build_writing_workflow_plan(
+        config=run_config,
+        paths=run_paths,
+        problem=problem,
+        run_dir=run_dir,
+    )
+    _prepare_writing_workspace(run_dir, run_paths.repo_root)
+    _stage_input_for_writing_workspace(run_dir=run_dir, repo_root=run_paths.repo_root, problem=problem)
+    manifest.pipeline = feature_flags.pipeline
+    manifest.features = _feature_payload(feature_flags)
+    manifest.workflows = [launch.kind for launch in launches]
+    write_manifest(run_dir, manifest)
+    append_event(
+        run_dir,
+        run_id=manifest.run_id,
+        event_type="run_created",
+        payload={
+            "problem": {
+                "problem_id": problem.problem_id,
+                "problem_path": problem.problem_path,
+                "title": problem.title,
+                "tags": problem.tags,
+            },
+            "run_dir": str(run_dir),
+            "workflow_count": len(launches),
+            "skip_services": False,
+            **_feature_payload(feature_flags),
+        },
+    )
+    _start_run_thread(
+        run_id=manifest.run_id,
+        config=run_config,
+        paths=run_paths,
+        run_dir=run_dir,
+        manifest=manifest,
+        problem=problem,
+        launches=launches,
+        feature_flags=feature_flags,
+    )
+    return manifest.run_id, problem.problem_id, str(input_path)
+
+
 def _start_run_thread(**kwargs: Any) -> None:
     thread = threading.Thread(
         target=execute_run_workflows,
@@ -315,7 +530,8 @@ def create_app(config_path: Path | None = None) -> FastAPI:
     def create_run(payload: RunCreateRequest) -> dict[str, Any]:
         if not payload.problem_markdown.strip():
             raise HTTPException(status_code=400, detail="problem_markdown must not be blank")
-        if payload.pipeline not in {pipeline.value for pipeline in PipelinePreset}:
+        problem_pipelines = {PipelinePreset.REASONING_ONLY.value, PipelinePreset.REASONING_VERIFICATION.value}
+        if payload.pipeline not in problem_pipelines:
             raise HTTPException(status_code=400, detail="unsupported pipeline")
         if payload.model not in SUPPORTED_MODELS:
             raise HTTPException(status_code=400, detail="unsupported model")
@@ -333,6 +549,39 @@ def create_app(config_path: Path | None = None) -> FastAPI:
                 "problem_path": problem_path,
                 "status": "queued",
                 "pipeline": pipeline,
+                "model": payload.model,
+            },
+        )
+
+    @app.post("/api/writing/projects")
+    def create_writing_project(payload: WritingProjectCreateRequest) -> dict[str, Any]:
+        if payload.model not in SUPPORTED_MODELS:
+            raise HTTPException(status_code=400, detail="unsupported model")
+        if payload.model not in config.model_connections:
+            raise HTTPException(status_code=400, detail="model is not configured")
+        if not model_is_configured(config, payload.model):
+            raise HTTPException(status_code=400, detail="model credentials are not configured")
+        if not any(
+            value.strip()
+            for value in (
+                payload.manuscript_markdown,
+                payload.theorem_statement,
+                payload.proof_draft,
+                payload.bibliography,
+                payload.reviewer_comments,
+            )
+        ):
+            raise HTTPException(status_code=400, detail="writing project content must not be blank")
+
+        run_id, project_id, input_path = _create_prepared_writing_run(config_path=config_path, payload=payload)
+        return JSONResponse(
+            status_code=202,
+            content={
+                "run_id": run_id,
+                "project_id": project_id,
+                "input_path": input_path,
+                "status": "queued",
+                "pipeline": PipelinePreset.WRITING_ONLY.value,
                 "model": payload.model,
             },
         )
@@ -364,6 +613,30 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         if not isinstance(result, dict):
             raise HTTPException(status_code=502, detail="Matlas feedback returned an unexpected response")
         return result
+
+    @app.post("/api/citations/resolve")
+    def resolve_citation(payload: CitationResolveRequest) -> dict[str, Any]:
+        identifier = payload.identifier.strip()
+        if not identifier:
+            raise HTTPException(status_code=400, detail="identifier must not be blank")
+        with _citation_lookup_service(config.run_root_path / "citation_cache") as service:
+            return service.resolve(identifier, sources=payload.sources)
+
+    @app.post("/api/citations/search")
+    def search_citations(payload: CitationSearchRequest) -> dict[str, Any]:
+        query = payload.query.strip()
+        if not query:
+            raise HTTPException(status_code=400, detail="query must not be blank")
+        with _citation_lookup_service(config.run_root_path / "citation_cache") as service:
+            return service.search(query, sources=payload.sources, limit=payload.limit)
+
+    @app.post("/api/citations/validate")
+    def validate_citations(payload: CitationValidateRequest) -> dict[str, Any]:
+        bibtex = payload.bibtex.strip()
+        if not bibtex:
+            raise HTTPException(status_code=400, detail="bibtex must not be blank")
+        with _citation_lookup_service(config.run_root_path / "citation_cache") as service:
+            return service.validate_bibtex(bibtex, sources=payload.sources)
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict[str, Any]:

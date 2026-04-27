@@ -28,6 +28,10 @@ workdir = "three_horse/reasoning"
 enabled = true
 workdir = "three_horse/verification"
 
+[writing]
+enabled = true
+workdir = "three_horse/writing"
+
 [platform]
 resume_enabled = true
 max_repair_rounds = 1

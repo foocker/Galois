@@ -13,6 +13,7 @@ class RepoPaths:
     repo_root: Path
     reasoning_dir: Path
     verification_dir: Path
+    writing_dir: Path
     project_root: Path
     benchmark_root: Path
     run_root: Path
@@ -28,6 +29,7 @@ def resolve_paths(config: PlatformConfig) -> RepoPaths:
         repo_root=repo_root,
         reasoning_dir=repo_root / config.reasoning.workdir,
         verification_dir=repo_root / config.verification.workdir,
+        writing_dir=repo_root / config.writing.workdir,
         project_root=config.project_root_path,
         benchmark_root=config.benchmark_root_path,
         run_root=config.run_root_path,
