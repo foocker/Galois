@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from html.parser import HTMLParser
 import json
@@ -73,23 +74,60 @@ VOID_TAGS = {
 
 
 SPAM_TITLE_PATTERNS = (
+    "8 ball pool",
+    "999,999",
     "assignment help",
+    "apex legends",
+    "brawlhalla",
     "buy ",
     "casino",
+    "cheat",
     "cheap ",
+    "clash of clans",
+    "coins",
     "coursework",
     "coupon",
+    "dragon ball legends",
+    "dragon city",
     "dissertation",
     "essay",
     "exam help",
+    "family island",
+    "fire kirin",
+    "fortnite",
+    "free generator",
+    "free gems",
+    "free platinum",
+    "free cash",
+    "gardenscapes",
+    "generator",
+    "genshin impact",
+    "gta 5",
     "homework",
+    "human verification",
+    "ios android",
+    "jailbreak",
+    "monopoly go",
+    "moviestarplanet",
     "pay someone",
+    "pk xd",
+    "pokemon go",
     "porn",
+    "raid shadow legends",
     "seo ",
+    "simcity buildit",
+    "simpsons tapped out",
     "slot",
+    "stars",
+    "survey",
     "thesis writing",
+    "toon blast",
+    "v-bucks",
     "viagra",
+    "warframe",
+    "war thunder",
     "weight loss",
+    "without verification",
     "write my",
 )
 
@@ -122,6 +160,14 @@ class OpenProblemGardenCrawlResult:
     source_urls: list[str]
 
 
+class SkippedProblem(ValueError):
+    def __init__(self, slug: str, title: str, reason: str) -> None:
+        super().__init__(f"{slug}: {reason}")
+        self.slug = slug
+        self.title = title
+        self.reason = reason
+
+
 def _clean_text(value: str) -> str:
     value = re.sub(r"\xa0", " ", value)
     value = re.sub(r"[ \t\r\f\v]+", " ", value)
@@ -146,6 +192,13 @@ def _safe_filename(value: str) -> str:
     return value or "problem"
 
 
+def _normalized_phrase(value: str) -> str:
+    value = value.lower()
+    value = re.sub(r"https?://\S+", "", value)
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
 def is_probable_spam(title: str, url: str = "") -> bool:
     sample = f"{title} {urlparse(url).path}".lower()
     if any(pattern in sample for pattern in SPAM_TITLE_PATTERNS):
@@ -158,6 +211,33 @@ def is_probable_spam(title: str, url: str = "") -> bool:
         if uppercase_words >= len(words) * 0.8:
             return True
     return False
+
+
+def invalid_statement_reason(title: str, statement: str, discussion: str = "") -> str | None:
+    normalized_statement = _normalized_phrase(statement)
+    normalized_title = _normalized_phrase(title)
+    normalized_discussion = _normalized_phrase(discussion)
+    if not normalized_statement:
+        return "empty statement"
+    placeholder_phrases = {
+        "algebra",
+        "conjecture",
+        "guide",
+        "hello",
+        "open problem",
+        "question",
+    }
+    if normalized_statement in placeholder_phrases:
+        return "placeholder statement"
+    if normalized_statement == normalized_title:
+        return "statement repeats title"
+    if normalized_discussion and normalized_discussion == normalized_statement and len(normalized_statement.split()) <= 8:
+        return "placeholder discussion"
+    words = normalized_statement.split()
+    has_math_signal = bool(re.search(r"[$\\=<>∈∀∃≤≥]", statement))
+    if len(words) < 8 and not has_math_signal:
+        return "statement too short"
+    return None
 
 
 class _CategoryPageParser(HTMLParser):
@@ -487,33 +567,23 @@ def opg_problem_to_garden_problem(
     title = page.title or link.title
     statement = page.statement or f"Open Problem Garden entry without extracted statement. Source: {link.url}"
     progress = [page.discussion] if page.discussion else ["Status: open."]
-    source_literature = [link.url]
-    source_literature.extend(page.bibliography)
-    domains = [category.name, *page.subjects, *page.keywords]
-    domains = list(dict.fromkeys(domain for domain in domains if domain))
-    graph_links = [
-        {"from": "Problem", "relation": "stated_in", "to": "Open Problem Garden"},
-        {"from": "Problem", "relation": "imported_from", "to": "openproblemgarden.org"},
-    ]
-    graph_links.extend({"from": "Problem", "relation": "belongs_to_domain", "to": domain} for domain in domains)
-    graph_links.extend(
-        {"from": "Problem", "relation": "related_to", "to": related["title"] or related["slug"]}
-        for related in page.related_links
-        if related.get("title") or related.get("slug")
-    )
+    invalid_reason = invalid_statement_reason(title, statement, page.discussion)
+    if invalid_reason:
+        raise SkippedProblem(link.slug, title, invalid_reason)
+    source_literature = list(dict.fromkeys(item for item in page.bibliography if item and item != link.url))
+    domains = [category.name]
     return {
         "id": f"opg-{link.slug}",
         "title": title,
         "status": normalize_opg_status(page),
         "difficulty": normalize_opg_difficulty(page.importance),
-        "domains": domains or [category.name],
+        "domains": domains,
         "source": "Open Problem Garden",
         "source_url": link.url,
         "statement": statement,
         "source_literature": source_literature,
         "progress": progress,
         "community_reactions": [],
-        "graph_links": graph_links,
     }
 
 
@@ -538,6 +608,7 @@ def crawl_open_problem_garden(
     use_cache: bool = True,
     timeout: float = 10.0,
     delay: float = 0.0,
+    max_workers: int = 8,
 ) -> OpenProblemGardenCrawlResult:
     problems: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
@@ -545,6 +616,7 @@ def crawl_open_problem_garden(
     source_urls: list[str] = []
     seen_slugs: set[str] = set()
     categories = selected_categories(category_slugs)
+    links_to_fetch: list[tuple[OpenProblemGardenLink, OpenProblemGardenCategory]] = []
 
     for category in categories:
         links, category_errors, category_source_urls = discover_category_problem_links(
@@ -558,7 +630,7 @@ def crawl_open_problem_garden(
         errors.extend(category_errors)
         source_urls.extend(category_source_urls)
         for link in links:
-            if limit is not None and len(problems) >= limit:
+            if limit is not None and len(links_to_fetch) >= limit:
                 break
             if link.slug in seen_slugs:
                 continue
@@ -566,21 +638,43 @@ def crawl_open_problem_garden(
             if not include_spam and is_probable_spam(link.title, link.url):
                 skipped.append({"slug": link.slug, "title": link.title, "reason": "probable spam"})
                 continue
+            links_to_fetch.append((link, category))
+        if limit is not None and len(links_to_fetch) >= limit:
+            break
+
+    def fetch_problem(item: tuple[OpenProblemGardenLink, OpenProblemGardenCategory]) -> dict[str, Any]:
+        link, category = item
+        html = fetch_page(
+            link.url,
+            cache_path=problem_cache_path(cache_dir, link.slug),
+            use_cache=use_cache,
+            timeout=timeout,
+        )
+        page = parse_problem_page(html)
+        return opg_problem_to_garden_problem(link, page, category=category)
+
+    if max_workers <= 1 or delay:
+        for item in links_to_fetch:
             try:
-                html = fetch_page(
-                    link.url,
-                    cache_path=problem_cache_path(cache_dir, link.slug),
-                    use_cache=use_cache,
-                    timeout=timeout,
-                )
-                page = parse_problem_page(html)
-                problems.append(opg_problem_to_garden_problem(link, page, category=category))
+                problems.append(fetch_problem(item))
+            except SkippedProblem as exc:
+                skipped.append({"slug": exc.slug, "title": exc.title, "reason": exc.reason})
             except (requests.RequestException, ValueError) as exc:
+                link = item[0]
                 errors.append(f"{link.slug}: {exc}")
             if delay:
                 time.sleep(delay)
-        if limit is not None and len(problems) >= limit:
-            break
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_link = {executor.submit(fetch_problem, item): item[0] for item in links_to_fetch}
+            for future in as_completed(future_to_link):
+                link = future_to_link[future]
+                try:
+                    problems.append(future.result())
+                except SkippedProblem as exc:
+                    skipped.append({"slug": exc.slug, "title": exc.title, "reason": exc.reason})
+                except (requests.RequestException, ValueError) as exc:
+                    errors.append(f"{link.slug}: {exc}")
 
     return OpenProblemGardenCrawlResult(
         problems=problems,
@@ -608,11 +702,6 @@ def problem_markdown(problem: dict[str, Any]) -> str:
     lines.extend(["", "# Progress", ""])
     for item in problem.get("progress") or []:
         lines.append(f"- {item}")
-    graph_links = problem.get("graph_links") or []
-    if graph_links:
-        lines.extend(["", "# Graph links", "", "| From | Relation | To |", "| --- | --- | --- |"])
-        for edge in graph_links:
-            lines.append(f"| {edge.get('from', '')} | {edge.get('relation', '')} | {edge.get('to', '')} |")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -622,8 +711,15 @@ def write_problem_files(
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     errors: list[str] | None = None,
     skipped: list[dict[str, str]] | None = None,
+    clean: bool = True,
 ) -> list[Path]:
     written: list[Path] = []
+    if clean and output_dir.exists():
+        for path in output_dir.rglob("opg-*.md"):
+            path.unlink()
+        index_path = output_dir / "index.json"
+        if index_path.exists():
+            index_path.unlink()
     for problem in problems:
         domains = problem.get("domains") or ["unsorted"]
         category_slug = _safe_filename(str(domains[0]))
@@ -656,8 +752,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--delay", type=float, default=0.0)
     parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--max-workers", type=int, default=8)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--no-write-files", action="store_true")
+    parser.add_argument("--no-clean-output", action="store_true")
     return parser
 
 
@@ -672,6 +770,7 @@ def main(argv: list[str] | None = None) -> int:
         use_cache=not args.no_cache,
         timeout=args.timeout,
         delay=args.delay,
+        max_workers=args.max_workers,
     )
     written: list[Path] = []
     if not args.dry_run and not args.no_write_files:
@@ -680,6 +779,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.output_dir,
             errors=result.errors,
             skipped=result.skipped,
+            clean=not args.no_clean_output,
         )
     print(
         json.dumps(

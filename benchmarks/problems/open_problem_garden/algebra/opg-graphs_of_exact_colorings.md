@@ -15,7 +15,6 @@ Conjecture For $ c \geq m \geq 1 $ , let $ P(c,m) $ be the statement that given 
 
 # Source literature
 
-- http://www.openproblemgarden.org/op/graphs_of_exact_colorings
 
 # Progress
 
@@ -26,11 +25,3 @@ Conjecture For $ c \geq m \geq 1 $ , let $ P(c,m) $ be the statement that given 
 A. Stacey and P. Weidl, "The Existence of Exactly m-Coloured Complete Subgraphs," J. of Combinatorial Theory, Series B 75, 1-18 (1999)
 
 * indicates original appearance(s) of problem.
-
-# Graph links
-
-| From | Relation | To |
-| --- | --- | --- |
-| Problem | stated_in | Open Problem Garden |
-| Problem | imported_from | openproblemgarden.org |
-| Problem | belongs_to_domain | Algebra |

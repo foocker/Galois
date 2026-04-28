@@ -42,8 +42,8 @@ const elements = {
   gardenGraphModal: document.querySelector('#garden-graph-modal'),
   gardenSearchForm: document.querySelector('#garden-search-form'),
   gardenQuery: document.querySelector('#garden-query'),
-  gardenStatusFilter: document.querySelector('#garden-status-filter'),
   gardenDomainFilter: document.querySelector('#garden-domain-filter'),
+  gardenStatusFilter: document.querySelector('#garden-status-filter'),
   gardenDifficultyFilter: document.querySelector('#garden-difficulty-filter'),
   gardenSubmitForm: document.querySelector('#garden-submit-form'),
   gardenSubmitTitle: document.querySelector('#garden-submit-title'),
@@ -87,6 +87,7 @@ const currentRunStorageKey = 'galois-current-run-id';
 const currentWritingRunStorageKey = 'galois-current-writing-run-id';
 const rootElement = document.documentElement || { lang: 'en', dataset: {} };
 const gardenSubmitMarkdownFields = new Set(['statement', 'source-literature', 'progress']);
+const gardenListLimit = 20;
 
 const translations = {
   en: {
@@ -113,8 +114,19 @@ const translations = {
     'history.problemTitle': 'Problem Title',
     'history.recentRuns': 'Recent Runs',
     'history.title': 'History',
-    'garden.brief': 'Curated research problems with source trails, attempts, and graph links.',
-    'garden.domainPlaceholder': 'Domain',
+    'garden.brief': 'Curated research problems with source trails, progress notes, and subject filters.',
+    'garden.domainAlgebra': 'Algebra',
+    'garden.domainAnalysis': 'Analysis',
+    'garden.domainCombinatorics': 'Combinatorics',
+    'garden.domainGeometry': 'Geometry',
+    'garden.domainGraphTheory': 'Graph Theory',
+    'garden.domainGroupTheory': 'Group Theory',
+    'garden.domainLogic': 'Logic',
+    'garden.domainNumberTheory': 'Number Theory',
+    'garden.domainProbability': 'Probability',
+    'garden.domainTCS': 'Theoretical Comp. Sci.',
+    'garden.domainTopology': 'Topology',
+    'garden.filterAnyDomain': 'Any subject',
     'garden.filterAnyDifficulty': 'Any difficulty',
     'garden.filterAnyStatus': 'Any status',
     'garden.graphKicker': 'Link Graph',
@@ -243,8 +255,19 @@ const translations = {
     'history.problemTitle': '问题标题',
     'history.recentRuns': '最近运行',
     'history.title': '历史',
-    'garden.brief': '收录有来源链路、尝试文献和图谱关系的研究问题。',
-    'garden.domainPlaceholder': '领域',
+    'garden.brief': '收录有来源链路、进展记录和学科筛选的研究问题。',
+    'garden.domainAlgebra': '代数',
+    'garden.domainAnalysis': '分析',
+    'garden.domainCombinatorics': '组合',
+    'garden.domainGeometry': '几何',
+    'garden.domainGraphTheory': '图论',
+    'garden.domainGroupTheory': '群论',
+    'garden.domainLogic': '逻辑',
+    'garden.domainNumberTheory': '数论',
+    'garden.domainProbability': '概率',
+    'garden.domainTCS': '理论计算机科学',
+    'garden.domainTopology': '拓扑',
+    'garden.filterAnyDomain': '任意学科',
     'garden.filterAnyDifficulty': '任意难度',
     'garden.filterAnyStatus': '任意状态',
     'garden.graphKicker': '链接图谱',
@@ -753,7 +776,7 @@ function renderGardenList(selectedId) {
   if (!problemGardenProblems.length) {
     return `<p class="garden-empty">${escapeHtml(translate('garden.noResults'))}</p>`;
   }
-  return problemGardenProblems.map((rawProblem) => {
+  return problemGardenProblems.slice(0, gardenListLimit).map((rawProblem) => {
     const problem = normalizeGardenProblem(rawProblem);
     const active = problem.id === selectedId;
     const domains = problem.domains.map((domain) => `<span>${escapeHtml(domain)}</span>`).join('');
@@ -786,10 +809,23 @@ function renderGardenCommunityReactions(reactions) {
   </section>`;
 }
 
-function renderGardenSourceUrl(sourceUrl) {
-  if (!sourceUrl) return '';
-  if (!/^https?:\/\//i.test(sourceUrl)) return `<p>${escapeHtml(sourceUrl)}</p>`;
-  return `<p><a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(sourceUrl)}</a></p>`;
+function gardenSourceLiterature(problem) {
+  const seen = new Set();
+  const items = [];
+  [problem.sourceUrl, ...(problem.sourceLiterature || [])].forEach((item) => {
+    const value = String(item || '').trim();
+    const key = value.replace(/\/+$/, '').toLowerCase();
+    if (!value || seen.has(key)) return;
+    seen.add(key);
+    items.push(value);
+  });
+  return items;
+}
+
+function renderGardenSourceLiterature(problem) {
+  const items = gardenSourceLiterature(problem);
+  if (!items.length) return '';
+  return `<ul>${items.map((item) => `<li>${renderMarkdownLite(item)}</li>`).join('')}</ul>`;
 }
 
 function gardenSubmitTextByName(name) {
@@ -859,8 +895,7 @@ function renderGardenDetail(problem) {
     <section class="garden-source">
       <h3>Source literature</h3>
       <p>${escapeHtml(problem.source)}</p>
-      ${renderGardenSourceUrl(problem.sourceUrl)}
-      ${problem.sourceLiterature?.length ? `<ul>${problem.sourceLiterature.map((item) => `<li>${renderMarkdownLite(item)}</li>`).join('')}</ul>` : ''}
+      ${renderGardenSourceLiterature(problem)}
     </section>
     ${renderGardenSection('Progress', problem.progress)}
     ${renderGardenCommunityReactions(problem.communityReactions)}
@@ -898,6 +933,7 @@ function renderProblemGarden(problemId = state.selectedGardenProblemId) {
   elements.gardenDetail.innerHTML = renderGardenDetail(problem);
   elements.gardenGraph.innerHTML = renderGardenGraph(problem);
   renderMath(elements.gardenDetail);
+  elements.gardenDetail.scrollTop = 0;
 }
 
 function useGardenProblem(problemId = state.selectedGardenProblemId) {
@@ -913,13 +949,14 @@ function useGardenProblem(problemId = state.selectedGardenProblemId) {
 function gardenQueryParams() {
   const params = new URLSearchParams();
   const query = elements.gardenQuery?.value.trim();
-  const status = elements.gardenStatusFilter?.value.trim();
   const domain = elements.gardenDomainFilter?.value.trim();
+  const status = elements.gardenStatusFilter?.value.trim();
   const difficulty = elements.gardenDifficultyFilter?.value.trim();
   if (query) params.set('q', query);
-  if (status) params.set('status', status);
   if (domain) params.set('domain', domain);
+  if (status) params.set('status', status);
   if (difficulty) params.set('difficulty', difficulty);
+  params.set('limit', String(gardenListLimit));
   return params;
 }
 
@@ -927,7 +964,7 @@ async function loadProblemGarden() {
   if (!elements.gardenProblems || !elements.gardenDetail || !elements.gardenGraph) return;
   setGardenMessage(translate('garden.loading'));
   const params = gardenQueryParams();
-  const url = params.toString() ? `/api/problem-garden/problems?${params.toString()}` : '/api/problem-garden/problems';
+  const url = `/api/problem-garden/problems?${params.toString()}`;
   try {
     const payload = await fetchJson(url);
     const problems = Array.isArray(payload.problems) ? payload.problems.map(normalizeGardenProblem) : [];

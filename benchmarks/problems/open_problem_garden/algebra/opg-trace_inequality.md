@@ -17,16 +17,7 @@ What about the $ tr(A^s+B^s)^{\frac{1}{s}}\leq tr(A^r+B^r)^{\frac{1}{r}} $ , is 
 
 # Source literature
 
-- http://www.openproblemgarden.org/op/trace_inequality
 
 # Progress
 
 - Status: open.
-
-# Graph links
-
-| From | Relation | To |
-| --- | --- | --- |
-| Problem | stated_in | Open Problem Garden |
-| Problem | imported_from | openproblemgarden.org |
-| Problem | belongs_to_domain | Algebra |

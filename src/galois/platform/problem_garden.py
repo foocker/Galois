@@ -413,9 +413,11 @@ class ProblemGardenStore:
         status: str | None = None,
         domain: str | None = None,
         difficulty: str | None = None,
+        limit: int = 20,
     ) -> list[dict[str, Any]]:
         clauses = []
         params: dict[str, Any] = {}
+        params["limit"] = max(1, min(limit, 200))
         if query:
             clauses.append("(title ILIKE %(query)s OR statement ILIKE %(query)s OR source ILIKE %(query)s)")
             params["query"] = f"%{query}%"
@@ -430,6 +432,20 @@ class ProblemGardenStore:
             params["difficulty"] = difficulty
 
         where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        has_filters = bool(clauses)
+        order_sql = (
+            """
+                    CASE difficulty
+                        WHEN 'frontier' THEN 0
+                        WHEN 'research' THEN 1
+                        WHEN 'graduate' THEN 2
+                        ELSE 3
+                    END,
+                    title
+            """
+            if has_filters
+            else "random()"
+        )
         with self.connection.cursor() as cursor:
             cursor.execute(
                 f"""
@@ -445,15 +461,8 @@ class ProblemGardenStore:
                     COALESCE(progress ->> 0, '') AS latest_progress
                 FROM garden_problems
                 {where_sql}
-                ORDER BY
-                    CASE difficulty
-                        WHEN 'frontier' THEN 0
-                        WHEN 'research' THEN 1
-                        WHEN 'graduate' THEN 2
-                        ELSE 3
-                    END,
-                    title
-                LIMIT 200
+                ORDER BY {order_sql}
+                LIMIT %(limit)s
                 """,
                 params,
             )

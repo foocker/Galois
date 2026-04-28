@@ -46,6 +46,7 @@ def create_problem_garden_router(
         status: str | None = None,
         domain: str | None = None,
         difficulty: str | None = None,
+        limit: int = 20,
     ) -> dict[str, Any]:
         with store_class(config.database.connection_url) as store:
             store.initialize()
@@ -55,6 +56,7 @@ def create_problem_garden_router(
                     status=status.strip() if status else None,
                     domain=domain.strip() if domain else None,
                     difficulty=difficulty.strip() if difficulty else None,
+                    limit=limit,
                 )
             }
 

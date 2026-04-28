@@ -190,11 +190,25 @@
             <aside class="garden-index-panel">
               <p class="kicker" data-i18n="garden.kicker">Problem Garden</p>
               <h1 id="problem-garden-title" data-i18n="garden.title">Open Problem Garden</h1>
-              <p class="garden-brief" data-i18n="garden.brief">Curated research problems with source trails, attempts, and graph links.</p>
+              <p class="garden-brief" data-i18n="garden.brief">Curated research problems with source trails, progress notes, and subject filters.</p>
               <form id="garden-search-form" class="garden-search-form" role="search">
                 <label class="visually-hidden" for="garden-query" data-i18n="garden.searchLabel">Search problems</label>
                 <input id="garden-query" type="search" placeholder="Search title, statement, or source" data-i18n-placeholder="garden.searchPlaceholder" />
                 <div class="garden-filter-grid" aria-label="Problem Garden filters">
+                  <select id="garden-domain-filter" aria-label="Problem subject">
+                    <option value="" data-i18n="garden.filterAnyDomain">Any subject</option>
+                    <option value="Algebra" data-i18n="garden.domainAlgebra">Algebra</option>
+                    <option value="Analysis" data-i18n="garden.domainAnalysis">Analysis</option>
+                    <option value="Combinatorics" data-i18n="garden.domainCombinatorics">Combinatorics</option>
+                    <option value="Geometry" data-i18n="garden.domainGeometry">Geometry</option>
+                    <option value="Graph Theory" data-i18n="garden.domainGraphTheory">Graph Theory</option>
+                    <option value="Group Theory" data-i18n="garden.domainGroupTheory">Group Theory</option>
+                    <option value="Logic" data-i18n="garden.domainLogic">Logic</option>
+                    <option value="Number Theory" data-i18n="garden.domainNumberTheory">Number Theory</option>
+                    <option value="Probability" data-i18n="garden.domainProbability">Probability</option>
+                    <option value="Theoretical Comp. Sci." data-i18n="garden.domainTCS">Theoretical Comp. Sci.</option>
+                    <option value="Topology" data-i18n="garden.domainTopology">Topology</option>
+                  </select>
                   <select id="garden-status-filter" aria-label="Problem status">
                     <option value="" data-i18n="garden.filterAnyStatus">Any status</option>
                     <option value="open">open</option>
@@ -210,7 +224,6 @@
                     <option value="introductory">introductory</option>
                   </select>
                 </div>
-                <input id="garden-domain-filter" type="search" placeholder="Domain" data-i18n-placeholder="garden.domainPlaceholder" />
                 <button class="secondary-button" type="submit" data-i18n="garden.searchAction">Search</button>
               </form>
               <div id="garden-problems" class="garden-problem-list" aria-label="Curated open problems">

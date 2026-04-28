@@ -433,8 +433,8 @@ def test_problem_garden_api_lists_filters_and_details(monkeypatch, tmp_path: Pat
         def initialize(self):
             calls.append(("initialize",))
 
-        def list_problems(self, *, query=None, status=None, domain=None, difficulty=None):
-            calls.append(("list", query, status, domain, difficulty))
+        def list_problems(self, *, query=None, status=None, domain=None, difficulty=None, limit=20):
+            calls.append(("list", query, status, domain, difficulty, limit))
             return [
                 {
                     "id": "pfr-finite-fields",
@@ -480,7 +480,7 @@ def test_problem_garden_api_lists_filters_and_details(monkeypatch, tmp_path: Pat
         ("init", "postgresql://galois:galois_dev@127.0.0.1:5432/galois"),
         ("initialize",),
     ]
-    assert calls[2] == ("list", "freiman", "open", "finite fields", "frontier")
+    assert calls[2] == ("list", "freiman", "open", "finite fields", "frontier", 20)
 
     detail = client.get("/api/problem-garden/problems/pfr-finite-fields")
     assert detail.status_code == 200
@@ -717,7 +717,7 @@ def test_open_problem_garden_tool_parses_category_and_problem_html() -> None:
     assert problem["statement"] == "Represent every finite lattice as $Con A$ ."
     assert problem["progress"] == ["Known for several restricted classes."]
     assert "[GS] Grätzer and Schmidt." in problem["source_literature"]
-    assert any(edge["relation"] == "related_to" and edge["to"] == "Other problem" for edge in problem["graph_links"])
+    assert "graph_links" not in problem
 
 
 def test_open_problem_garden_tool_skips_spam_and_writes_problem_files(tmp_path: Path) -> None:
@@ -739,7 +739,6 @@ def test_open_problem_garden_tool_skips_spam_and_writes_problem_files(tmp_path: 
                 "statement": "Represent every finite lattice as $Con A$.",
                 "source_literature": ["http://www.openproblemgarden.org/op/finite_lattice", "[GS] Grätzer and Schmidt."],
                 "progress": ["Status: open."],
-                "graph_links": [{"from": "Problem", "relation": "belongs_to_domain", "to": "Algebra"}],
             }
         ],
         output_dir=tmp_path / "open_problem_garden",
@@ -752,9 +751,14 @@ def test_open_problem_garden_tool_skips_spam_and_writes_problem_files(tmp_path: 
     assert "# Source literature" in markdown
     assert "# Progress" in markdown
     assert "Related literature" not in markdown
+    assert "Graph links" not in markdown
     index = json.loads((tmp_path / "open_problem_garden" / "index.json").read_text(encoding="utf-8"))
     assert index["count"] == 1
     assert index["skipped"][0]["reason"] == "probable spam"
+    stale = tmp_path / "open_problem_garden" / "algebra" / "opg-stale.md"
+    stale.write_text("stale", encoding="utf-8")
+    write_problem_files([], output_dir=tmp_path / "open_problem_garden")
+    assert not stale.exists()
 
 
 def test_cli_garden_import_open_problem_garden_dry_run(monkeypatch, tmp_path: Path, capsys) -> None:
@@ -799,8 +803,10 @@ def test_cli_garden_import_open_problem_garden_dry_run(monkeypatch, tmp_path: Pa
         no_cache=False,
         delay=0.0,
         timeout=30.0,
+        max_workers=4,
         dry_run=True,
         write_files=True,
+        clean_output=True,
         import_db=True,
     )
 
@@ -2133,8 +2139,8 @@ const gardenDetail = fakeElement();
 const gardenGraph = fakeElement();
 const gardenSearchForm = fakeElement();
 const gardenQuery = fakeElement();
-const gardenStatus = fakeElement();
 const gardenDomain = fakeElement();
+const gardenStatus = fakeElement();
 const gardenDifficulty = fakeElement();
 const gardenMessage = fakeElement();
 const gardenSubmitForm = fakeElement();
@@ -2153,8 +2159,8 @@ const elementMap = new Map([
   ["#garden-graph", gardenGraph],
   ["#garden-search-form", gardenSearchForm],
   ["#garden-query", gardenQuery],
-  ["#garden-status-filter", gardenStatus],
   ["#garden-domain-filter", gardenDomain],
+  ["#garden-status-filter", gardenStatus],
   ["#garden-difficulty-filter", gardenDifficulty],
   ["#garden-message", gardenMessage],
   ["#garden-submit-form", gardenSubmitForm],
@@ -2210,9 +2216,10 @@ const fetch = async (url, options = {{}}) => {{
   if (String(url).startsWith("/api/problem-garden/problems?")) {{
     const value = String(url);
     if (!value.includes("q=freiman")) throw new Error(value);
+    if (!value.includes("domain=Graph+Theory")) throw new Error(value);
     if (!value.includes("status=open")) throw new Error(value);
-    if (!value.includes("domain=finite+fields")) throw new Error(value);
     if (!value.includes("difficulty=frontier")) throw new Error(value);
+    if (!value.includes("limit=20")) throw new Error(value);
     return {{ ok: true, json: async () => ({{ problems: [apiProblem] }}) }};
   }}
   if (url === "/api/problem-garden/problems") {{
@@ -2255,8 +2262,8 @@ const context = {{
 (async () => {{
   vm.runInNewContext(code, context);
   gardenQuery.value = "freiman";
+  gardenDomain.value = "Graph Theory";
   gardenStatus.value = "open";
-  gardenDomain.value = "finite fields";
   gardenDifficulty.value = "frontier";
   await context.loadProblemGarden();
   if (!gardenProblems.innerHTML.includes("API Polynomial Freiman-Ruzsa")) throw new Error(gardenProblems.innerHTML);

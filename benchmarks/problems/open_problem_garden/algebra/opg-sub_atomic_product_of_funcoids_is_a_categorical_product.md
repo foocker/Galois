@@ -19,17 +19,7 @@ See details, exact definitions, and attempted proofs here.
 
 # Source literature
 
-- http://www.openproblemgarden.org/op/sub_atomic_product_of_funcoids_is_a_categorical_product
 
 # Progress
 
 - See Algebraic General Topology for definitions of used concepts.
-
-# Graph links
-
-| From | Relation | To |
-| --- | --- | --- |
-| Problem | stated_in | Open Problem Garden |
-| Problem | imported_from | openproblemgarden.org |
-| Problem | belongs_to_domain | Algebra |
-| Problem | related_to | A construction of direct product in the category of continuous maps between endo-funcoids |

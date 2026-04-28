@@ -241,9 +241,11 @@ def build_parser() -> argparse.ArgumentParser:
     opg_parser.add_argument("--no-cache", action="store_true", help="Ignore cached HTML and fetch pages again.")
     opg_parser.add_argument("--delay", type=float, default=0.0, help="Sleep between page fetches.")
     opg_parser.add_argument("--timeout", type=float, default=10.0)
+    opg_parser.add_argument("--max-workers", type=int, default=8, help="Concurrent problem-page fetch workers.")
     opg_parser.add_argument("--dry-run", action="store_true", help="Crawl and report without writing files or database rows.")
     opg_parser.add_argument("--write-files", dest="write_files", action="store_true", default=True, help="Write Markdown and index.json files. Enabled by default.")
     opg_parser.add_argument("--no-write-files", dest="write_files", action="store_false", help="Do not write Markdown or index.json files.")
+    opg_parser.add_argument("--no-clean-output", action="store_true", help="Do not remove previous opg-*.md files before writing.")
     opg_parser.add_argument("--import-db", action="store_true", help="Upsert normalized problems into the Problem Garden database.")
 
     web_parser = subparsers.add_parser("web", help="Start the Galois research workbench web UI.")
@@ -1441,8 +1443,10 @@ def cmd_import_open_problem_garden(
     no_cache: bool,
     delay: float,
     timeout: float,
+    max_workers: int,
     dry_run: bool,
     write_files: bool,
+    clean_output: bool,
     import_db: bool,
 ) -> int:
     from datetime import UTC
@@ -1466,6 +1470,7 @@ def cmd_import_open_problem_garden(
         use_cache=not no_cache,
         timeout=timeout,
         delay=delay,
+        max_workers=max_workers,
     )
     written: list[Path] = []
     imported = 0
@@ -1477,6 +1482,7 @@ def cmd_import_open_problem_garden(
             output_dir=output_dir or DEFAULT_OUTPUT_DIR,
             errors=result.errors,
             skipped=result.skipped,
+            clean=clean_output,
         )
     if should_import_db:
         config = load_config(config_path)
@@ -1585,8 +1591,10 @@ def main() -> int:
                 no_cache=args.no_cache,
                 delay=args.delay,
                 timeout=args.timeout,
+                max_workers=args.max_workers,
                 dry_run=args.dry_run,
                 write_files=args.write_files,
+                clean_output=not args.no_clean_output,
                 import_db=args.import_db,
             )
         raise SystemExit(f"unknown garden command: {args.garden_command}")

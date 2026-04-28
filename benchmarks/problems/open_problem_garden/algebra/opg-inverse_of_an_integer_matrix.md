@@ -5,8 +5,6 @@ status: open
 difficulty: research
 domains:
 - Algebra
-- Gregory, Steven A
-- invertable matrices, integer matrices
 source: Open Problem Garden
 source_url: http://www.openproblemgarden.org/op/inverse_of_an_integer_matrix
 ---
@@ -17,18 +15,7 @@ Question I've been working on this for a long time and I'm getting nowhere. Coul
 
 # Source literature
 
-- http://www.openproblemgarden.org/op/inverse_of_an_integer_matrix
 
 # Progress
 
 - Status: open.
-
-# Graph links
-
-| From | Relation | To |
-| --- | --- | --- |
-| Problem | stated_in | Open Problem Garden |
-| Problem | imported_from | openproblemgarden.org |
-| Problem | belongs_to_domain | Algebra |
-| Problem | belongs_to_domain | Gregory, Steven A |
-| Problem | belongs_to_domain | invertable matrices, integer matrices |
