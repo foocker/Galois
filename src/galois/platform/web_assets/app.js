@@ -6,11 +6,9 @@ const state = {
   runs: [],
   proofMarkdown: '',
   selectedGardenProblemId: 'pfr-finite-fields',
-  paperOutputKind: 'manuscript_draft',
   lastWritingSnapshot: null,
+  paperOutputMarkdown: '',
 };
-
-const paperOutputKinds = new Set(['manuscript_draft', 'citation_report']);
 
 const elements = {
   form: document.querySelector('#run-form'),
@@ -21,8 +19,6 @@ const elements = {
   pipelineChoices: [...document.querySelectorAll('input[name="pipeline-choice"]')],
   views: [...document.querySelectorAll('[data-view]')],
   viewButtons: [...document.querySelectorAll('[data-view-target]')],
-  languageButtons: [...document.querySelectorAll('[data-language-toggle]')],
-  themeButtons: [...document.querySelectorAll('[data-theme-toggle]')],
   submit: document.querySelector('#submit-button'),
   submitProxy: document.querySelector('#submit-proxy'),
   newProof: document.querySelector('#new-proof-shortcut'),
@@ -31,16 +27,10 @@ const elements = {
   message: document.querySelector('#form-message'),
   recent: document.querySelector('#recent-runs'),
   ledgerRuns: document.querySelector('#ledger-runs'),
-  refresh: document.querySelector('#refresh-runs'),
-  currentTitle: document.querySelector('#current-run-title'),
-  statusPill: document.querySelector('#status-pill'),
-  runId: document.querySelector('#run-id'),
-  runPipeline: document.querySelector('#run-pipeline'),
   problemPreview: document.querySelector('#problem-preview'),
   proofSheet: document.querySelector('#proof-sheet'),
   copyProofMarkdown: document.querySelector('#copy-proof-markdown'),
   output: document.querySelector('#output'),
-  ladder: [...document.querySelectorAll('#progress-ladder li')],
   matlasForm: document.querySelector('#matlas-form'),
   matlasQuery: document.querySelector('#matlas-query'),
   matlasCount: document.querySelector('#matlas-count'),
@@ -49,6 +39,7 @@ const elements = {
   gardenProblems: document.querySelector('#garden-problems'),
   gardenDetail: document.querySelector('#garden-detail'),
   gardenGraph: document.querySelector('#garden-graph'),
+  gardenGraphModal: document.querySelector('#garden-graph-modal'),
   gardenSearchForm: document.querySelector('#garden-search-form'),
   gardenQuery: document.querySelector('#garden-query'),
   gardenStatusFilter: document.querySelector('#garden-status-filter'),
@@ -59,8 +50,10 @@ const elements = {
   gardenSubmitStatement: document.querySelector('#garden-submit-statement'),
   gardenSubmitSource: document.querySelector('#garden-submit-source'),
   gardenSubmitDomain: document.querySelector('#garden-submit-domain'),
-  gardenSubmitContext: document.querySelector('#garden-submit-context'),
-  gardenSubmitReferences: document.querySelector('#garden-submit-references'),
+  gardenSubmitSourceLiterature: document.querySelector('#garden-submit-source-literature'),
+  gardenSubmitProgress: document.querySelector('#garden-submit-progress'),
+  gardenSubmitTexts: [...document.querySelectorAll('[data-garden-submit-text]')],
+  gardenSubmitRenders: [...document.querySelectorAll('[data-garden-submit-render]')],
   gardenMessage: document.querySelector('#garden-message'),
   paperTypeChoices: [...document.querySelectorAll('input[name="paper-type"]')],
   paperTitle: document.querySelector('#paper-title-input'),
@@ -76,14 +69,12 @@ const elements = {
   paperTabs: [...document.querySelectorAll('[data-paper-tab]')],
   paperPanels: [...document.querySelectorAll('[data-paper-panel]')],
   paperInputs: [...document.querySelectorAll('[data-paper-input]')],
+  paperRenders: [...document.querySelectorAll('[data-paper-render]')],
   paperDraft: document.querySelector('#paper-draft'),
   paperDraftPreview: document.querySelector('#paper-draft-preview'),
-  paperDraftViewChoices: [...document.querySelectorAll('[data-paper-draft-view]')],
   paperStatusPill: document.querySelector('#paper-status-pill'),
-  paperRunId: document.querySelector('#paper-run-id'),
-  paperRunPipeline: document.querySelector('#paper-run-pipeline'),
-  paperOutputChoices: [...document.querySelectorAll('[data-paper-output]')],
   paperOutput: document.querySelector('#paper-output'),
+  paperOutputEditor: document.querySelector('#paper-output-editor'),
 };
 
 const defaultView = 'problem-solving';
@@ -92,13 +83,10 @@ const viewAliases = new Map([
   ['theorem-search', 'theorem-searching'],
 ]);
 const viewNames = new Set(['problem-solving', 'problem-garden', 'dashboard', 'math-learning', 'theorem-searching', 'paper-writing']);
-const languageStorageKey = 'galois-language';
-const themeStorageKey = 'galois-theme';
 const currentRunStorageKey = 'galois-current-run-id';
 const currentWritingRunStorageKey = 'galois-current-writing-run-id';
-const supportedLocales = new Set(['en', 'zh']);
-const supportedThemes = new Set(['light', 'dark']);
 const rootElement = document.documentElement || { lang: 'en', dataset: {} };
+const gardenSubmitMarkdownFields = new Set(['statement', 'source-literature', 'progress']);
 
 const translations = {
   en: {
@@ -108,11 +96,9 @@ const translations = {
     'actions.copiedProofMarkdown': 'Copied Markdown',
     'actions.loadExample': 'Load example',
     'actions.newProof': 'New Proof',
-    'actions.refresh': 'Refresh',
     'actions.startRun': 'Start research run',
     'auth.signIn': 'Sign In',
     'brand.subtitle': 'Mathematics<br />Learning &amp;<br /><span>Research</span>',
-    'config.description': 'Choose the model and verification pipeline for the current proof obligation.',
     'config.modelSelection': 'Model Selection',
     'config.pipelineSelection': 'Pipeline Selection',
     'config.title': 'Problem Configuration',
@@ -127,12 +113,14 @@ const translations = {
     'history.problemTitle': 'Problem Title',
     'history.recentRuns': 'Recent Runs',
     'history.title': 'History',
-    'garden.brief': 'Curated research problems with source trails, attempts, related literature, and graph links.',
+    'garden.brief': 'Curated research problems with source trails, attempts, and graph links.',
     'garden.domainPlaceholder': 'Domain',
     'garden.filterAnyDifficulty': 'Any difficulty',
     'garden.filterAnyStatus': 'Any status',
     'garden.graphKicker': 'Link Graph',
     'garden.graphTitle': 'Problem links',
+    'garden.graphOpen': 'Link graph',
+    'garden.graphPlaceholder': 'Obsidian-style graph placeholder.',
     'garden.kicker': 'Problem Garden',
     'garden.loading': 'Loading Problem Garden...',
     'garden.loadFailed': 'Problem Garden database could not be loaded. Showing local seed data.',
@@ -141,11 +129,11 @@ const translations = {
     'garden.searchLabel': 'Search problems',
     'garden.searchPlaceholder': 'Search title, statement, or source',
     'garden.submitAction': 'Send to review',
-    'garden.submitContext': 'Context',
     'garden.submitDomain': 'Domain',
+    'garden.submitProgress': 'Progress',
     'garden.submitProblemTitle': 'Title',
-    'garden.submitReferences': 'Seed references',
     'garden.submitSource': 'Source URL',
+    'garden.submitSourceLiterature': 'Source literature',
     'garden.submitStatement': 'Statement',
     'garden.submitTitle': 'Submit candidate',
     'garden.submissionAccepted': 'Candidate submitted for review',
@@ -154,6 +142,7 @@ const translations = {
     'garden.title': 'Open Problem Garden',
     'message.gardenProblemLoaded': 'Problem loaded into the solver.',
     'message.exampleLoaded': 'Example problem loaded. Edit it or start a run.',
+    'message.titleRequired': 'Enter a title before starting a run.',
     'message.problemRequired': 'Paste a Markdown problem before starting a run.',
     'message.submitting': 'Submitting problem to Galois...',
     'matlas.countLabel': 'Result count',
@@ -207,12 +196,8 @@ const translations = {
     'paper.targetJournal': 'Target Journal',
     'paper.targetJournalPlaceholder': 'Not specified',
     'paper.title': 'Mathematical Paper Workspace',
-    'pipeline.fastDraft': 'Fast Draft',
-    'pipeline.formalCheck': 'Formal Check',
     'pipeline.reasoningOnly': 'Reasoning-Only',
-    'pipeline.reasoningOnlyDesc': 'Generates mathematical reasoning without strict downstream verification.',
     'pipeline.reasoningVerification': 'Reasoning & Verification',
-    'pipeline.reasoningVerificationDesc': 'Constructs a proof attempt, then runs the verification service.',
     'placeholder.mathLearning': 'Concept explanation, guided study paths, and example-driven learning will live here.',
     'placeholder.paperWriting': 'Drafting, polishing, and mathematical exposition tools will live here.',
     'placeholder.soonTitle': 'Not implemented',
@@ -222,27 +207,17 @@ const translations = {
     'problem.livePreview': 'Preview',
     'problem.markdownLabel': 'Problem',
     'problem.markdownPlaceholder': 'Paste a theorem, exercise, proof attempt, or research question here...',
-    'problem.titlePlaceholder': 'Riemann Hypothesis',
     'status.complete': 'Complete',
     'status.empty': 'Empty',
     'status.failed': 'Failed',
     'status.idle': 'Idle',
     'status.on': 'On',
-    'status.pipeline': 'Pipeline',
     'status.queued': 'Queued',
-    'status.reasoning': 'Reasoning',
     'status.reasoningOnly': 'Reasoning-Only',
-    'status.repairLoop': 'Repair Loop',
-    'status.runId': 'Run Id',
     'status.running': 'Running',
     'status.succeeded': 'Verified',
     'status.unknown': 'Unknown',
-    'status.verification': 'Verification',
-    'status.verificationStatus': 'Verification Status',
     'status.verified': 'Verified',
-    'status.noActiveRun': 'No active run',
-    'theme.day': 'Day',
-    'theme.night': 'Night',
   },
   zh: {
     'actions.commenceRun': '开始运行',
@@ -251,14 +226,12 @@ const translations = {
     'actions.copiedProofMarkdown': '已复制 Markdown',
     'actions.loadExample': '加载示例',
     'actions.newProof': '新证明',
-    'actions.refresh': '刷新',
     'actions.startRun': '开始研究运行',
     'auth.signIn': '登录',
     'brand.subtitle': '数学学习与研究',
-    'config.description': '为当前证明任务选择模型和验证流程。',
     'config.modelSelection': '模型选择',
     'config.pipelineSelection': '流程选择',
-    'config.title': '问题配置',
+    'config.title': 'Agent配置',
     'empty.noRunsLoaded': '尚未加载运行记录。',
     'empty.noVerifiedRuns': '暂无已验证运行。',
     'empty.noVerifiedRunsLoaded': '尚未加载已验证运行。',
@@ -270,12 +243,14 @@ const translations = {
     'history.problemTitle': '问题标题',
     'history.recentRuns': '最近运行',
     'history.title': '历史',
-    'garden.brief': '收录有来源链路、尝试文献、相关文献和图谱关系的研究问题。',
+    'garden.brief': '收录有来源链路、尝试文献和图谱关系的研究问题。',
     'garden.domainPlaceholder': '领域',
     'garden.filterAnyDifficulty': '任意难度',
     'garden.filterAnyStatus': '任意状态',
     'garden.graphKicker': '链接图谱',
     'garden.graphTitle': '问题关系',
+    'garden.graphOpen': '链接图谱',
+    'garden.graphPlaceholder': '关系图谱占位，后续实现 Obsidian 式节点视图。',
     'garden.kicker': '问题花园',
     'garden.loading': '正在加载问题花园...',
     'garden.loadFailed': '问题花园数据库暂时不可用，正在显示本地种子数据。',
@@ -284,11 +259,11 @@ const translations = {
     'garden.searchLabel': '检索问题',
     'garden.searchPlaceholder': '检索题目、表述或来源',
     'garden.submitAction': '送入审核',
-    'garden.submitContext': '上下文',
     'garden.submitDomain': '领域',
+    'garden.submitProgress': '进展',
     'garden.submitProblemTitle': '题目',
-    'garden.submitReferences': '种子参考文献',
     'garden.submitSource': '来源 URL',
+    'garden.submitSourceLiterature': '来源文献',
     'garden.submitStatement': '问题表述',
     'garden.submitTitle': '提交候选问题',
     'garden.submissionAccepted': '候选问题已提交审核',
@@ -297,6 +272,7 @@ const translations = {
     'garden.title': '开放问题花园',
 
     'message.gardenProblemLoaded': '问题已送入求解区。',
+    'message.titleRequired': '请先填写题目，再启动运行。',
     'message.problemRequired': '请先粘贴 Markdown 问题再启动运行。',
     'message.submitting': '正在提交问题到 Galois...',
     'matlas.countLabel': '结果数量',
@@ -350,46 +326,32 @@ const translations = {
     'paper.targetJournal': '目标期刊',
     'paper.targetJournalPlaceholder': '未指定',
     'paper.title': '数学论文写作',
-    'pipeline.fastDraft': '快速草稿',
-    'pipeline.formalCheck': '形式检查',
     'pipeline.reasoningOnly': '仅推理',
-    'pipeline.reasoningOnlyDesc': '生成数学推理，不执行严格的下游验证。',
     'pipeline.reasoningVerification': '推理与验证',
-    'pipeline.reasoningVerificationDesc': '先构造证明尝试，再运行验证服务。',
     'placeholder.mathLearning': '概念解释、学习路径和示例驱动学习将在这里实现。',
     'placeholder.paperWriting': '论文起草、润色和数学表达工具将在这里实现。',
     'placeholder.soonTitle': '待实现',
     'placeholder.theoremSearching': '定理与相关论文搜索工作区将在这里实现。',
     'problem.draftObligation': '标题',
-    'problem.latexSupport': 'Markdown / LaTeX 支持已启用',
+    'problem.latexSupport': 'Markdown/LaTeX',
     'problem.livePreview': '预览',
     'problem.markdownLabel': '问题',
     'problem.markdownPlaceholder': '在这里粘贴定理、习题、证明尝试或研究问题...',
-    'problem.titlePlaceholder': '黎曼猜想',
     'status.complete': '完成',
     'status.empty': '空',
     'status.failed': '失败',
     'status.idle': '空闲',
     'status.on': '开启',
-    'status.pipeline': '流程',
     'status.queued': '排队中',
-    'status.reasoning': '推理中',
     'status.reasoningOnly': '仅推理',
-    'status.repairLoop': '修复循环',
-    'status.runId': '运行 ID',
     'status.running': '运行中',
     'status.succeeded': '已验证',
     'status.unknown': '未知',
-    'status.verification': '验证中',
-    'status.verificationStatus': '验证状态',
     'status.verified': '已验证',
-    'status.noActiveRun': '暂无活动运行',
-    'theme.day': '白天',
-    'theme.night': '黑夜',
   },
 };
 
-let currentLocale = 'en';
+let currentLocale = 'zh';
 
 const exampleProblem = `# Compactness problem
 
@@ -407,8 +369,7 @@ const problemGardenProblems = [
     difficulty: 'frontier',
     domains: ['additive combinatorics', 'finite fields'],
     source: 'S. Peluse, Finite field models in arithmetic combinatorics -- twenty years on, Surveys in Combinatorics 2024.',
-    sourceUrl: 'benchmarks/problems/finite_fields/polynomial Freiman-Ruzsa conjecture.md',
-    context: 'This is the polynomial Freiman-Ruzsa conjecture in the finite-field model.',
+    sourceUrl: 'https://doi.org/10.1017/9781009567174.011',
     statement: `Let $p$ be a fixed prime and let $A \\subseteq \\mathbb{F}_p^n$ satisfy
 $$
 |A+A| \\le K|A|.
@@ -418,25 +379,9 @@ Must there exist a subspace $H \\le \\mathbb{F}_p^n$ with $|H| \\le |A|$ such th
       'S. Peluse, Finite field models in arithmetic combinatorics -- twenty years on, Surveys in Combinatorics 2024.',
       'B. Green, Notes on the polynomial Freiman-Ruzsa conjecture, unpublished notes, 2005.',
     ],
-    attemptedLiterature: [
-      'S. Lovett, Equivalence of polynomial conjectures in additive combinatorics, Combinatorica 32 (2012), 607-618.',
-    ],
-    relatedLiterature: [
-      'Green-Tao style finite-field additive combinatorics surveys.',
-      'Bogolyubov-Ruzsa type covering theorems over finite vector spaces.',
-    ],
-    knownCoreIdeas: [
-      'Small doubling should force low-complexity additive structure.',
-      'Known routes compare covering, modeling, and inverse theorem formulations.',
-      'Quantitative polynomial dependence on $K$ is the central obstruction.',
-    ],
     progress: [
       'Several polynomial conjectures are known to be equivalent in finite-field models.',
       'The benchmark formulation asks for better covering bounds or explicit structural extraction.',
-    ],
-    possibleIdeas: [
-      'Track which equivalent formulation gives the most direct attack for a given $p$ and $K$.',
-      'Compare recent finite-field survey reductions against older unpublished notes.',
     ],
     graphLinks: [
       { from: 'Problem', relation: 'stated_in', to: 'Peluse 2024 survey' },
@@ -451,29 +396,14 @@ Must there exist a subspace $H \\le \\mathbb{F}_p^n$ with $|H| \\le |A|$ such th
     status: 'open',
     difficulty: 'research',
     domains: ['finite fields', 'field arithmetic'],
-    source: 'Finite-field benchmark problem collection in Galois.',
-    sourceUrl: 'benchmarks/problems/finite_fields/primitive completely normal problem.md',
-    context: 'This finite-field problem is useful for testing the boundary between algebraic existence results and explicit construction methods.',
+    source: 'S. D. Cohen and S. Huczynska, The primitive normal basis theorem -- without a computer, Journal of Pure and Applied Algebra 223 (2019).',
+    sourceUrl: 'https://doi.org/10.1016/j.jpaa.2018.09.003',
     statement: 'Determine sharp existence results for elements of finite field extensions that are simultaneously primitive and completely normal over every intermediate subfield.',
     sourceLiterature: [
       'Finite-field normal basis and primitive element literature.',
     ],
-    attemptedLiterature: [
-      'Character sum approaches to primitive normal basis problems.',
-    ],
-    relatedLiterature: [
-      'Completely normal elements over finite fields.',
-      'Primitive elements avoiding affine hyperplanes.',
-    ],
-    knownCoreIdeas: [
-      'Combine multiplicative primitivity with additive normality constraints.',
-      'Character sums can separate some constraints but constants and small fields remain delicate.',
-    ],
     progress: [
       'Many extension-degree regimes are known; sharp uniform results remain a useful benchmark target.',
-    ],
-    possibleIdeas: [
-      'Build a case table by extension degree and field size, then isolate the remaining exceptional regimes.',
     ],
     graphLinks: [
       { from: 'Problem', relation: 'related_to', to: 'Normal basis theorem' },
@@ -487,30 +417,14 @@ Must there exist a subspace $H \\le \\mathbb{F}_p^n$ with $|H| \\le |A|$ such th
     status: 'open',
     difficulty: 'frontier',
     domains: ['number theory', 'arithmetic dynamics'],
-    source: 'Benchmark problem collection; classical formulation due to Lehmer.',
-    sourceUrl: "benchmarks/problems/number_theory/Lehmer's problem on Mahler measure.md",
-    context: 'This classical problem asks for a uniform gap in Mahler measure outside cyclotomic factors.',
+    source: 'D. H. Lehmer, Factorization of certain cyclotomic functions, Annals of Mathematics 34 (1933).',
+    sourceUrl: 'https://doi.org/10.2307/1968393',
     statement: 'Is there a universal constant $c>1$ such that every noncyclotomic monic integer polynomial has Mahler measure at least $c$?',
     sourceLiterature: [
       'D. H. Lehmer, Factorization of certain cyclotomic functions, Annals of Mathematics 34 (1933).',
     ],
-    attemptedLiterature: [
-      'Dobrowolski-type lower bounds for Mahler measure.',
-      'Surveys on Lehmer-type problems and heights.',
-    ],
-    relatedLiterature: [
-      'Height lower bounds.',
-      'Salem numbers and cyclotomic factors.',
-    ],
-    knownCoreIdeas: [
-      'Exclude cyclotomic factors and seek a uniform height gap.',
-      'Known lower bounds depend on polynomial degree.',
-    ],
     progress: [
       'No degree-independent gap is known in the full classical form.',
-    ],
-    possibleIdeas: [
-      'Compare special families where stronger lower bounds are known against the unrestricted problem.',
     ],
     graphLinks: [
       { from: 'Problem', relation: 'stated_in', to: 'Lehmer 1933' },
@@ -524,11 +438,7 @@ const problemGardenSeedProblems = problemGardenProblems.map((problem) => ({
   ...problem,
   domains: [...problem.domains],
   sourceLiterature: [...problem.sourceLiterature],
-  attemptedLiterature: [...problem.attemptedLiterature],
-  relatedLiterature: [...problem.relatedLiterature],
-  knownCoreIdeas: [...problem.knownCoreIdeas],
   progress: [...problem.progress],
-  possibleIdeas: [...problem.possibleIdeas],
   graphLinks: problem.graphLinks.map((edge) => ({ ...edge })),
 }));
 
@@ -560,16 +470,9 @@ function storageRemove(key) {
   }
 }
 
-function preferredTheme() {
-  const saved = storageGet(themeStorageKey);
-  if (supportedThemes.has(saved)) return saved;
-  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark';
-  return 'light';
-}
-
-function applyLocale(locale) {
-  currentLocale = supportedLocales.has(locale) ? locale : 'en';
-  rootElement.lang = currentLocale === 'zh' ? 'zh-CN' : 'en';
+function applyLocale() {
+  currentLocale = 'zh';
+  rootElement.lang = 'zh-CN';
   document.querySelectorAll('[data-i18n]').forEach((node) => {
     node.textContent = translate(node.dataset.i18n);
   });
@@ -579,23 +482,10 @@ function applyLocale(locale) {
   document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
     node.placeholder = translate(node.dataset.i18nPlaceholder);
   });
-  elements.languageButtons.forEach((button) => {
-    const active = button.dataset.languageToggle === currentLocale;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-pressed', String(active));
-  });
-  storageSet(languageStorageKey, currentLocale);
 }
 
-function applyTheme(theme) {
-  const nextTheme = supportedThemes.has(theme) ? theme : 'light';
-  rootElement.dataset.theme = nextTheme;
-  elements.themeButtons.forEach((button) => {
-    const active = button.dataset.themeToggle === nextTheme;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-pressed', String(active));
-  });
-  storageSet(themeStorageKey, nextTheme);
+function applyTheme() {
+  rootElement.dataset.theme = 'dark';
 }
 
 function setMessage(text, tone = 'neutral') {
@@ -611,7 +501,7 @@ function setPaperMessage(text, tone = 'neutral') {
 
 function setSubmitDisabled(disabled) {
   elements.submit.disabled = disabled;
-  elements.submitProxy.disabled = disabled;
+  if (elements.submitProxy) elements.submitProxy.disabled = disabled;
 }
 
 function setPaperSubmitDisabled(disabled) {
@@ -824,16 +714,11 @@ function normalizeGardenProblem(problem) {
     domains: Array.isArray(problem.domains) ? problem.domains : [],
     source: problem.source || '',
     sourceUrl: problem.sourceUrl || problem.source_url || '',
-    context: problem.context || '',
     statement: problem.statement || '',
     sourceLiterature: problem.sourceLiterature || problem.source_literature || [],
-    attemptedLiterature: problem.attemptedLiterature || problem.attempted_literature || [],
-    relatedLiterature: problem.relatedLiterature || problem.related_literature || [],
-    knownCoreIdeas: problem.knownCoreIdeas || problem.known_core_ideas || [],
     progress: problem.progress || problem.progress_notes || [],
-    possibleIdeas: problem.possibleIdeas || problem.possible_ideas || [],
+    communityReactions: problem.communityReactions || problem.community_reactions || [],
     graphLinks: problem.graphLinks || problem.graph_links || [],
-    relatedLiteratureCount: problem.relatedLiteratureCount || problem.related_literature_count || 0,
     latestProgress: problem.latestProgress || problem.latest_progress || '',
   };
 }
@@ -855,17 +740,13 @@ function gardenProblemMarkdown(problem) {
 
 ${problem.statement}
 
-## Context
+## Source literature
 
-${problem.context || problem.source}
+${problem.sourceLiterature.map((item) => `- ${item}`).join('\n')}
 
-## Source
+## Progress
 
-${problem.source}
-
-## Known core ideas
-
-${problem.knownCoreIdeas.map((item) => `- ${item}`).join('\n')}`;
+${problem.progress.map((item) => `- ${item}`).join('\n')}`;
 }
 
 function renderGardenList(selectedId) {
@@ -890,17 +771,85 @@ function renderGardenSection(title, items) {
   return `<section class="garden-detail-section"><h3>${escapeHtml(title)}</h3><ul>${items.map((item) => `<li>${renderMarkdownLite(item)}</li>`).join('')}</ul></section>`;
 }
 
+function renderGardenCommunityReactions(reactions) {
+  if (!Array.isArray(reactions) || !reactions.length) return '';
+  const rows = reactions.map((reaction) => {
+    const users = Array.isArray(reaction.users) && reaction.users.length ? reaction.users.join(', ') : 'None';
+    return `<tr>
+      <th>${escapeHtml(reaction.label || reaction.type || '')}</th>
+      <td>${escapeHtml(users)}</td>
+    </tr>`;
+  }).join('');
+  return `<section class="garden-detail-section garden-community-reactions">
+    <h3>Community signals</h3>
+    <table><tbody>${rows}</tbody></table>
+  </section>`;
+}
+
+function renderGardenSourceUrl(sourceUrl) {
+  if (!sourceUrl) return '';
+  if (!/^https?:\/\//i.test(sourceUrl)) return `<p>${escapeHtml(sourceUrl)}</p>`;
+  return `<p><a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(sourceUrl)}</a></p>`;
+}
+
+function gardenSubmitTextByName(name) {
+  return elements.gardenSubmitTexts.find((input) => input.dataset.gardenSubmitText === name) || null;
+}
+
+function gardenSubmitRenderByName(name) {
+  return elements.gardenSubmitRenders.find((render) => render.dataset.gardenSubmitRender === name) || null;
+}
+
+function renderGardenSubmitField(name) {
+  const input = gardenSubmitTextByName(name);
+  const render = gardenSubmitRenderByName(name);
+  if (!input || !render) return;
+  const content = input.value || '';
+  if (!content.trim()) {
+    render.innerHTML = '';
+    return;
+  }
+  render.innerHTML = renderMarkdownLite(content);
+  renderMath(render);
+}
+
+function setGardenSubmitFieldMode(name, editing) {
+  const input = gardenSubmitTextByName(name);
+  const render = gardenSubmitRenderByName(name);
+  if (!input || !render) return;
+  if (!editing) renderGardenSubmitField(name);
+  input.hidden = !editing;
+  render.hidden = editing;
+  render.setAttribute?.('tabindex', '0');
+  if (editing) input.focus();
+}
+
+function renderGardenSubmitFields() {
+  gardenSubmitMarkdownFields.forEach((name) => setGardenSubmitFieldMode(name, false));
+}
+
+function gardenLines(value) {
+  return (value || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+}
+
 function renderGardenDetail(problem) {
   problem = normalizeGardenProblem(problem);
   const domains = problem.domains.map((domain) => `<span>${escapeHtml(domain)}</span>`).join('');
   return `<article>
     <header class="garden-detail-head">
-      <p class="kicker">Problem Seed</p>
-      <h2>${escapeHtml(problem.title)}</h2>
-      <div class="garden-meta-strip">
-        <span>${escapeHtml(problem.status)}</span>
-        <span>${escapeHtml(problem.difficulty)}</span>
-        ${domains}
+      <div class="garden-detail-title-row">
+        <div>
+          <p class="kicker">Problem Seed</p>
+          <h2>${escapeHtml(problem.title)}</h2>
+        </div>
+        <button class="secondary-button garden-graph-trigger" type="button" data-garden-open-graph>${escapeHtml(translate('garden.graphOpen'))}</button>
+      </div>
+      <div class="garden-meta-row">
+        <div class="garden-meta-strip">
+          <span>${escapeHtml(problem.status)}</span>
+          <span>${escapeHtml(problem.difficulty)}</span>
+          ${domains}
+        </div>
       </div>
     </header>
     <section class="garden-statement">
@@ -910,16 +859,20 @@ function renderGardenDetail(problem) {
     <section class="garden-source">
       <h3>Source literature</h3>
       <p>${escapeHtml(problem.source)}</p>
-      <p><a href="${escapeHtml(problem.sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(problem.sourceUrl)}</a></p>
+      ${renderGardenSourceUrl(problem.sourceUrl)}
       ${problem.sourceLiterature?.length ? `<ul>${problem.sourceLiterature.map((item) => `<li>${renderMarkdownLite(item)}</li>`).join('')}</ul>` : ''}
     </section>
-    ${renderGardenSection('Attempted literature', problem.attemptedLiterature)}
-    ${renderGardenSection('Related literature', problem.relatedLiterature)}
-    ${renderGardenSection('Known core ideas', problem.knownCoreIdeas)}
     ${renderGardenSection('Progress', problem.progress)}
-    ${renderGardenSection('Possible ideas', problem.possibleIdeas)}
-    <button class="primary-button garden-use-button" type="button" data-garden-use-problem="${escapeHtml(problem.id)}">Use in Problem Solving</button>
+    ${renderGardenCommunityReactions(problem.communityReactions)}
+    <div class="garden-detail-actions">
+      <button class="primary-button garden-use-button" type="button" data-garden-use-problem="${escapeHtml(problem.id)}">Use in Problem Solving</button>
+    </div>
   </article>`;
+}
+
+function setGardenGraphModalOpen(open) {
+  if (!elements.gardenGraphModal) return;
+  elements.gardenGraphModal.hidden = !open;
 }
 
 function renderGardenGraph(problem) {
@@ -1027,39 +980,57 @@ async function submitGardenCandidate(event) {
         statement,
         source_url: sourceUrl,
         domain: elements.gardenSubmitDomain?.value.trim() || '',
-        context: elements.gardenSubmitContext?.value.trim() || '',
-        references_text: elements.gardenSubmitReferences?.value.trim() || '',
+        source_literature: gardenLines(elements.gardenSubmitSourceLiterature?.value),
+        progress: gardenLines(elements.gardenSubmitProgress?.value),
         status: 'pending_review',
       }),
     });
     elements.gardenSubmitForm?.reset();
+    renderGardenSubmitFields();
     setGardenMessage(`${translate('garden.submissionAccepted')}: ${created.status || 'pending_review'}`);
   } catch (error) {
     setGardenMessage(`${translate('garden.submissionFailed')} ${error.message}`, 'error');
   }
 }
 
-function renderPaperDraftPreview() {
-  if (!elements.paperDraft || !elements.paperDraftPreview) return;
-  const content = elements.paperDraft.value || '';
-  if (!content.trim()) {
-    elements.paperDraftPreview.innerHTML = `<p class="empty-state">${escapeHtml(translate('empty.previewPending'))}</p>`;
-    return;
-  }
-  elements.paperDraftPreview.innerHTML = renderMarkdownLite(content);
-  renderMath(elements.paperDraftPreview);
+function paperInputByName(name) {
+  return elements.paperInputs.find((input) => input.dataset.paperInput === name) || null;
 }
 
-function setPaperDraftView(mode) {
-  const nextMode = mode === 'preview' ? 'preview' : 'edit';
-  elements.paperDraftViewChoices.forEach((choice) => {
-    const active = choice.dataset.paperDraftView === nextMode;
-    choice.classList.toggle('active', active);
-    choice.setAttribute('aria-pressed', String(active));
-  });
-  if (elements.paperDraft) elements.paperDraft.hidden = nextMode === 'preview';
-  if (elements.paperDraftPreview) elements.paperDraftPreview.hidden = nextMode !== 'preview';
-  if (nextMode === 'preview') renderPaperDraftPreview();
+function paperRenderByName(name) {
+  return elements.paperRenders.find((render) => render.dataset.paperRender === name) || null;
+}
+
+function renderPaperInputPreview(name) {
+  const input = paperInputByName(name);
+  const render = paperRenderByName(name);
+  if (!input || !render) return;
+  const content = input.value || '';
+  if (!content.trim()) {
+    render.innerHTML = `<p class="empty-state">${escapeHtml(translate('empty.previewPending'))}</p>`;
+    return;
+  }
+  render.innerHTML = renderMarkdownLite(content);
+  renderMath(render);
+}
+
+function renderPaperDraftPreview() {
+  renderPaperInputPreview('draft');
+}
+
+function setPaperInputEditMode(name, editing) {
+  const input = paperInputByName(name);
+  const render = paperRenderByName(name);
+  if (!input || !render) return;
+  if (!editing) renderPaperInputPreview(name);
+  input.hidden = !editing;
+  render.hidden = editing;
+  render.setAttribute?.('tabindex', '0');
+  if (editing) input.focus();
+}
+
+function setPaperDraftEditMode(editing) {
+  setPaperInputEditMode('draft', editing);
 }
 
 function setPaperTab(tabName) {
@@ -1071,7 +1042,8 @@ function setPaperTab(tabName) {
     const active = input.dataset.paperInput === tabName;
     input.classList.toggle('active', active);
   });
-  if (tabName === 'draft') renderPaperDraftPreview();
+  renderPaperInputPreview(tabName);
+  setPaperInputEditMode(tabName, false);
 }
 
 function selectedPaperType() {
@@ -1079,17 +1051,13 @@ function selectedPaperType() {
 }
 
 function paperInputValue(name) {
-  return elements.paperInputs.find((input) => input.dataset.paperInput === name)?.value || '';
+  return paperInputByName(name)?.value || '';
 }
 
 function optionalNumberValue(input) {
   if (!input || !String(input.value || '').trim()) return null;
   const value = Number(input.value);
   return Number.isFinite(value) ? value : null;
-}
-
-function normalizePaperOutputKind(kind) {
-  return paperOutputKinds.has(kind) ? kind : 'manuscript_draft';
 }
 
 function citationValueToText(value) {
@@ -1207,32 +1175,45 @@ function renderCitationReport(value) {
   return `<section class="citation-output"><h1>References</h1><ol class="citation-list">${list}</ol></section>`;
 }
 
-function renderPaperOutput(snapshot) {
-  if (!elements.paperOutput) return;
-  state.paperOutputKind = normalizePaperOutputKind(state.paperOutputKind);
+function writingArtifactContent(artifact) {
+  if (!artifact) return '';
+  return typeof artifact.content === 'string' ? artifact.content : JSON.stringify(artifact.content, null, 2);
+}
+
+function finalWritingMarkdown(snapshot) {
   const artifacts = snapshot?.output?.artifacts || {};
-  const selected = artifacts[state.paperOutputKind];
-  if (!selected) {
-    elements.paperOutput.classList.remove('citation-output-host');
+  return writingArtifactContent(artifacts.manuscript_draft || artifacts.final_draft || artifacts.final_manuscript);
+}
+
+function renderPaperOutputMarkdown(content) {
+  if (!elements.paperOutput) return;
+  state.paperOutputMarkdown = content || '';
+  elements.paperOutput.classList.remove('citation-output-host');
+  if (!state.paperOutputMarkdown.trim()) {
     elements.paperOutput.innerHTML = `<p>${escapeHtml(translate('paper.outputPending'))}</p>`;
     return;
   }
-  elements.paperOutput.classList.toggle('citation-output-host', state.paperOutputKind === 'citation_report');
-  if (state.paperOutputKind === 'citation_report') {
-    elements.paperOutput.innerHTML = renderCitationReport(selected.content);
-  } else {
-    const content = typeof selected.content === 'string' ? selected.content : JSON.stringify(selected.content, null, 2);
-    elements.paperOutput.innerHTML = renderMarkdownLite(content);
-  }
+  elements.paperOutput.innerHTML = renderMarkdownLite(state.paperOutputMarkdown);
   renderMath(elements.paperOutput);
 }
 
-function updatePaperOutputChoice(kind) {
-  state.paperOutputKind = normalizePaperOutputKind(kind);
-  elements.paperOutputChoices.forEach((choice) => {
-    choice.classList.toggle('active', choice.dataset.paperOutput === state.paperOutputKind);
-  });
-  if (state.lastWritingSnapshot) renderPaperOutput(state.lastWritingSnapshot);
+function renderPaperOutput(snapshot) {
+  renderPaperOutputMarkdown(finalWritingMarkdown(snapshot));
+}
+
+function setPaperOutputEditMode(editing) {
+  if (!elements.paperOutput || !elements.paperOutputEditor) return;
+  if (editing) {
+    elements.paperOutputEditor.value = state.paperOutputMarkdown || '';
+    elements.paperOutput.hidden = true;
+    elements.paperOutputEditor.hidden = false;
+    elements.paperOutputEditor.focus();
+    return;
+  }
+  state.paperOutputMarkdown = elements.paperOutputEditor.value || '';
+  elements.paperOutputEditor.hidden = true;
+  elements.paperOutput.hidden = false;
+  renderPaperOutputMarkdown(state.paperOutputMarkdown);
 }
 
 function renderWritingSnapshot(snapshot) {
@@ -1242,8 +1223,6 @@ function renderWritingSnapshot(snapshot) {
     elements.paperStatusPill.textContent = snapshotStatusLabel(snapshot);
     elements.paperStatusPill.className = `status-pill ${status}`;
   }
-  if (elements.paperRunId) elements.paperRunId.textContent = snapshot.run_id || '—';
-  if (elements.paperRunPipeline) elements.paperRunPipeline.textContent = snapshot.pipeline || 'writing-only';
   renderPaperOutput(snapshot);
 }
 
@@ -1425,6 +1404,15 @@ function updateProblemPreview() {
   renderMath(elements.problemPreview);
 }
 
+function setProblemEditMode(editing) {
+  if (!elements.markdown || !elements.problemPreview) return;
+  if (!editing) updateProblemPreview();
+  elements.markdown.hidden = !editing;
+  elements.problemPreview.hidden = editing;
+  elements.problemPreview.setAttribute?.('tabindex', '0');
+  if (editing) elements.markdown.focus();
+}
+
 function statusLabel(run) {
   const status = run.status || 'unknown';
   const pipeline = run.pipeline || '';
@@ -1469,11 +1457,21 @@ function isVerifiedRun(run) {
 function verifiedRuns(runs) {
   const seen = new Set();
   return runs.filter(isVerifiedRun).filter((run) => {
-    const key = run.problem?.problem_id || run.problem?.title || run.run_id;
+    const key = run.problem?.problem_id || run.display_title || run.problem?.title || run.run_id;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function runDisplayTitle(run) {
+  return run.display_title || run.problem?.display_title || run.problem?.title || run.problem?.problem_id || run.run_id;
+}
+
+function renderInlineMarkdown(markdown) {
+  const html = renderMarkdownLite(markdown || '');
+  const paragraph = html.match(/^<p>([\s\S]*)<\/p>$/);
+  return paragraph ? paragraph[1] : html;
 }
 
 function formatRunDate(runId) {
@@ -1484,66 +1482,15 @@ function formatRunDate(runId) {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: '2-digit', year: 'numeric' }).format(date);
 }
 
-function splitFinalBlueprint(content) {
-  const text = content || '';
-  const problemMatch = text.match(/^##\s+Problem\s*$/im);
-  const solutionMatch = text.match(/^##\s+Solution\s*$/im);
-  if (!problemMatch || !solutionMatch || solutionMatch.index <= problemMatch.index) {
-    return { problemContent: text, proofContent: text };
-  }
-
-  const titleContent = text.slice(0, problemMatch.index).trim();
-  const problemContent = text.slice(problemMatch.index, solutionMatch.index).trim();
-  const proofContent = text.slice(solutionMatch.index).trim();
-  return {
-    problemContent: [titleContent, problemContent].filter(Boolean).join('\n\n'),
-    proofContent,
-  };
-}
-
 function resolveSnapshotDocuments(snapshot) {
-  if (snapshot.output?.kind === 'final_blueprint' && snapshot.output?.content) {
-    return splitFinalBlueprint(snapshot.output.content);
-  }
   return {
     problemContent: snapshot.problem_input?.content || null,
     proofContent: snapshot.output?.content || null,
   };
 }
 
-function deriveSteps(snapshot) {
-  const status = snapshot.status || 'queued';
-  const workflows = new Set(snapshot.workflows || []);
-  const events = snapshot.events || [];
-  const eventNames = new Set(events.map((event) => event.event_type));
-  const steps = new Set(['queued']);
-
-  if (status === 'running' || status === 'launched' || status === 'succeeded' || status === 'failed') steps.add('reasoning');
-  if (workflows.has('verification') || eventNames.has('artifact_collected')) steps.add('verification');
-  if (eventNames.has('repair_input_written') || eventNames.has('repair_contract_published')) steps.add('repair');
-  if (status === 'succeeded' || status === 'failed') steps.add('complete');
-
-  return steps;
-}
-
-function renderLadder(snapshot) {
-  const steps = deriveSteps(snapshot);
-  const order = ['queued', 'reasoning', 'verification', 'repair', 'complete'];
-  const activeIndex = Math.max(...[...steps].map((step) => order.indexOf(step)));
-  elements.ladder.forEach((item, index) => {
-    item.classList.toggle('done', index < activeIndex || snapshot.status === 'succeeded');
-    item.classList.toggle('current', index === activeIndex && !['succeeded', 'failed'].includes(snapshot.status));
-  });
-}
-
 function renderSnapshot(snapshot) {
-  const status = snapshot.status || 'unknown';
   const documents = resolveSnapshotDocuments(snapshot);
-  elements.currentTitle.textContent = snapshot.problem?.title || snapshot.problem?.problem_id || 'Research run';
-  elements.statusPill.textContent = snapshotStatusLabel(snapshot);
-  elements.statusPill.className = `status-pill ${status}`;
-  elements.runId.textContent = snapshot.run_id || '—';
-  elements.runPipeline.textContent = snapshot.pipeline || snapshot.launch?.pipeline || '—';
 
   if (documents.proofContent) {
     state.proofMarkdown = documents.proofContent;
@@ -1559,8 +1506,6 @@ function renderSnapshot(snapshot) {
     elements.copyProofMarkdown.textContent = translate('actions.copyProofMarkdown');
     elements.output.innerHTML = '';
   }
-
-  renderLadder(snapshot);
 }
 
 function clearCurrentRunStorage(runId = null) {
@@ -1571,18 +1516,6 @@ function clearCurrentRunStorage(runId = null) {
 function clearCurrentWritingRunStorage(runId = null) {
   if (runId && storageGet(currentWritingRunStorageKey) !== runId) return;
   storageRemove(currentWritingRunStorageKey);
-}
-
-function resetRunStatus() {
-  elements.currentTitle.textContent = translate('status.noActiveRun');
-  elements.statusPill.textContent = translate('status.idle');
-  elements.statusPill.className = 'status-pill idle';
-  elements.runId.textContent = '—';
-  elements.runPipeline.textContent = '—';
-  elements.ladder.forEach((item) => {
-    item.classList.remove('done');
-    item.classList.remove('current');
-  });
 }
 
 function clearProofOutput() {
@@ -1615,7 +1548,6 @@ function startNewProof() {
   elements.markdown.value = '';
   updateProblemPreview();
   clearProofOutput();
-  resetRunStatus();
   setSubmitDisabled(false);
   setMessage('');
   setView(defaultView);
@@ -1715,9 +1647,10 @@ async function loadRecentRuns() {
     return state.runs;
   }
   elements.recent.innerHTML = verified.map((run) => {
-    const title = run.problem?.title || run.problem?.problem_id || run.run_id;
-    return `<div class="run-item"><button type="button" data-run-id="${escapeHtml(run.run_id)}"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(translate('status.verified'))}</small></button></div>`;
+    const title = runDisplayTitle(run);
+    return `<div class="run-item"><button type="button" data-run-id="${escapeHtml(run.run_id)}"><strong>${renderInlineMarkdown(title)}</strong><small>${escapeHtml(translate('status.verified'))}</small></button></div>`;
   }).join('');
+  renderMath(elements.recent);
   return state.runs;
 }
 
@@ -1771,18 +1704,25 @@ function renderLedgerRuns(runs) {
     return;
   }
   elements.ledgerRuns.innerHTML = runs.slice(0, 8).map((run) => {
-    const title = run.problem?.title || run.problem?.problem_id || run.run_id;
+    const title = runDisplayTitle(run);
     return `<button class="ledger-row ledger-button" type="button" data-run-id="${escapeHtml(run.run_id)}">
       <time>${escapeHtml(formatRunDate(run.run_id))}</time>
-      <strong>${escapeHtml(title)}</strong>
+      <strong>${renderInlineMarkdown(title)}</strong>
       <em class="status-tag ${escapeHtml(statusClass(run))}">${escapeHtml(statusLabel(run))}</em>
     </button>`;
   }).join('');
+  renderMath(elements.ledgerRuns);
 }
 
 async function submitRun(event) {
   event.preventDefault();
+  const title = elements.title.value.trim();
   const problemMarkdown = elements.markdown.value;
+  if (!title) {
+    setMessage(translate('message.titleRequired'), 'error');
+    elements.title.focus();
+    return;
+  }
   if (!problemMarkdown.trim()) {
     setMessage(translate('message.problemRequired'), 'error');
     return;
@@ -1791,11 +1731,12 @@ async function submitRun(event) {
   setSubmitDisabled(true);
   setMessage(translate('message.submitting'));
   try {
+    setProblemEditMode(false);
     const created = await fetchJson('/api/runs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: elements.title.value.trim() || null,
+        title,
         problem_markdown: problemMarkdown,
         pipeline: elements.pipeline.value,
         model: elements.model.value,
@@ -1807,7 +1748,8 @@ async function submitRun(event) {
       status: 'queued',
       pipeline: created.pipeline,
       model: created.model,
-      problem: { title: elements.title.value.trim(), problem_id: created.problem_id },
+      display_title: created.display_title || title,
+      problem: { title, display_title: created.display_title || title, problem_id: created.problem_id },
       events: [],
       output: null,
       workflows: [],
@@ -1874,15 +1816,6 @@ function wireEvents() {
       setView(item.dataset.viewTarget);
     });
   });
-  elements.languageButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      applyLocale(button.dataset.languageToggle);
-      loadRecentRuns().catch((error) => setMessage(error.message, 'error'));
-    });
-  });
-  elements.themeButtons.forEach((button) => {
-    button.addEventListener('click', () => applyTheme(button.dataset.themeToggle));
-  });
   elements.form.addEventListener('submit', submitRun);
   elements.matlasForm?.addEventListener('submit', submitMatlasSearch);
   elements.matlasQuery?.addEventListener('keydown', (event) => {
@@ -1908,39 +1841,80 @@ function wireEvents() {
   elements.gardenSubmitForm?.addEventListener('submit', (event) => {
     submitGardenCandidate(event).catch((error) => setGardenMessage(error.message, 'error'));
   });
+  elements.gardenSubmitTexts.forEach((input) => {
+    input.addEventListener('input', () => renderGardenSubmitField(input.dataset.gardenSubmitText));
+    input.addEventListener('blur', () => setGardenSubmitFieldMode(input.dataset.gardenSubmitText, false));
+  });
+  elements.gardenSubmitRenders.forEach((render) => {
+    render.addEventListener('dblclick', () => setGardenSubmitFieldMode(render.dataset.gardenSubmitRender, true));
+    render.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      setGardenSubmitFieldMode(render.dataset.gardenSubmitRender, true);
+    });
+  });
   elements.gardenProblems?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-garden-problem-id]');
     if (!button) return;
     selectGardenProblem(button.dataset.gardenProblemId).catch((error) => setGardenMessage(error.message, 'error'));
   });
   elements.gardenDetail?.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-garden-use-problem]');
-    if (!button) return;
-    useGardenProblem(button.dataset.gardenUseProblem);
+    const graphButton = event.target.closest('[data-garden-open-graph]');
+    if (graphButton) {
+      setGardenGraphModalOpen(true);
+      return;
+    }
+    const useButton = event.target.closest('[data-garden-use-problem]');
+    if (useButton) {
+      useGardenProblem(useButton.dataset.gardenUseProblem);
+      return;
+    }
+  });
+  elements.gardenGraphModal?.addEventListener('click', (event) => {
+    const closeButton = event.target.closest('[data-garden-close-graph]');
+    if (!closeButton) return;
+    setGardenGraphModalOpen(false);
+  });
+  document.addEventListener?.('keydown', (event) => {
+    if (event.key === 'Escape') setGardenGraphModalOpen(false);
   });
   elements.paperTabs.forEach((tab) => {
     tab.addEventListener('click', () => setPaperTab(tab.dataset.paperTab));
   });
-  elements.paperDraft?.addEventListener('input', renderPaperDraftPreview);
-  elements.paperDraftViewChoices.forEach((choice) => {
-    choice.addEventListener('click', () => setPaperDraftView(choice.dataset.paperDraftView));
+  elements.paperInputs.forEach((input) => {
+    input.addEventListener('input', () => renderPaperInputPreview(input.dataset.paperInput));
+    input.addEventListener('blur', () => setPaperInputEditMode(input.dataset.paperInput, false));
   });
-  elements.paperOutputChoices.forEach((choice) => {
-    choice.addEventListener('click', () => {
-      updatePaperOutputChoice(choice.dataset.paperOutput);
-      if (state.currentWritingRunId) {
-        pollWritingRun(state.currentWritingRunId).catch((error) => setPaperMessage(error.message, 'error'));
-      }
+  elements.paperRenders.forEach((render) => {
+    render.addEventListener('dblclick', () => setPaperInputEditMode(render.dataset.paperRender, true));
+    render.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      setPaperInputEditMode(render.dataset.paperRender, true);
     });
   });
+  elements.paperOutput?.addEventListener('dblclick', () => setPaperOutputEditMode(true));
+  elements.paperOutput?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    setPaperOutputEditMode(true);
+  });
+  elements.paperOutputEditor?.addEventListener('blur', () => setPaperOutputEditMode(false));
   elements.paperSubmit?.addEventListener('click', () => {
     submitWritingProject().catch((error) => setPaperMessage(error.message, 'error'));
   });
   elements.markdown.addEventListener('input', updateProblemPreview);
+  elements.problemPreview?.addEventListener('dblclick', () => setProblemEditMode(true));
+  elements.problemPreview?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    setProblemEditMode(true);
+  });
+  elements.markdown.addEventListener('blur', () => setProblemEditMode(false));
   elements.copyProofMarkdown.addEventListener('click', () => {
     copyProofMarkdown().catch(() => setMessage(translate('actions.copyFailed'), 'error'));
   });
-  elements.submitProxy.addEventListener('click', () => elements.form.requestSubmit());
+  elements.submitProxy?.addEventListener('click', () => elements.form.requestSubmit());
   elements.newProof.addEventListener('click', () => {
     startNewProof();
   });
@@ -1952,7 +1926,7 @@ function wireEvents() {
   elements.example.addEventListener('click', () => {
     elements.title.value = 'Compactness and extrema';
     elements.markdown.value = exampleProblem;
-    updateProblemPreview();
+    setProblemEditMode(false);
     setMessage(translate('message.exampleLoaded'));
   });
   elements.pipelineChoices.forEach((choice) => {
@@ -1969,7 +1943,6 @@ function wireEvents() {
       choice.closest('.pipeline-option').classList.toggle('selected', choice.checked);
     });
   });
-  elements.refresh.addEventListener('click', () => loadRecentRuns().catch((error) => setMessage(error.message, 'error')));
   elements.recent.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-run-id]');
     if (!button) return;
@@ -1984,17 +1957,17 @@ function wireEvents() {
 }
 
 wireEvents();
-applyTheme(preferredTheme());
-applyLocale(supportedLocales.has(storageGet(languageStorageKey)) ? storageGet(languageStorageKey) : 'en');
+applyTheme();
+applyLocale();
 setView(getViewFromHash() || defaultView, { updateHash: false });
 if (elements.matlasResults && !elements.matlasResults.innerHTML.trim()) setMatlasResultsHidden(true);
 loadProblemGarden().catch((error) => {
   setGardenMessage(error.message, 'error');
   renderProblemGarden();
 });
-renderPaperDraftPreview();
-setPaperDraftView('edit');
-updateProblemPreview();
+renderGardenSubmitFields();
+elements.paperRenders.forEach((render) => setPaperInputEditMode(render.dataset.paperRender, false));
+setProblemEditMode(false);
 loadRecentRuns()
   .then(() => restoreCurrentRun())
   .then(() => restoreCurrentWritingRun())

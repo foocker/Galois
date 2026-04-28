@@ -13,7 +13,7 @@ def _repo_root() -> Path:
 
 
 SUPPORTED_MODELS = ("gpt-5.4", "gpt-5.5", "gemini-pro-3.1")
-DEFAULT_MODEL = "gpt-5.4"
+DEFAULT_MODEL = "gpt-5.5"
 
 
 @dataclass(slots=True)

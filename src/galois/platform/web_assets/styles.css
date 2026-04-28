@@ -37,7 +37,7 @@
 }
 
 html {
-  background: var(--paper);
+  background: var(--sheet);
 }
 
 body {
@@ -128,8 +128,7 @@ code {
 
 .brand-subtitle,
 .kicker,
-.pipeline-field legend,
-.run-meta dt {
+.pipeline-field legend {
   color: var(--muted);
   font-family: "Courier New", monospace;
   font-size: 0.78rem;
@@ -188,6 +187,7 @@ code {
 
 .rail-button,
 .primary-button,
+.secondary-button,
 .verify-link,
 .secondary-action,
 .login-placeholder {
@@ -197,6 +197,11 @@ code {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.secondary-button {
+  background: var(--sheet);
+  color: var(--navy-ink);
 }
 
 .rail-button {
@@ -825,14 +830,11 @@ code {
 }
 
 .editor-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.92fr);
-  gap: 1.4rem;
+  display: block;
   align-items: end;
   margin: 0 0 0.75rem;
 }
 
-.editor-head span,
 .field-label {
   display: block;
   margin: 0;
@@ -845,8 +847,8 @@ code {
 
 .problem-editor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.92fr);
-  gap: 1.4rem;
+  grid-template-columns: 1fr;
+  gap: 0;
   align-items: stretch;
 }
 
@@ -879,9 +881,18 @@ textarea:focus {
 
 .editor-preview {
   min-height: min(52vh, 36rem);
-  max-height: min(52vh, 36rem);
+  max-height: none;
   border: 1px solid var(--hairline);
   background: var(--sheet-cool);
+}
+
+.problem-render-surface {
+  cursor: text;
+}
+
+.problem-render-surface:focus {
+  outline: 2px solid color-mix(in srgb, var(--focus) 42%, transparent);
+  outline-offset: -2px;
 }
 
 .draft-footer {
@@ -1173,14 +1184,13 @@ textarea:focus {
   background: color-mix(in srgb, var(--sheet) 90%, var(--paper));
 }
 
-.config-panel,
-.status-panel {
+.config-panel {
   max-width: 27rem;
   margin: 0 auto 1.35rem;
 }
 
 .section-title {
-  margin-bottom: 2rem;
+  margin-bottom: 1.45rem;
 }
 
 .section-title h2 {
@@ -1209,11 +1219,10 @@ textarea:focus {
 
 .pipeline-option {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1rem;
-  min-height: 8.9rem;
+  grid-template-columns: 1fr;
+  min-height: 4rem;
   border: 1px solid var(--hairline);
-  padding: 1.25rem;
+  padding: 1.1rem 1.25rem;
   background: var(--sheet);
 }
 
@@ -1229,31 +1238,10 @@ textarea:focus {
 
 .pipeline-option strong {
   display: block;
-  margin-bottom: 0.62rem;
   color: var(--navy-ink);
   font-size: 1.06rem;
   font-weight: 500;
   letter-spacing: 0.08em;
-}
-
-.pipeline-option small {
-  display: block;
-  max-width: 18rem;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.pipeline-option em {
-  align-self: end;
-  justify-self: start;
-  border: 1px solid var(--green);
-  padding: 0.35rem 0.55rem;
-  color: var(--green);
-  font-family: "Courier New", monospace;
-  font-size: 0.72rem;
-  font-style: normal;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .model-field {
@@ -1310,12 +1298,6 @@ textarea:focus {
   opacity: 0.58;
 }
 
-.status-panel {
-  border: 1px solid var(--hairline);
-  padding: 1.3rem;
-  background: var(--sheet-cool);
-}
-
 .panel-heading {
   display: flex;
   align-items: flex-start;
@@ -1355,68 +1337,6 @@ textarea:focus {
 .status-pill.failed {
   border-color: var(--danger);
   color: var(--danger);
-}
-
-.ladder {
-  display: grid;
-  gap: 0.65rem;
-  margin: 0 0 1.2rem;
-  padding: 0;
-  list-style: none;
-}
-
-.ladder li {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  color: var(--muted);
-  font-family: "Courier New", monospace;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.ladder li span {
-  width: 0.62rem;
-  height: 0.62rem;
-  border: 1px solid var(--hairline);
-  background: transparent;
-}
-
-.ladder li.done {
-  color: var(--ink);
-}
-
-.ladder li.done span {
-  border-color: var(--navy);
-  background: var(--navy);
-}
-
-.ladder li.current span {
-  border-color: var(--navy);
-  outline: 3px solid color-mix(in srgb, var(--navy) 16%, transparent);
-}
-
-.run-meta {
-  display: grid;
-  gap: 0;
-  margin: 1rem 0 0;
-  border-top: 1px solid var(--hairline);
-}
-
-.run-meta div {
-  display: grid;
-  grid-template-columns: 5.6rem 1fr;
-  gap: 1rem;
-  padding: 0.7rem 0;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.run-meta dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-family: "Courier New", monospace;
-  font-size: 0.78rem;
 }
 
 .run-list {
@@ -1462,25 +1382,31 @@ textarea:focus {
 .garden-layout {
   display: grid;
   grid-template-columns: minmax(17rem, 0.82fr) minmax(28rem, 1.45fr) minmax(17rem, 0.88fr);
-  gap: 1px;
-  min-height: calc(100vh - 8.2rem);
+  gap: 0;
+  align-items: stretch;
   border: 1px solid var(--rule);
-  background: var(--rule);
+  background: var(--sheet);
+  min-height: calc(100vh - 8rem);
 }
 
 .garden-index-panel,
 .garden-detail,
-.garden-graph-panel {
+.garden-submit-panel {
   min-width: 0;
   background: var(--sheet);
 }
 
 .garden-index-panel,
-.garden-graph-panel {
+.garden-submit-panel {
   display: grid;
   align-content: start;
   gap: 1rem;
   padding: clamp(1rem, 1.7vw, 1.45rem);
+}
+
+.garden-detail,
+.garden-submit-panel {
+  border-left: 1px solid var(--rule);
 }
 
 .garden-index-panel h1 {
@@ -1537,7 +1463,7 @@ textarea:focus {
 
 .garden-submit-form {
   border-top: 1px solid var(--hairline);
-  padding-top: 1rem;
+  padding-top: 0.9rem;
 }
 
 .garden-submit-form h3 {
@@ -1550,9 +1476,10 @@ textarea:focus {
   display: grid;
   gap: 0.35rem;
   color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .garden-empty {
@@ -1594,8 +1521,8 @@ textarea:focus {
   font-family: "Courier New", monospace;
   font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .garden-item-status {
@@ -1623,11 +1550,42 @@ textarea:focus {
 }
 
 .garden-detail {
+  display: grid;
+  min-height: calc(100vh - 8rem);
   max-width: none;
-  max-height: calc(100vh - 8.2rem);
   margin: 0;
   overflow: auto;
   padding: clamp(1rem, 2vw, 1.6rem);
+}
+
+.garden-detail > article {
+  display: grid;
+  min-height: 100%;
+  grid-template-rows: auto auto auto auto auto auto auto auto 1fr auto;
+  align-content: start;
+}
+
+.garden-render-surface {
+  width: 100%;
+  min-height: 5.8rem;
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid var(--hairline);
+  padding: 0.65rem;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: text;
+  text-transform: none;
+}
+
+.garden-render-surface.compact {
+  min-height: 4.4rem;
+  max-height: 10rem;
+}
+
+.garden-render-surface:focus {
+  outline: 2px solid color-mix(in srgb, var(--focus) 42%, transparent);
+  outline-offset: -2px;
 }
 
 .garden-detail-head {
@@ -1637,11 +1595,31 @@ textarea:focus {
   border-bottom: 2px solid var(--rule);
 }
 
+.garden-detail-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+}
+
 .garden-detail-head h2 {
   margin: 0;
   color: var(--navy-ink);
   font-size: clamp(1.7rem, 3vw, 2.55rem);
   line-height: 1.05;
+}
+
+.garden-graph-trigger {
+  min-width: 6.6rem;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+}
+
+.garden-meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .garden-meta-strip {
@@ -1661,13 +1639,47 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
+.garden-community-reactions table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.garden-community-reactions th,
+.garden-community-reactions td {
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.5rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.garden-community-reactions th {
+  width: 48%;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .garden-use-button {
   margin-top: 1.1rem;
 }
 
-.garden-graph-head h2 {
-  margin: 0.25rem 0 0;
-  font-size: 1.45rem;
+.garden-detail-actions {
+  display: flex;
+  justify-content: center;
+  align-self: end;
+  padding-top: 1.35rem;
+  margin-top: 1.35rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.garden-detail-actions .primary-button {
+  width: min(24rem, 100%);
+  min-height: 3rem;
+  font-size: 0.78rem;
+}
+
+.compact-button {
+  width: 100%;
 }
 
 .garden-graph {
@@ -1698,6 +1710,59 @@ textarea:focus {
   text-transform: uppercase;
 }
 
+.garden-graph-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+
+.garden-graph-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: color-mix(in srgb, #000 58%, transparent);
+}
+
+.garden-graph-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(54rem, 100%);
+  max-height: min(42rem, calc(100vh - 3rem));
+  overflow: auto;
+  border: 1px solid var(--rule);
+  padding: clamp(1rem, 2vw, 1.4rem);
+  background: var(--sheet);
+  color: var(--ink);
+}
+
+.garden-graph-dialog-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.garden-graph-dialog-head h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.45rem;
+}
+
+.garden-graph-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 16rem;
+  margin: 1rem 0;
+  border: 1px dashed var(--hairline);
+  background: color-mix(in srgb, var(--sheet-cool) 82%, var(--paper));
+  color: var(--muted);
+  text-align: center;
+}
+
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 16.5rem minmax(0, 1fr);
@@ -1715,6 +1780,12 @@ textarea:focus {
     max-height: none;
   }
 
+  .garden-detail,
+  .garden-submit-panel {
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+  }
+
   .draft-pane {
     border-right: 0;
   }
@@ -1723,23 +1794,12 @@ textarea:focus {
     border-top: 2px solid var(--rule);
   }
 
-  .config-panel,
-  .status-panel {
+  .config-panel {
     max-width: 46rem;
-  }
-
-  .editor-head,
-  .problem-editor {
-    grid-template-columns: 1fr;
-  }
-
-  .editor-head span {
-    display: none;
   }
 
   .editor-preview {
     min-height: 24rem;
-    max-height: 42vh;
   }
 }
 
@@ -1868,10 +1928,9 @@ textarea:focus {
     max-height: 38vh;
   }
 
-.pipeline-option,
-  .run-meta div {
-    grid-template-columns: 1fr;
-  }
+.pipeline-option {
+  grid-template-columns: 1fr;
+}
 }
 
 .paper-writing-view {
@@ -1882,7 +1941,7 @@ textarea:focus {
 
 .paper-workbench {
   display: grid;
-  grid-template-columns: minmax(16rem, 0.78fr) minmax(22rem, 1.45fr) minmax(18rem, 1fr);
+  grid-template-columns: minmax(16rem, 0.55fr) minmax(34rem, 1.45fr);
   gap: 1px;
   min-height: calc(100vh - 8rem);
   border: 1px solid var(--rule);
@@ -1890,8 +1949,7 @@ textarea:focus {
 }
 
 .paper-sidebar,
-.paper-editor-panel,
-.paper-output-panel {
+.paper-editor-panel {
   min-width: 0;
   background: var(--sheet);
 }
@@ -1917,9 +1975,7 @@ textarea:focus {
 }
 
 .paper-mode-grid label,
-.paper-tab,
-.paper-draft-view,
-.paper-output-choice {
+.paper-tab {
   display: inline-grid;
   place-items: center;
   min-height: 2.65rem;
@@ -1939,9 +1995,7 @@ textarea:focus {
 }
 
 .paper-mode-grid label:has(input:checked),
-.paper-tab.active,
-.paper-draft-view.active,
-.paper-output-choice.active {
+.paper-tab.active {
   border-color: var(--rule);
   background: var(--navy);
   color: var(--sheet);
@@ -2003,7 +2057,7 @@ textarea:focus {
 
 .paper-editor-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(18rem, 1fr) minmax(18rem, 1fr);
   min-height: 0;
 }
 
@@ -2017,33 +2071,14 @@ textarea:focus {
   border-width: 0 1px 0 0;
 }
 
-.paper-draft-panel {
+.paper-input-panel {
   display: none;
   min-height: 0;
 }
 
-.paper-draft-panel.active {
+.paper-input-panel.active {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.paper-draft-toolbar {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
-  padding: 0.65rem;
-  border-bottom: 1px solid var(--hairline);
-  background: color-mix(in srgb, var(--sheet-cool) 78%, var(--paper));
-}
-
-.paper-draft-view {
-  min-height: 2.35rem;
-  cursor: pointer;
-}
-
-.paper-draft-surface {
-  display: grid;
-  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .paper-input {
@@ -2054,18 +2089,22 @@ textarea:focus {
   resize: none;
 }
 
-.paper-input.active {
+.paper-input.active:not([hidden]) {
   display: block;
 }
 
-.paper-draft-editor {
+.paper-input-editor {
   min-height: 100%;
 }
 
-.paper-draft-preview {
+.paper-input-render,
+.paper-output {
   overflow: auto;
+  width: 100%;
+  max-width: none;
   min-height: 100%;
   max-height: none;
+  margin: 0;
   border: 0;
   border-radius: 0;
   padding: clamp(1rem, 2vw, 1.55rem);
@@ -2074,9 +2113,13 @@ textarea:focus {
 
 .paper-output-panel {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid var(--rule);
   padding: 1.25rem;
+  background: var(--sheet);
 }
 
 .paper-output-header {
@@ -2086,20 +2129,32 @@ textarea:focus {
   gap: 1rem;
 }
 
-.run-meta.compact {
-  margin: 0;
-}
-
-.paper-output-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
-}
-
 .paper-output {
-  overflow: auto;
   min-height: 18rem;
-  max-height: calc(100vh - 19rem);
+  max-height: none;
+}
+
+.paper-output-editor {
+  width: 100%;
+  min-height: 18rem;
+  max-height: none;
+  border: 0;
+  padding: clamp(1rem, 2vw, 1.55rem);
+  resize: none;
+  background: var(--sheet-cool);
+  color: var(--ink);
+  font-family: "Georgia", "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.paper-editable-render {
+  cursor: text;
+}
+
+.paper-editable-render:focus {
+  outline: 2px solid color-mix(in srgb, var(--focus) 42%, transparent);
+  outline-offset: -2px;
 }
 
 .citation-output h1 {
@@ -2143,8 +2198,7 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
-  .paper-editor-panel,
-  .paper-output-panel {
+  .paper-editor-panel {
     min-height: 26rem;
   }
 }
@@ -2155,9 +2209,7 @@ textarea:focus {
   }
 
   .paper-mode-grid,
-  .paper-tabs,
-  .paper-draft-toolbar,
-  .paper-output-actions {
+  .paper-tabs {
     grid-template-columns: 1fr;
   }
 }

@@ -28,6 +28,8 @@ from .config import DEFAULT_MODEL, SUPPORTED_MODELS, load_config, model_is_confi
 from .contracts import PipelinePreset, ProblemInput, WorkflowKind
 from .paths import ensure_run_layout, resolve_paths
 from .problem_garden import ProblemGardenStore
+from .routes.problem_garden import create_problem_garden_router
+from .run_index import RunIndexStore, manifest_run_record
 from .run_registry import append_event, create_run_manifest, write_manifest
 from .workflows import build_workflow_plan, build_writing_workflow_plan
 from galois.writing.citation_lookup import CitationLookupService
@@ -89,15 +91,6 @@ class WritingProjectCreateRequest(BaseModel):
     max_pages: int | None = Field(default=None, ge=1, le=300)
     review_rounds: int = Field(default=1, ge=0, le=5)
     model: str = DEFAULT_MODEL
-
-
-class ProblemGardenSubmissionRequest(BaseModel):
-    title: str = Field(min_length=1)
-    statement: str = Field(min_length=1)
-    source_url: str = Field(min_length=1)
-    domain: str = ""
-    context: str = ""
-    references_text: str = ""
 
 
 def _slug(text: str) -> str:
@@ -344,18 +337,6 @@ def _problem_payload(run_dir: Path) -> dict[str, Any] | None:
     return None
 
 
-def _garden_store_payload(payload: ProblemGardenSubmissionRequest) -> dict[str, str]:
-    return {
-        "title": payload.title.strip(),
-        "statement": payload.statement.strip(),
-        "source_url": payload.source_url.strip(),
-        "domain": payload.domain.strip(),
-        "context": payload.context.strip(),
-        "references_text": payload.references_text.strip(),
-        "status": "pending_review",
-    }
-
-
 def read_run_snapshot(run_root: Path, run_id: str, project_root: Path | None = None) -> dict[str, Any]:
     resolved_run_root = run_root.resolve()
     run_dir = (resolved_run_root / run_id).resolve()
@@ -388,7 +369,7 @@ def _create_prepared_run(
     *,
     config_path: Path | None,
     payload: RunCreateRequest,
-) -> tuple[str, str, str, str]:
+) -> tuple[str, str, str, str, str]:
     run_config = load_config(config_path)
     run_config.model = payload.model
     run_paths = resolve_paths(run_config)
@@ -452,7 +433,12 @@ def _create_prepared_run(
         launches=launches,
         feature_flags=feature_flags,
     )
-    return manifest.run_id, problem.problem_id, str(statement_path), feature_flags.pipeline.value
+    with RunIndexStore(run_config.database.connection_url) as index:
+        index.initialize()
+        record = manifest_run_record(run_dir)
+        if record is not None:
+            index.upsert_run(record)
+    return manifest.run_id, problem.problem_id, str(statement_path), feature_flags.pipeline.value, problem.title or problem.problem_id
 
 
 def _create_prepared_writing_run(
@@ -543,6 +529,8 @@ def create_app(config_path: Path | None = None) -> FastAPI:
     if ASSET_DIR.exists():
         app.mount("/assets", StaticFiles(directory=ASSET_DIR), name="assets")
 
+    app.include_router(create_problem_garden_router(config, store_class=ProblemGardenStore))
+
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         index_path = ASSET_DIR / "index.html"
@@ -551,23 +539,34 @@ def create_app(config_path: Path | None = None) -> FastAPI:
     @app.get("/api/runs")
     def list_runs() -> dict[str, Any]:
         run_root = config.run_root_path
-        runs = []
+        run_dirs = []
         if run_root.exists():
-            for run_dir in sorted((candidate for candidate in run_root.iterdir() if candidate.is_dir()), reverse=True):
-                manifest = _safe_json(run_dir / "manifest.json", {})
-                runs.append(
-                    {
-                        "run_id": manifest.get("run_id", run_dir.name),
-                        "status": manifest.get("status", "unknown"),
-                        "pipeline": manifest.get("pipeline"),
-                        "model": manifest.get("model"),
-                        "problem": manifest.get("problem", {}),
-                    }
-                )
-        return {"runs": runs[:20]}
+            run_dirs = sorted((candidate for candidate in run_root.iterdir() if candidate.is_dir()), reverse=True)
+        with RunIndexStore(config.database.connection_url) as index:
+            index.initialize()
+            index.sync_run_directories(run_dirs)
+            runs = [
+                {
+                    "run_id": row["run_id"],
+                    "status": row["status"],
+                    "pipeline": row["pipeline"] or None,
+                    "model": row["model"] or None,
+                    "display_title": row["display_title"],
+                    "problem": {
+                        **(row["manifest"].get("problem", {}) if isinstance(row["manifest"], dict) else {}),
+                        "problem_id": row["problem_id"],
+                        "title": row["problem_title"] or row["display_title"],
+                        "display_title": row["display_title"],
+                    },
+                }
+                for row in index.list_runs(run_root=run_root, limit=20)
+            ]
+        return {"runs": runs}
 
     @app.post("/api/runs")
     def create_run(payload: RunCreateRequest) -> dict[str, Any]:
+        if not (payload.title or "").strip():
+            raise HTTPException(status_code=400, detail="title must not be blank")
         if not payload.problem_markdown.strip():
             raise HTTPException(status_code=400, detail="problem_markdown must not be blank")
         problem_pipelines = {PipelinePreset.REASONING_ONLY.value, PipelinePreset.REASONING_VERIFICATION.value}
@@ -580,12 +579,13 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         if not model_is_configured(config, payload.model):
             raise HTTPException(status_code=400, detail="model credentials are not configured")
 
-        run_id, problem_id, problem_path, pipeline = _create_prepared_run(config_path=config_path, payload=payload)
+        run_id, problem_id, problem_path, pipeline, display_title = _create_prepared_run(config_path=config_path, payload=payload)
         return JSONResponse(
             status_code=202,
             content={
                 "run_id": run_id,
                 "problem_id": problem_id,
+                "display_title": display_title,
                 "problem_path": problem_path,
                 "status": "queued",
                 "pipeline": pipeline,
@@ -687,47 +687,6 @@ def create_app(config_path: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="bibtex must not be blank")
         with _citation_lookup_service(config.run_root_path / "citation_cache") as service:
             return service.validate_bibtex(bibtex, sources=payload.sources)
-
-    @app.get("/api/problem-garden/problems")
-    def list_problem_garden_problems(
-        q: str | None = None,
-        status: str | None = None,
-        domain: str | None = None,
-        difficulty: str | None = None,
-    ) -> dict[str, Any]:
-        with ProblemGardenStore(config.database.connection_url) as store:
-            store.initialize()
-            return {
-                "problems": store.list_problems(
-                    query=q.strip() if q else None,
-                    status=status.strip() if status else None,
-                    domain=domain.strip() if domain else None,
-                    difficulty=difficulty.strip() if difficulty else None,
-                )
-            }
-
-    @app.get("/api/problem-garden/problems/{problem_id}")
-    def get_problem_garden_problem(problem_id: str) -> dict[str, Any]:
-        with ProblemGardenStore(config.database.connection_url) as store:
-            store.initialize()
-            problem = store.get_problem(problem_id)
-        if problem is None:
-            raise HTTPException(status_code=404, detail="problem not found")
-        return {"problem": problem}
-
-    @app.post("/api/problem-garden/submissions")
-    def create_problem_garden_submission(payload: ProblemGardenSubmissionRequest) -> JSONResponse:
-        cleaned = _garden_store_payload(payload)
-        if not cleaned["title"]:
-            raise HTTPException(status_code=400, detail="title must not be blank")
-        if not cleaned["statement"]:
-            raise HTTPException(status_code=400, detail="statement must not be blank")
-        if not cleaned["source_url"]:
-            raise HTTPException(status_code=400, detail="source_url must not be blank")
-        with ProblemGardenStore(config.database.connection_url) as store:
-            store.initialize()
-            created = store.create_submission(cleaned)
-        return JSONResponse(status_code=202, content=created)
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict[str, Any]:

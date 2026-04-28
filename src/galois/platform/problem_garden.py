@@ -19,8 +19,7 @@ GARDEN_PROBLEM_SEEDS: list[dict[str, Any]] = [
         "difficulty": "frontier",
         "domains": ["additive combinatorics", "finite fields"],
         "source": "S. Peluse, Finite field models in arithmetic combinatorics -- twenty years on, Surveys in Combinatorics 2024.",
-        "source_url": "benchmarks/problems/finite_fields/polynomial Freiman-Ruzsa conjecture.md",
-        "context": "This is the polynomial Freiman-Ruzsa conjecture in the finite-field model.",
+        "source_url": "https://doi.org/10.1017/9781009567174.011",
         "statement": """Let $p$ be a fixed prime and let $A \\subseteq \\mathbb{F}_p^n$ satisfy
 $$
 |A+A| \\le K|A|.
@@ -30,26 +29,11 @@ Must there exist a subspace $H \\le \\mathbb{F}_p^n$ with $|H| \\le |A|$ such th
             "S. Peluse, Finite field models in arithmetic combinatorics -- twenty years on, Surveys in Combinatorics 2024.",
             "B. Green, Notes on the polynomial Freiman-Ruzsa conjecture, unpublished notes, 2005.",
         ],
-        "attempted_literature": [
-            "S. Lovett, Equivalence of polynomial conjectures in additive combinatorics, Combinatorica 32 (2012), 607-618.",
-        ],
-        "related_literature": [
-            "Green-Tao style finite-field additive combinatorics surveys.",
-            "Bogolyubov-Ruzsa type covering theorems over finite vector spaces.",
-        ],
-        "known_core_ideas": [
-            "Small doubling should force low-complexity additive structure.",
-            "Known routes compare covering, modeling, and inverse theorem formulations.",
-            "Quantitative polynomial dependence on $K$ is the central obstruction.",
-        ],
         "progress": [
             "Several polynomial conjectures are known to be equivalent in finite-field models.",
             "The benchmark formulation asks for better covering bounds or explicit structural extraction.",
         ],
-        "possible_ideas": [
-            "Track which equivalent formulation gives the most direct attack for a given $p$ and $K$.",
-            "Compare recent finite-field survey reductions against older unpublished notes.",
-        ],
+        "community_reactions": [],
         "graph_links": [
             {"from": "Problem", "relation": "stated_in", "to": "Peluse 2024 survey"},
             {"from": "Problem", "relation": "attempted_by", "to": "Lovett 2012"},
@@ -63,26 +47,14 @@ Must there exist a subspace $H \\le \\mathbb{F}_p^n$ with $|H| \\le |A|$ such th
         "status": "open",
         "difficulty": "research",
         "domains": ["finite fields", "field arithmetic"],
-        "source": "Finite-field benchmark problem collection in Galois.",
-        "source_url": "benchmarks/problems/finite_fields/primitive completely normal problem.md",
-        "context": "This finite-field problem is useful for testing the boundary between algebraic existence results and explicit construction methods.",
+        "source": "S. D. Cohen and S. Huczynska, The primitive normal basis theorem -- without a computer, Journal of Pure and Applied Algebra 223 (2019).",
+        "source_url": "https://doi.org/10.1016/j.jpaa.2018.09.003",
         "statement": "Determine sharp existence results for elements of finite field extensions that are simultaneously primitive and completely normal over every intermediate subfield.",
         "source_literature": ["Finite-field normal basis and primitive element literature."],
-        "attempted_literature": ["Character sum approaches to primitive normal basis problems."],
-        "related_literature": [
-            "Completely normal elements over finite fields.",
-            "Primitive elements avoiding affine hyperplanes.",
-        ],
-        "known_core_ideas": [
-            "Combine multiplicative primitivity with additive normality constraints.",
-            "Character sums can separate some constraints but constants and small fields remain delicate.",
-        ],
         "progress": [
             "Many extension-degree regimes are known; sharp uniform results remain a useful benchmark target.",
         ],
-        "possible_ideas": [
-            "Build a case table by extension degree and field size, then isolate the remaining exceptional regimes.",
-        ],
+        "community_reactions": [],
         "graph_links": [
             {"from": "Problem", "relation": "related_to", "to": "Normal basis theorem"},
             {"from": "Problem", "relation": "uses_method", "to": "Character sums"},
@@ -95,29 +67,14 @@ Must there exist a subspace $H \\le \\mathbb{F}_p^n$ with $|H| \\le |A|$ such th
         "status": "open",
         "difficulty": "frontier",
         "domains": ["number theory", "arithmetic dynamics"],
-        "source": "Benchmark problem collection; classical formulation due to Lehmer.",
-        "source_url": "benchmarks/problems/number_theory/Lehmer's problem on Mahler measure.md",
-        "context": "This classical problem asks for a uniform gap in Mahler measure outside cyclotomic factors.",
+        "source": "D. H. Lehmer, Factorization of certain cyclotomic functions, Annals of Mathematics 34 (1933).",
+        "source_url": "https://doi.org/10.2307/1968393",
         "statement": "Is there a universal constant $c>1$ such that every noncyclotomic monic integer polynomial has Mahler measure at least $c$?",
         "source_literature": [
             "D. H. Lehmer, Factorization of certain cyclotomic functions, Annals of Mathematics 34 (1933).",
         ],
-        "attempted_literature": [
-            "Dobrowolski-type lower bounds for Mahler measure.",
-            "Surveys on Lehmer-type problems and heights.",
-        ],
-        "related_literature": [
-            "Height lower bounds.",
-            "Salem numbers and cyclotomic factors.",
-        ],
-        "known_core_ideas": [
-            "Exclude cyclotomic factors and seek a uniform height gap.",
-            "Known lower bounds depend on polynomial degree.",
-        ],
         "progress": ["No degree-independent gap is known in the full classical form."],
-        "possible_ideas": [
-            "Compare special families where stronger lower bounds are known against the unrestricted problem.",
-        ],
+        "community_reactions": [],
         "graph_links": [
             {"from": "Problem", "relation": "stated_in", "to": "Lehmer 1933"},
             {"from": "Problem", "relation": "related_to", "to": "Heights"},
@@ -135,14 +92,10 @@ PROBLEM_FIELDS = (
     "domains",
     "source",
     "source_url",
-    "context",
     "statement",
     "source_literature",
-    "attempted_literature",
-    "related_literature",
-    "known_core_ideas",
     "progress",
-    "possible_ideas",
+    "community_reactions",
 )
 
 
@@ -181,18 +134,22 @@ class ProblemGardenStore:
                     domains text[] NOT NULL DEFAULT '{}',
                     source text NOT NULL DEFAULT '',
                     source_url text NOT NULL DEFAULT '',
-                    context text NOT NULL DEFAULT '',
                     source_literature jsonb NOT NULL DEFAULT '[]'::jsonb,
-                    attempted_literature jsonb NOT NULL DEFAULT '[]'::jsonb,
-                    related_literature jsonb NOT NULL DEFAULT '[]'::jsonb,
-                    known_core_ideas jsonb NOT NULL DEFAULT '[]'::jsonb,
                     progress jsonb NOT NULL DEFAULT '[]'::jsonb,
-                    possible_ideas jsonb NOT NULL DEFAULT '[]'::jsonb,
+                    community_reactions jsonb NOT NULL DEFAULT '[]'::jsonb,
                     created_at timestamptz NOT NULL DEFAULT now(),
                     updated_at timestamptz NOT NULL DEFAULT now()
                 )
                 """
             )
+            cursor.execute(
+                "ALTER TABLE garden_problems ADD COLUMN IF NOT EXISTS community_reactions jsonb NOT NULL DEFAULT '[]'::jsonb"
+            )
+            cursor.execute("ALTER TABLE garden_problems DROP COLUMN IF EXISTS context")
+            cursor.execute("ALTER TABLE garden_problems DROP COLUMN IF EXISTS related_literature")
+            cursor.execute("ALTER TABLE garden_problems DROP COLUMN IF EXISTS attempted_literature")
+            cursor.execute("ALTER TABLE garden_problems DROP COLUMN IF EXISTS known_core_ideas")
+            cursor.execute("ALTER TABLE garden_problems DROP COLUMN IF EXISTS possible_ideas")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS garden_edges (
@@ -213,9 +170,31 @@ class ProblemGardenStore:
                     statement text NOT NULL,
                     source_url text NOT NULL,
                     domain text NOT NULL DEFAULT '',
-                    context text NOT NULL DEFAULT '',
-                    references_text text NOT NULL DEFAULT '',
+                    source_literature jsonb NOT NULL DEFAULT '[]'::jsonb,
+                    progress jsonb NOT NULL DEFAULT '[]'::jsonb,
                     status text NOT NULL DEFAULT 'pending_review',
+                    created_at timestamptz NOT NULL DEFAULT now()
+                )
+                """
+            )
+            cursor.execute("ALTER TABLE garden_submissions DROP COLUMN IF EXISTS context")
+            cursor.execute("ALTER TABLE garden_submissions DROP COLUMN IF EXISTS references_text")
+            cursor.execute(
+                "ALTER TABLE garden_submissions ADD COLUMN IF NOT EXISTS source_literature jsonb NOT NULL DEFAULT '[]'::jsonb"
+            )
+            cursor.execute(
+                "ALTER TABLE garden_submissions ADD COLUMN IF NOT EXISTS progress jsonb NOT NULL DEFAULT '[]'::jsonb"
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS garden_import_batches (
+                    id text PRIMARY KEY,
+                    source_name text NOT NULL,
+                    source_url text NOT NULL,
+                    item_count integer NOT NULL,
+                    imported_count integer NOT NULL,
+                    skipped_count integer NOT NULL,
+                    fetch_pages boolean NOT NULL DEFAULT false,
                     created_at timestamptz NOT NULL DEFAULT now()
                 )
                 """
@@ -228,6 +207,9 @@ class ProblemGardenStore:
             )
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS garden_edges_problem_id_idx ON garden_edges(problem_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS garden_problems_source_url_idx ON garden_problems(source_url)"
             )
         self._seed_defaults()
         self.connection.commit()
@@ -246,14 +228,10 @@ class ProblemGardenStore:
                         domains,
                         source,
                         source_url,
-                        context,
                         statement,
                         source_literature,
-                        attempted_literature,
-                        related_literature,
-                        known_core_ideas,
                         progress,
-                        possible_ideas
+                        community_reactions
                     )
                     VALUES (
                         %(id)s,
@@ -263,25 +241,29 @@ class ProblemGardenStore:
                         %(domains)s,
                         %(source)s,
                         %(source_url)s,
-                        %(context)s,
                         %(statement)s,
                         %(source_literature)s::jsonb,
-                        %(attempted_literature)s::jsonb,
-                        %(related_literature)s::jsonb,
-                        %(known_core_ideas)s::jsonb,
                         %(progress)s::jsonb,
-                        %(possible_ideas)s::jsonb
+                        %(community_reactions)s::jsonb
                     )
-                    ON CONFLICT (id) DO NOTHING
+                    ON CONFLICT (id) DO UPDATE SET
+                        title = EXCLUDED.title,
+                        statement = EXCLUDED.statement,
+                        status = EXCLUDED.status,
+                        difficulty = EXCLUDED.difficulty,
+                        domains = EXCLUDED.domains,
+                        source = EXCLUDED.source,
+                        source_url = EXCLUDED.source_url,
+                        source_literature = EXCLUDED.source_literature,
+                        progress = EXCLUDED.progress,
+                        community_reactions = EXCLUDED.community_reactions,
+                        updated_at = now()
                     """,
                     {
                         **values,
                         "source_literature": Jsonb(values["source_literature"]),
-                        "attempted_literature": Jsonb(values["attempted_literature"]),
-                        "related_literature": Jsonb(values["related_literature"]),
-                        "known_core_ideas": Jsonb(values["known_core_ideas"]),
                         "progress": Jsonb(values["progress"]),
-                        "possible_ideas": Jsonb(values["possible_ideas"]),
+                        "community_reactions": Jsonb(values["community_reactions"]),
                     },
                 )
                 cursor.execute("SELECT 1 FROM garden_edges WHERE problem_id = %s LIMIT 1", (problem["id"],))
@@ -294,6 +276,135 @@ class ProblemGardenStore:
                     """,
                     [{**edge, "problem_id": problem["id"]} for edge in problem["graph_links"]],
                 )
+
+    def upsert_problem(self, problem: dict[str, Any]) -> str:
+        values = {field: problem.get(field, [] if field.endswith("_literature") else "") for field in PROBLEM_FIELDS}
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO garden_problems (
+                    id,
+                    title,
+                    status,
+                    difficulty,
+                    domains,
+                    source,
+                    source_url,
+                    statement,
+                    source_literature,
+                    progress,
+                    community_reactions
+                )
+                VALUES (
+                    %(id)s,
+                    %(title)s,
+                    %(status)s,
+                    %(difficulty)s,
+                    %(domains)s,
+                    %(source)s,
+                    %(source_url)s,
+                    %(statement)s,
+                    %(source_literature)s::jsonb,
+                    %(progress)s::jsonb,
+                    %(community_reactions)s::jsonb
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    statement = CASE
+                        WHEN EXCLUDED.statement LIKE 'Metadata-only entry for Erdős problem #%%'
+                             AND garden_problems.statement NOT LIKE 'Metadata-only entry for Erdős problem #%%'
+                        THEN garden_problems.statement
+                        ELSE EXCLUDED.statement
+                    END,
+                    status = EXCLUDED.status,
+                    difficulty = EXCLUDED.difficulty,
+                    domains = EXCLUDED.domains,
+                    source = EXCLUDED.source,
+                    source_url = EXCLUDED.source_url,
+                    source_literature = EXCLUDED.source_literature,
+                    progress = EXCLUDED.progress,
+                    community_reactions = EXCLUDED.community_reactions,
+                    updated_at = now()
+                """,
+                {
+                    **values,
+                    "source_literature": Jsonb(normalize_list(values["source_literature"])),
+                    "progress": Jsonb(normalize_list(values["progress"])),
+                    "community_reactions": Jsonb(normalize_list(values["community_reactions"])),
+                },
+            )
+            cursor.execute("DELETE FROM garden_edges WHERE problem_id = %s", (values["id"],))
+            graph_links = normalize_list(problem.get("graph_links"))
+            if graph_links:
+                cursor.executemany(
+                    """
+                    INSERT INTO garden_edges (problem_id, from_label, relation, to_label)
+                    VALUES (%(problem_id)s, %(from)s, %(relation)s, %(to)s)
+                    """,
+                    [
+                        {
+                            "problem_id": values["id"],
+                            "from": str(edge.get("from", "Problem")),
+                            "relation": str(edge.get("relation", "related_to")),
+                            "to": str(edge.get("to", "")),
+                        }
+                        for edge in graph_links
+                        if str(edge.get("to", "")).strip()
+                    ],
+                )
+        return values["id"]
+
+    def upsert_problems(self, problems: Iterable[dict[str, Any]]) -> int:
+        count = 0
+        for problem in problems:
+            self.upsert_problem(problem)
+            count += 1
+        self.connection.commit()
+        return count
+
+    def record_import_batch(
+        self,
+        *,
+        batch_id: str,
+        source_name: str,
+        source_url: str,
+        item_count: int,
+        imported_count: int,
+        skipped_count: int,
+        fetch_pages: bool,
+    ) -> None:
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO garden_import_batches (
+                    id,
+                    source_name,
+                    source_url,
+                    item_count,
+                    imported_count,
+                    skipped_count,
+                    fetch_pages
+                )
+                VALUES (%(id)s, %(source_name)s, %(source_url)s, %(item_count)s, %(imported_count)s, %(skipped_count)s, %(fetch_pages)s)
+                ON CONFLICT (id) DO UPDATE SET
+                    source_name = EXCLUDED.source_name,
+                    source_url = EXCLUDED.source_url,
+                    item_count = EXCLUDED.item_count,
+                    imported_count = EXCLUDED.imported_count,
+                    skipped_count = EXCLUDED.skipped_count,
+                    fetch_pages = EXCLUDED.fetch_pages
+                """,
+                {
+                    "id": batch_id,
+                    "source_name": source_name,
+                    "source_url": source_url,
+                    "item_count": item_count,
+                    "imported_count": imported_count,
+                    "skipped_count": skipped_count,
+                    "fetch_pages": fetch_pages,
+                },
+            )
+        self.connection.commit()
 
     def list_problems(
         self,
@@ -330,9 +441,7 @@ class ProblemGardenStore:
                     domains,
                     source,
                     source_url,
-                    context,
                     statement,
-                    jsonb_array_length(related_literature) AS related_literature_count,
                     COALESCE(progress ->> 0, '') AS latest_progress
                 FROM garden_problems
                 {where_sql}
@@ -362,14 +471,10 @@ class ProblemGardenStore:
                     domains,
                     source,
                     source_url,
-                    context,
                     statement,
                     source_literature,
-                    attempted_literature,
-                    related_literature,
-                    known_core_ideas,
                     progress,
-                    possible_ideas
+                    community_reactions
                 FROM garden_problems
                 WHERE id = %s
                 """,
@@ -403,8 +508,8 @@ class ProblemGardenStore:
                     statement,
                     source_url,
                     domain,
-                    context,
-                    references_text,
+                    source_literature,
+                    progress,
                     status
                 )
                 VALUES (
@@ -413,8 +518,8 @@ class ProblemGardenStore:
                     %(statement)s,
                     %(source_url)s,
                     %(domain)s,
-                    %(context)s,
-                    %(references_text)s,
+                    %(source_literature)s::jsonb,
+                    %(progress)s::jsonb,
                     %(status)s
                 )
                 """,
@@ -423,8 +528,8 @@ class ProblemGardenStore:
                     "id": submission_id,
                     "status": status,
                     "domain": payload.get("domain", ""),
-                    "context": payload.get("context", ""),
-                    "references_text": payload.get("references_text", ""),
+                    "source_literature": Jsonb(normalize_list(payload.get("source_literature"))),
+                    "progress": Jsonb(normalize_list(payload.get("progress"))),
                 },
             )
         self.connection.commit()

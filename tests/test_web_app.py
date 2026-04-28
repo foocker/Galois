@@ -65,6 +65,8 @@ def test_config_loads_problem_garden_database_url(monkeypatch, tmp_path: Path) -
 
     config_path = tmp_path / "config.toml"
     _write_config(config_path, tmp_path / "runs")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.example/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
 
     monkeypatch.delenv("DATABASE_URL", raising=False)
     config = load_config(config_path)
@@ -90,6 +92,9 @@ def test_index_serves_research_workbench(tmp_path: Path) -> None:
     assert "Learning &amp;" in response.text
     assert "<span>Research</span>" in response.text
     assert "Research Platform" not in response.text
+    assert 'id="problem-title"' in response.text
+    title_input = response.text[response.text.index('id="problem-title"') : response.text.index('id="problem-markdown"')]
+    assert "required" in title_input
 
 
 def test_index_loads_katex_assets(tmp_path: Path) -> None:
@@ -118,8 +123,8 @@ def test_index_loads_markdown_rendering_assets(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "marked.min.js" in response.text
     assert "purify.min.js" in response.text
-    assert '/assets/styles.css?v=problem-garden-db-1' in response.text
-    assert '/assets/app.js?v=problem-garden-db-1' in response.text
+    assert '/assets/styles.css?v=garden-graph-modal-1' in response.text
+    assert '/assets/app.js?v=garden-graph-modal-1' in response.text
 
 
 def test_index_contains_current_product_views(tmp_path: Path) -> None:
@@ -142,6 +147,9 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert 'id="garden-problems"' in response.text
     assert 'id="garden-detail"' in response.text
     assert 'id="garden-graph"' in response.text
+    assert 'id="garden-graph-modal"' in response.text
+    assert "data-garden-open-graph" in response.text
+    assert "data-garden-close-graph" in response.text
     assert 'id="garden-search-form"' in response.text
     assert 'id="garden-query"' in response.text
     assert 'id="garden-status-filter"' in response.text
@@ -150,8 +158,21 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert 'id="garden-submit-form"' in response.text
     assert 'id="garden-submit-title"' in response.text
     assert 'id="garden-submit-statement"' in response.text
+    assert 'data-garden-submit-render="statement"' in response.text
+    assert 'data-garden-submit-text="statement"' in response.text
+    assert 'class="garden-render-surface markdown-output"' in response.text
     assert 'id="garden-submit-source"' in response.text
-    assert 'id="garden-submit-references"' in response.text
+    assert 'id="garden-submit-source-literature"' in response.text
+    assert 'id="garden-submit-progress"' in response.text
+    assert 'id="garden-submit-references"' not in response.text
+    assert 'id="garden-submit-context"' not in response.text
+    assert 'id="garden-edit-form"' not in response.text
+    assert 'id="garden-edit-title"' not in response.text
+    assert 'id="garden-edit-statement"' not in response.text
+    assert "data-garden-edit-render" not in response.text
+    assert "data-garden-edit-text" not in response.text
+    assert "data-garden-edit-problem" not in response.text
+    assert "data-garden-cancel-edit" not in response.text
     assert 'data-garden-problem-id="pfr-finite-fields"' in response.text
     assert 'data-garden-use-problem' in response.text
     assert "Polynomial Freiman-Ruzsa conjecture" in response.text
@@ -161,10 +182,18 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert 'id="paper-submit-button"' in response.text
     assert 'id="paper-draft"' in response.text
     assert 'id="paper-draft-preview"' in response.text
-    assert 'data-paper-draft-view="edit"' in response.text
-    assert 'data-paper-draft-view="preview"' in response.text
+    assert 'data-paper-edit-target="draft"' in response.text
+    assert 'id="paper-references-preview"' in response.text
+    assert 'data-paper-edit-target="references"' in response.text
+    assert 'id="paper-reviewer-preview"' in response.text
+    assert 'data-paper-edit-target="reviewer"' in response.text
+    assert 'data-paper-edit-target="output"' in response.text
+    assert 'data-paper-draft-view="edit"' not in response.text
+    assert 'data-paper-draft-view="preview"' not in response.text
     assert 'id="paper-references"' in response.text
+    assert 'id="paper-references" class="paper-input paper-input-editor"' in response.text
     assert 'id="paper-reviewer"' in response.text
+    assert 'id="paper-reviewer" class="paper-input paper-input-editor"' in response.text
     assert 'id="paper-min-refs"' in response.text
     assert 'id="paper-max-refs"' in response.text
     assert 'id="paper-min-pages"' in response.text
@@ -173,18 +202,35 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert 'id="paper-manuscript"' not in response.text
     assert 'id="paper-theorem"' not in response.text
     assert 'id="paper-proof"' not in response.text
-    assert 'data-paper-output="manuscript_draft"' in response.text
-    assert 'data-paper-output="citation_report"' in response.text
+    assert 'id="paper-status-pill"' in response.text
+    assert 'id="paper-run-id"' not in response.text
+    assert 'id="paper-run-pipeline"' not in response.text
+    assert 'data-paper-output="manuscript_draft"' not in response.text
+    assert 'data-paper-output="citation_report"' not in response.text
     assert 'data-paper-output="review_report"' not in response.text
     assert 'data-i18n="paper.outputReview"' not in response.text
     assert "Writing agent output will appear here." not in response.text
     assert "写作 agent 输出会显示在这里。" not in response.text
     assert 'id="ledger-runs"' in response.text
+    assert 'id="problem-title"' in response.text
+    assert 'placeholder="Riemann Hypothesis"' not in response.text
+    assert 'data-i18n-placeholder="problem.titlePlaceholder"' not in response.text
     assert 'id="problem-preview"' in response.text
+    assert 'data-problem-edit-target="problem"' in response.text
     assert 'id="proof-sheet" class="output-sheet" aria-labelledby="output-title" hidden' in response.text
+    assert 'id="current-run-title"' not in response.text
+    assert 'id="status-pill"' not in response.text
+    assert 'id="progress-ladder"' not in response.text
+    assert 'id="run-id"' not in response.text
+    assert 'id="run-pipeline"' not in response.text
     assert 'id="event-list"' not in response.text
     assert "Event Trail" not in response.text
     assert "事件轨迹" not in response.text
+    assert 'data-i18n="config.description"' not in response.text
+    assert 'data-i18n="pipeline.reasoningVerificationDesc"' not in response.text
+    assert 'data-i18n="pipeline.reasoningOnlyDesc"' not in response.text
+    assert 'data-i18n="pipeline.formalCheck"' not in response.text
+    assert 'data-i18n="pipeline.fastDraft"' not in response.text
     assert "Time Limit" not in response.text
     assert "Heuristic Model" not in response.text
     assert "Auto-Import Context" not in response.text
@@ -208,8 +254,8 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert "Submit a problem to produce" not in response.text
     assert ">Title<" in response.text
     assert ">Problem<" in response.text
-    assert ">Preview<" in response.text
-    assert "Riemann Hypothesis" in response.text
+    assert ">Preview<" not in response.text
+    assert "Riemann Hypothesis" not in response.text
     assert "Draft Obligation" not in response.text
     assert "Problem Markdown" not in response.text
     assert "Live Preview" not in response.text
@@ -233,10 +279,10 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert "Sign In" in response.text
     assert 'data-view-target="dashboard">History' not in response.text
     assert 'class="verify-link" data-new-proof' not in response.text
-    assert 'data-language-toggle="en"' in response.text
-    assert 'data-language-toggle="zh"' in response.text
-    assert 'data-theme-toggle="light"' in response.text
-    assert 'data-theme-toggle="dark"' in response.text
+    assert 'data-language-toggle' not in response.text
+    assert 'data-theme-toggle' not in response.text
+    assert 'id="refresh-runs"' not in response.text
+    assert 'data-i18n="actions.refresh"' not in response.text
     assert "待实现" in response.text
     assert "Problem Configuration" in response.text
     assert ">Repository<" not in response.text
@@ -294,8 +340,6 @@ def test_frontend_sanitizes_local_artifact_paths(tmp_path: Path) -> None:
     assert "updateProblemPreview" in response.text
     assert "data-i18n-html" in response.text
     assert "数学学习与研究" in response.text
-    assert "黎曼猜想" in response.text
-    assert "示例：黎曼猜想" not in response.text
     assert "event-list" not in response.text
     assert "events.title" not in response.text
     assert "events.empty" not in response.text
@@ -308,7 +352,7 @@ def test_frontend_sanitizes_local_artifact_paths(tmp_path: Path) -> None:
     assert "base_url" not in response.text
     assert "api_key" not in response.text
     assert "data-i18n" in response.text
-    assert "snapshot.output?.kind" in response.text
+    assert "snapshot.output?.content" in response.text
     assert "snapshot.problem_input?.content" in response.text
     assert "problemSource" not in response.text
 
@@ -400,9 +444,7 @@ def test_problem_garden_api_lists_filters_and_details(monkeypatch, tmp_path: Pat
                     "domains": ["additive combinatorics", "finite fields"],
                     "source": "Peluse 2024 survey",
                     "source_url": "https://example.test/peluse",
-                    "context": "finite-field model",
                     "statement": "Let $A \\subseteq \\mathbb{F}_p^n$ have small doubling.",
-                    "related_literature_count": 2,
                     "latest_progress": "Equivalent finite-field formulations are known.",
                 }
             ]
@@ -417,14 +459,9 @@ def test_problem_garden_api_lists_filters_and_details(monkeypatch, tmp_path: Pat
                 "domains": ["additive combinatorics", "finite fields"],
                 "source": "Peluse 2024 survey",
                 "source_url": "https://example.test/peluse",
-                "context": "finite-field model",
                 "statement": "Let $A \\subseteq \\mathbb{F}_p^n$ have small doubling.",
                 "source_literature": ["Peluse 2024"],
-                "attempted_literature": ["Lovett 2012"],
-                "related_literature": ["Bogolyubov-Ruzsa surveys"],
-                "known_core_ideas": ["Small doubling forces structure."],
                 "progress": ["Equivalent formulations known."],
-                "possible_ideas": ["Compare formulations."],
                 "graph_links": [
                     {"from": "Problem", "relation": "stated_in", "to": "Peluse 2024 survey"},
                 ],
@@ -483,8 +520,8 @@ def test_problem_garden_api_submits_candidates_to_review_queue(monkeypatch, tmp_
             "statement": "Determine whether every object has property $P$.",
             "source_url": "https://example.test/problem",
             "domain": "finite fields",
-            "context": "Collected from a survey.",
-            "references_text": "A. Author, A useful survey.",
+            "source_literature": ["A. Author, A useful survey."],
+            "progress": ["Collected from a survey."],
         },
     )
 
@@ -493,6 +530,8 @@ def test_problem_garden_api_submits_candidates_to_review_queue(monkeypatch, tmp_
     assert calls[-1][0] == "create_submission"
     submission = calls[-1][1]
     assert submission["title"] == "A new finite-field problem"
+    assert submission["source_literature"] == ["A. Author, A useful survey."]
+    assert submission["progress"] == ["Collected from a survey."]
     assert submission["status"] == "pending_review"
 
     invalid = client.post(
@@ -501,6 +540,131 @@ def test_problem_garden_api_submits_candidates_to_review_queue(monkeypatch, tmp_
     )
     assert invalid.status_code == 400
     assert invalid.json()["detail"] == "source_url must not be blank"
+
+
+def test_erdos_problem_tool_normalizes_metadata_and_page_html() -> None:
+    from galois.tools.erdos_problems import _ProblemPageParser, erdos_problem_to_garden_problem
+
+    parser = _ProblemPageParser()
+    parser.feed(
+        """
+        <html><body>
+          <div id="content">If $A$ is large then\\[N \\gg 2^n.\\]</div>
+          <div class="citationbox"><div id="content">Additional thanks to the web site.</div></div>
+          <div id="remarks">Known remarks with <a href="/350">[350]</a>.</div>
+          <div id="refs">Erdos 1931<br>Dubroff-Fox-Xu 2021</div>
+          <table class="problem-reactions-table"><tbody>
+            <tr class="problem-reaction-row" data-reaction-type="like">
+              <td class="problem-reaction-label-cell"><strong>Likes this problem</strong></td>
+              <td><span class="problem-reaction-users">old-bielefelder, Sayan_Dutta</span></td>
+            </tr>
+            <tr class="problem-reaction-row" data-reaction-type="collab">
+              <td class="problem-reaction-label-cell"><strong>Interested in collaborating</strong></td>
+              <td><span class="problem-reaction-users">None</span></td>
+            </tr>
+          </tbody></table>
+        </body></html>
+        """
+    )
+    page = parser.page()
+    problem = erdos_problem_to_garden_problem(
+        {
+            "number": "1",
+            "prize": "$500",
+            "status": {"state": "open", "last_update": "2025-08-31"},
+            "formalized": {"state": "yes", "last_update": "2025-08-31"},
+            "oeis": ["A276661"],
+            "tags": ["number theory", "additive combinatorics"],
+        },
+        page=page,
+    )
+
+    assert problem["id"] == "erdos-1"
+    assert problem["title"] == "Erdős problem #1"
+    assert problem["statement"] == "If $A$ is large then\\[N \\gg 2^n.\\]"
+    assert "Additional thanks" not in problem["statement"]
+    assert page.references == ["Erdos 1931", "Dubroff-Fox-Xu 2021"]
+    assert problem["status"] == "open"
+    assert problem["domains"] == ["number theory", "additive combinatorics"]
+    assert "OEIS A276661: https://oeis.org/A276661" in problem["source_literature"]
+    assert "related_literature" not in problem
+    assert any(edge["relation"] == "linked_to_oeis" and edge["to"] == "A276661" for edge in problem["graph_links"])
+    assert problem["progress"] == ["Status: open."]
+    assert problem["community_reactions"] == [
+        {"type": "like", "label": "Likes this problem", "users": ["old-bielefelder", "Sayan_Dutta"]},
+        {"type": "collab", "label": "Interested in collaborating", "users": []},
+    ]
+
+
+def test_erdos_problem_tool_builds_metadata_only_entries() -> None:
+    from galois.tools.erdos_problems import build_garden_problems
+
+    problems, errors = build_garden_problems(
+        [
+            {
+                "number": "4",
+                "prize": "$10000",
+                "status": {"state": "proved"},
+                "formalized": {"state": "yes"},
+                "tags": ["number theory"],
+            },
+            {
+                "number": "20",
+                "prize": "$1000",
+                "status": {"state": "open"},
+                "formalized": {"state": "yes"},
+                "oeis": ["A332077"],
+                "tags": ["combinatorics"],
+                "comments": "sunflower conjecture",
+            }
+        ],
+        status="open",
+        limit=10,
+    )
+
+    assert errors == []
+    assert problems[0]["id"] == "erdos-20"
+    assert problems[0]["title"] == "Erdős problem #20: sunflower conjecture"
+    assert "Metadata-only entry" in problems[0]["statement"]
+    assert problems[0]["source_url"] == "https://www.erdosproblems.com/20"
+
+
+def test_cli_garden_import_erdos_dry_run_uses_tools_cache(monkeypatch, tmp_path: Path, capsys) -> None:
+    from galois.platform.cli import cmd_import_erdos_problems
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+    cache = tmp_path / "problems.yaml"
+    cache.write_text(
+        """
+        - number: "1"
+          prize: "$500"
+          status:
+            state: "open"
+          formalized:
+            state: "yes"
+          oeis: ["A276661"]
+          tags: ["number theory"]
+        """,
+        encoding="utf-8",
+    )
+
+    result = cmd_import_erdos_problems(
+        config_path=config_path,
+        source_url=None,
+        cache_path=cache,
+        no_fetch_yaml=True,
+        fetch_pages=False,
+        status="open",
+        limit=None,
+        dry_run=True,
+    )
+
+    assert result == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["records"] == 1
+    assert payload["parsed"] == 1
+    assert payload["sample_ids"] == ["erdos-1"]
 
 
 def test_problem_garden_store_initializes_schema_and_submission_in_live_postgres(monkeypatch) -> None:
@@ -533,13 +697,67 @@ def test_problem_garden_store_initializes_schema_and_submission_in_live_postgres
                 "statement": "A statement used by the test suite.",
                 "source_url": "https://example.test/live-postgres-submission",
                 "domain": "test",
-                "context": "Created by pytest and cleaned up immediately.",
-                "references_text": "Test reference.",
+                "source_literature": ["Test reference."],
+                "progress": ["Created by pytest and cleaned up immediately."],
                 "status": "pending_review",
             }
         )
         assert created == {"submission_id": "test-submission-live-postgres", "status": "pending_review"}
+        imported = store.upsert_problems(
+            [
+                {
+                    "id": "erdos-test-live-postgres",
+                    "title": "Erdős test import",
+                    "statement": "Imported statement.",
+                    "status": "open",
+                    "difficulty": "research",
+                    "domains": ["number theory"],
+                    "source": "teorth/erdosproblems",
+                    "source_url": "https://www.erdosproblems.com/test",
+                    "source_literature": ["https://www.erdosproblems.com/test"],
+                    "progress": ["Status: open."],
+                    "graph_links": [
+                        {"from": "Problem", "relation": "imported_from", "to": "teorth/erdosproblems"},
+                    ],
+                }
+            ]
+        )
+        assert imported == 1
+        imported_detail = store.get_problem("erdos-test-live-postgres")
+        assert imported_detail is not None
+        assert imported_detail["graph_links"][0]["relation"] == "imported_from"
+        store.upsert_problem(
+            {
+                "id": "erdos-test-live-postgres",
+                "title": "Erdős test import",
+                "statement": "Metadata-only entry for Erdős problem #test. Open the source page for the full problem statement: https://www.erdosproblems.com/test",
+                "status": "open",
+                "difficulty": "research",
+                "domains": ["number theory"],
+                "source": "teorth/erdosproblems",
+                "source_url": "https://www.erdosproblems.com/test",
+                "source_literature": ["https://www.erdosproblems.com/test"],
+                "progress": ["Status: open."],
+                "graph_links": [
+                    {"from": "Problem", "relation": "imported_from", "to": "teorth/erdosproblems"},
+                ],
+            }
+        )
+        preserved_detail = store.get_problem("erdos-test-live-postgres")
+        assert preserved_detail is not None
+        assert preserved_detail["statement"] == "Imported statement."
+        store.record_import_batch(
+            batch_id="test-erdos-live-postgres",
+            source_name="teorth/erdosproblems",
+            source_url="https://example.test/problems.yaml",
+            item_count=1,
+            imported_count=1,
+            skipped_count=0,
+            fetch_pages=False,
+        )
         with store.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM garden_problems WHERE id = %s", ("erdos-test-live-postgres",))
+            cursor.execute("DELETE FROM garden_import_batches WHERE id = %s", ("test-erdos-live-postgres",))
             cursor.execute("DELETE FROM garden_submissions WHERE id = %s", ("test-submission-live-postgres",))
         store.connection.commit()
 
@@ -860,7 +1078,7 @@ const context = {{
     assert result.returncode == 0, result.stderr
 
 
-def test_frontend_writing_output_tabs_render_cached_finished_snapshot() -> None:
+def test_frontend_writing_output_renders_final_manuscript_and_enters_edit_mode() -> None:
     node = shutil.which("node")
     if node is None:
         return
@@ -903,11 +1121,10 @@ function fakeElement(dataset = {{}}) {{
 }}
 
 const paperOutput = fakeElement();
-const outputChoices = [
-  fakeElement({{ paperOutput: "manuscript_draft" }}),
-  fakeElement({{ paperOutput: "citation_report" }}),
-];
+const paperOutputEditor = fakeElement();
+paperOutputEditor.focus = function () {{ this.focused = true; }};
 const elementMap = new Map([["#paper-output", paperOutput]]);
+elementMap.set("#paper-output-editor", paperOutputEditor);
 const document = {{
   documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
   querySelector(selector) {{
@@ -917,7 +1134,6 @@ const document = {{
   querySelectorAll(selector) {{
     if (selector === "[data-view]") return [fakeElement({{ view: "paper-writing" }})];
     if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "paper-writing" }})];
-    if (selector === "[data-paper-output]") return outputChoices;
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -963,15 +1179,17 @@ context.renderWritingSnapshot({{
   }},
 }});
 if (!paperOutput.innerHTML.includes("Manuscript text")) throw new Error(paperOutput.innerHTML);
-context.updatePaperOutputChoice("review_report");
 if (paperOutput.innerHTML.includes("Review text")) throw new Error(paperOutput.innerHTML);
-if (!paperOutput.innerHTML.includes("Manuscript text")) throw new Error(paperOutput.innerHTML);
-context.updatePaperOutputChoice("citation_report");
-if (!paperOutput.innerHTML.includes("<h1>References</h1>")) throw new Error(paperOutput.innerHTML);
-if (!paperOutput.innerHTML.includes("citation-list")) throw new Error(paperOutput.innerHTML);
-if (!paperOutput.innerHTML.includes("[1]")) throw new Error(paperOutput.innerHTML);
-if (!paperOutput.innerHTML.includes("https://doi.org/10.1000/example")) throw new Error(paperOutput.innerHTML);
-if (paperOutput.innerHTML.includes("lookup task")) throw new Error(paperOutput.innerHTML);
+if (paperOutput.innerHTML.includes("citation-list")) throw new Error(paperOutput.innerHTML);
+context.setPaperOutputEditMode(true);
+if (paperOutput.hidden !== true) throw new Error("rendered output should hide in edit mode");
+if (paperOutputEditor.hidden !== false) throw new Error("output editor should show in edit mode");
+if (!paperOutputEditor.value.includes("Manuscript text")) throw new Error(paperOutputEditor.value);
+paperOutputEditor.value = "# Edited\\nRevised text";
+context.setPaperOutputEditMode(false);
+if (paperOutput.hidden !== false) throw new Error("rendered output should show after editing");
+if (paperOutputEditor.hidden !== true) throw new Error("output editor should hide after editing");
+if (!paperOutput.innerHTML.includes("Revised text")) throw new Error(paperOutput.innerHTML);
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -1196,7 +1414,7 @@ if (katexCalls[0].throwOnError !== false) throw new Error("throwOnError should s
     assert result.returncode == 0, result.stderr
 
 
-def test_frontend_problem_editor_updates_markdown_preview() -> None:
+def test_frontend_problem_editor_defaults_to_rendered_view_and_enters_edit_mode() -> None:
     node = shutil.which("node")
     if node is None:
         return
@@ -1215,9 +1433,11 @@ function fakeElement(dataset = {{}}) {{
     textContent: "",
     innerHTML: "",
     className: "",
+    attributes: {{}},
     classList: {{ toggle() {{}}, contains(name) {{ return false; }}, remove() {{}}, add() {{}} }},
     addEventListener() {{}},
-    setAttribute() {{}},
+    setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+    getAttribute(name) {{ return this.attributes[name] || ""; }},
     closest() {{ return {{ querySelectorAll() {{ return []; }} }}; }},
     querySelectorAll() {{ return []; }},
     requestSubmit() {{}},
@@ -1228,7 +1448,8 @@ function fakeElement(dataset = {{}}) {{
 
 const elementMap = new Map();
 const markdown = fakeElement();
-const preview = fakeElement();
+markdown.focus = function () {{ this.focused = true; }};
+const preview = fakeElement({{ paperRender: "draft" }});
 preview.querySelectorAll = () => [mathNode];
 const mathNode = {{
   textContent: "x^2",
@@ -1287,6 +1508,14 @@ if (!preview.innerHTML.includes("<h1>Problem</h1>")) throw new Error(preview.inn
 if (!preview.innerHTML.includes('class="math-source inline"')) throw new Error(preview.innerHTML);
 if (katexCalls.length !== 1) throw new Error(`expected preview KaTeX call, got ${{katexCalls.length}}`);
 if (katexCalls[0].math !== "x^2") throw new Error(`unexpected math: ${{katexCalls[0].math}}`);
+context.setProblemEditMode(false);
+if (markdown.hidden !== true) throw new Error("problem editor should be hidden in rendered mode");
+if (preview.hidden !== false) throw new Error("problem render should be visible in rendered mode");
+if (preview.getAttribute("tabindex") !== "0") throw new Error("problem render should be focusable");
+context.setProblemEditMode(true);
+if (markdown.hidden !== false) throw new Error("problem editor should show in edit mode");
+if (preview.hidden !== true) throw new Error("problem render should hide in edit mode");
+if (markdown.focused !== true) throw new Error("problem editor should be focused");
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -1323,13 +1552,14 @@ function fakeElement(dataset = {{}}) {{
     hidden: false,
     disabled: false,
     value: "",
-    textContent: "",
-    innerHTML: "",
-    className: "",
-    classList: fakeClassList(),
-    addEventListener() {{}},
-    setAttribute() {{}},
-    getAttribute() {{ return ""; }},
+  textContent: "",
+  innerHTML: "",
+  className: "",
+  attributes: {{}},
+  classList: fakeClassList(),
+  addEventListener() {{}},
+  setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+  getAttribute(name) {{ return this.attributes[name] || ""; }},
     closest() {{ return {{ querySelectorAll() {{ return []; }}, classList: fakeClassList() }}; }},
     contains() {{ return false; }},
     querySelectorAll() {{ return []; }},
@@ -1341,29 +1571,34 @@ function fakeElement(dataset = {{}}) {{
 
 const elementMap = new Map();
 const draft = fakeElement({{ paperInput: "draft" }});
-const preview = fakeElement();
-const editButton = fakeElement({{ paperDraftView: "edit" }});
-const previewButton = fakeElement({{ paperDraftView: "preview" }});
+const references = fakeElement({{ paperInput: "references" }});
+const preview = fakeElement({{ paperRender: "draft" }});
+const referencesPreview = fakeElement({{ paperRender: "references" }});
+draft.focus = function () {{ this.focused = true; }};
+references.focus = function () {{ this.focused = true; }};
 const mathNode = {{
   textContent: "x^2",
   classList: {{ contains(name) {{ return name === "inline"; }}, remove() {{}}, add() {{}} }},
   replaceWith() {{}},
 }};
 preview.querySelectorAll = () => [mathNode];
+referencesPreview.querySelectorAll = () => [];
 
 const document = {{
   documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
   querySelector(selector) {{
     if (selector === "#paper-draft") return draft;
     if (selector === "#paper-draft-preview") return preview;
+    if (selector === "#paper-references") return references;
+    if (selector === "#paper-references-preview") return referencesPreview;
     if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
     return elementMap.get(selector);
   }},
   querySelectorAll(selector) {{
     if (selector === "[data-view]") return [fakeElement({{ view: "paper-writing" }})];
     if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "paper-writing" }})];
-    if (selector === "[data-paper-input]") return [draft];
-    if (selector === "[data-paper-draft-view]") return [editButton, previewButton];
+    if (selector === "[data-paper-input]") return [draft, references];
+    if (selector === "[data-paper-render]") return [preview, referencesPreview];
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -1408,12 +1643,24 @@ context.renderPaperDraftPreview();
 if (!preview.innerHTML.includes("<h1>Draft</h1>")) throw new Error(preview.innerHTML);
 if (!preview.innerHTML.includes('class="math-source inline"')) throw new Error(preview.innerHTML);
 if (katexCalls.length !== 1) throw new Error(`expected draft preview KaTeX call, got ${{katexCalls.length}}`);
-context.setPaperDraftView("preview");
-if (draft.hidden !== true) throw new Error("draft editor should be hidden in preview mode");
-if (preview.hidden !== false) throw new Error("draft preview should be visible in preview mode");
-context.setPaperDraftView("edit");
+context.setPaperDraftEditMode(false);
+if (draft.hidden !== true) throw new Error("draft editor should be hidden in rendered mode");
+if (preview.hidden !== false) throw new Error("draft preview should be visible in rendered mode");
+if (preview.getAttribute("tabindex") !== "0") throw new Error("draft preview should be keyboard-focusable");
+context.setPaperDraftEditMode(true);
 if (draft.hidden !== false) throw new Error("draft editor should be visible in edit mode");
 if (preview.hidden !== true) throw new Error("draft preview should be hidden in edit mode");
+if (draft.focused !== true) throw new Error("draft editor should be focused in edit mode");
+references.value = "# References\\n\\n- Smith 2024";
+context.renderPaperInputPreview("references");
+if (!referencesPreview.innerHTML.includes("<h1>References</h1>")) throw new Error(referencesPreview.innerHTML);
+context.setPaperInputEditMode("references", false);
+if (references.hidden !== true) throw new Error("references editor should be hidden in rendered mode");
+if (referencesPreview.hidden !== false) throw new Error("references preview should be visible in rendered mode");
+context.setPaperInputEditMode("references", true);
+if (references.hidden !== false) throw new Error("references editor should show in edit mode");
+if (referencesPreview.hidden !== true) throw new Error("references preview should hide in edit mode");
+if (references.focused !== true) throw new Error("references editor should be focused");
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -1539,15 +1786,141 @@ vm.runInNewContext(code, context);
 context.renderProblemGarden("pfr-finite-fields");
 if (!gardenProblems.innerHTML.includes("Polynomial Freiman-Ruzsa conjecture")) throw new Error(gardenProblems.innerHTML);
 if (!gardenProblems.innerHTML.includes("frontier")) throw new Error(gardenProblems.innerHTML);
-if (!gardenDetail.innerHTML.includes("Known core ideas")) throw new Error(gardenDetail.innerHTML);
 if (!gardenDetail.innerHTML.includes("Source literature")) throw new Error(gardenDetail.innerHTML);
+if (!gardenDetail.innerHTML.includes("Progress")) throw new Error(gardenDetail.innerHTML);
+if (gardenDetail.innerHTML.includes("Known core ideas")) throw new Error(gardenDetail.innerHTML);
 if (!gardenGraph.innerHTML.includes("uses_method")) throw new Error(gardenGraph.innerHTML);
 context.useGardenProblem("pfr-finite-fields");
 if (problemTitle.value !== "Polynomial Freiman-Ruzsa conjecture") throw new Error(problemTitle.value);
 if (!problemMarkdown.value.includes("## Problem")) throw new Error(problemMarkdown.value);
-if (!problemMarkdown.value.includes("finite-field model")) throw new Error(problemMarkdown.value);
+if (!problemMarkdown.value.includes("## Source literature")) throw new Error(problemMarkdown.value);
+if (!problemMarkdown.value.includes("## Progress")) throw new Error(problemMarkdown.value);
 if (window.location.hash !== "#problem-solving") throw new Error(window.location.hash);
 if (problemMarkdown.focused !== true) throw new Error("problem markdown should be focused");
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_frontend_problem_garden_submit_markdown_fields_render_by_default() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  return {{ toggle() {{}}, contains() {{ return false; }}, add() {{}}, remove() {{}} }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  const element = {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    attributes: {{}},
+    classList: fakeClassList(),
+    addEventListener() {{}},
+    setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+    getAttribute(name) {{ return this.attributes[name] || ""; }},
+    closest() {{ return fakeElement(); }},
+    contains() {{ return false; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{ this.focused = true; }},
+  }};
+  return element;
+}}
+
+const statement = fakeElement({{ gardenSubmitText: "statement" }});
+const statementRender = fakeElement({{ gardenSubmitRender: "statement" }});
+statementRender.querySelectorAll = () => [mathNode];
+const sourceLiterature = fakeElement({{ gardenSubmitText: "source-literature" }});
+const sourceLiteratureRender = fakeElement({{ gardenSubmitRender: "source-literature" }});
+sourceLiteratureRender.querySelectorAll = () => [];
+const mathNode = {{
+  textContent: "A+A",
+  classList: {{ contains(name) {{ return name === "inline"; }}, remove() {{}}, add() {{}} }},
+  replaceWith() {{}},
+}};
+const elementMap = new Map([
+  ["#garden-submit-statement", statement],
+  ["#garden-submit-source-literature", sourceLiterature],
+]);
+const document = {{
+  documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
+  querySelector(selector) {{
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return [fakeElement({{ view: "problem-garden" }})];
+    if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "problem-garden" }})];
+    if (selector === "[data-garden-submit-text]") return [statement, sourceLiterature];
+    if (selector === "[data-garden-submit-render]") return [statementRender, sourceLiteratureRender];
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const katexCalls = [];
+const window = {{
+  location: {{ hash: "#problem-garden" }},
+  history: {{ replaceState() {{}} }},
+  addEventListener() {{}},
+  localStorage: {{ getItem() {{ return null; }}, setItem() {{}}, removeItem() {{}} }},
+  matchMedia() {{ return {{ matches: false }}; }},
+  katex: {{
+    render(math) {{
+      katexCalls.push(math);
+    }},
+  }},
+}};
+const fetch = async () => ({{ ok: true, json: async () => ({{ runs: [] }}) }});
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ return 1; }},
+  clearInterval() {{}},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+  JSON,
+}};
+
+vm.runInNewContext(code, context);
+statement.value = "# Statement\\nLet $A+A$ be small.";
+sourceLiterature.value = "- Smith 2024";
+context.setGardenSubmitFieldMode("statement", false);
+if (statement.hidden !== true) throw new Error("statement textarea should hide in render mode");
+if (statementRender.hidden !== false) throw new Error("statement render should show by default");
+if (!statementRender.innerHTML.includes("<h1>Statement</h1>")) throw new Error(statementRender.innerHTML);
+if (katexCalls[0] !== "A+A") throw new Error(`expected math render, got ${{katexCalls[0]}}`);
+context.setGardenSubmitFieldMode("statement", true);
+if (statement.hidden !== false) throw new Error("statement textarea should show in edit mode");
+if (statementRender.hidden !== true) throw new Error("statement render should hide in edit mode");
+if (statement.focused !== true) throw new Error("statement textarea should be focused");
+context.renderGardenSubmitField("source-literature");
+if (!sourceLiteratureRender.innerHTML.includes("<li>Smith 2024</li>")) throw new Error(sourceLiteratureRender.innerHTML);
+sourceLiterature.value = "";
+context.renderGardenSubmitField("source-literature");
+if (sourceLiteratureRender.innerHTML !== "") throw new Error(`blank submit render should stay empty: ${{sourceLiteratureRender.innerHTML}}`);
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -1623,8 +1996,11 @@ const gardenSubmitTitle = fakeElement();
 const gardenSubmitStatement = fakeElement();
 const gardenSubmitSource = fakeElement();
 const gardenSubmitDomain = fakeElement();
-const gardenSubmitContext = fakeElement();
-const gardenSubmitReferences = fakeElement();
+const gardenSubmitSourceLiterature = fakeElement();
+const gardenSubmitProgress = fakeElement();
+const gardenSubmitStatementRender = fakeElement({{ gardenSubmitRender: "statement" }});
+const gardenSubmitSourceLiteratureRender = fakeElement({{ gardenSubmitRender: "source-literature" }});
+const gardenSubmitProgressRender = fakeElement({{ gardenSubmitRender: "progress" }});
 const elementMap = new Map([
   ["#garden-problems", gardenProblems],
   ["#garden-detail", gardenDetail],
@@ -1640,8 +2016,8 @@ const elementMap = new Map([
   ["#garden-submit-statement", gardenSubmitStatement],
   ["#garden-submit-source", gardenSubmitSource],
   ["#garden-submit-domain", gardenSubmitDomain],
-  ["#garden-submit-context", gardenSubmitContext],
-  ["#garden-submit-references", gardenSubmitReferences],
+  ["#garden-submit-source-literature", gardenSubmitSourceLiterature],
+  ["#garden-submit-progress", gardenSubmitProgress],
 ]);
 const document = {{
   documentElement: {{ lang: "en", dataset: {{}}, classList: fakeClassList() }},
@@ -1652,6 +2028,12 @@ const document = {{
   querySelectorAll(selector) {{
     if (selector === "[data-view]") return views;
     if (selector === "[data-view-target]") return buttons;
+    if (selector === "[data-garden-submit-text]") return [
+      Object.assign(gardenSubmitStatement, {{ dataset: {{ gardenSubmitText: "statement" }} }}),
+      Object.assign(gardenSubmitSourceLiterature, {{ dataset: {{ gardenSubmitText: "source-literature" }} }}),
+      Object.assign(gardenSubmitProgress, {{ dataset: {{ gardenSubmitText: "progress" }} }}),
+    ];
+    if (selector === "[data-garden-submit-render]") return [gardenSubmitStatementRender, gardenSubmitSourceLiteratureRender, gardenSubmitProgressRender];
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -1672,14 +2054,9 @@ const apiProblem = {{
   domains: ["finite fields"],
   source: "API source",
   source_url: "https://example.test/source",
-  context: "API finite-field context",
   statement: "API statement with $A+A$.",
   source_literature: ["API source literature"],
-  attempted_literature: ["API attempt"],
-  related_literature: ["API related"],
-  known_core_ideas: ["API idea"],
   progress: ["API progress"],
-  possible_ideas: ["API possible idea"],
   graph_links: [{{ from: "Problem", relation: "stated_in", to: "API source" }}],
 }};
 const fetch = async (url, options = {{}}) => {{
@@ -1702,6 +2079,8 @@ const fetch = async (url, options = {{}}) => {{
     const body = JSON.parse(options.body);
     if (body.title !== "Submitted problem") throw new Error(options.body);
     if (body.status !== "pending_review") throw new Error(options.body);
+    if (body.source_literature[0] !== "Source literature") throw new Error(options.body);
+    if (body.progress[0] !== "Progress note") throw new Error(options.body);
     return {{ ok: true, json: async () => ({{ submission_id: "submission-1", status: "pending_review" }}) }};
   }}
   if (url === "/api/runs") return {{ ok: true, json: async () => ({{ runs: [] }}) }};
@@ -1744,11 +2123,12 @@ const context = {{
   gardenSubmitStatement.value = "Statement";
   gardenSubmitSource.value = "https://example.test/submitted";
   gardenSubmitDomain.value = "finite fields";
-  gardenSubmitContext.value = "Context";
-  gardenSubmitReferences.value = "Reference";
+  gardenSubmitSourceLiterature.value = "Source literature";
+  gardenSubmitProgress.value = "Progress note";
   await context.submitGardenCandidate({{ preventDefault() {{}} }});
   if (!gardenMessage.textContent.includes("pending_review")) throw new Error(gardenMessage.textContent);
   if (gardenSubmitForm.resetCalled !== true) throw new Error("submission form should reset after accepted candidate");
+  if (gardenSubmitStatement.hidden !== true) throw new Error("submitted statement editor should return to render mode");
 }})().catch((error) => {{
   console.error(error.stack || error.message);
   process.exit(1);
@@ -2051,7 +2431,7 @@ if (html.includes('math-source inline">x</span> should stay literal')) throw new
     assert result.returncode == 0, result.stderr
 
 
-def test_frontend_splits_final_blueprint_into_problem_and_solution() -> None:
+def test_frontend_keeps_final_blueprint_problem_and_solution_together() -> None:
     node = shutil.which("node")
     if node is None:
         return
@@ -2124,11 +2504,10 @@ const docs = context.resolveSnapshotDocuments({{
     content: "# Demo\\n\\n## Problem\\n\\nShow $x=x$.\\n\\n## Solution\\n\\nUse reflexivity.",
   }},
 }});
-if (!docs.problemContent.includes("# Demo")) throw new Error("title should stay with problem display");
-if (!docs.problemContent.includes("## Problem")) throw new Error("problem section missing");
-if (docs.problemContent.includes("## Solution")) throw new Error("solution leaked into problem display");
-if (!docs.proofContent.startsWith("## Solution")) throw new Error("solution section should start proof display");
-if (docs.proofContent.includes("old problem input")) throw new Error("fallback problem input leaked into final blueprint");
+if (docs.problemContent !== "old problem input") throw new Error("problem input should stay unchanged");
+if (!docs.proofContent.includes("# Demo")) throw new Error("title should stay with proof display");
+if (!docs.proofContent.includes("## Problem")) throw new Error("problem section missing");
+if (!docs.proofContent.includes("## Solution")) throw new Error("solution section missing");
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -2556,7 +2935,39 @@ def test_matlas_styles_follow_galois_theme_instead_of_fullscreen_white() -> None
     assert "background: var(--sheet-cool" in css[css.index(".matlas-view") : css.index(".ledger")]
 
 
-def test_frontend_applies_language_and_theme_modes() -> None:
+def test_paper_writing_rendered_surfaces_fill_vertical_workspace() -> None:
+    css = Path("src/galois/platform/web_assets/styles.css").read_text(encoding="utf-8")
+    paper_css = css[css.index(".paper-writing-view") :]
+
+    assert "grid-template-rows: auto minmax(18rem, 1fr) minmax(18rem, 1fr);" in paper_css
+    assert ".paper-input.active:not([hidden])" in paper_css
+    assert ".paper-input-render,\n.paper-output" in paper_css
+    assert "max-width: none;" in paper_css
+    assert "margin: 0;" in paper_css
+
+
+def test_problem_garden_submit_uses_rendered_compact_markdown_fields() -> None:
+    css = Path("src/galois/platform/web_assets/styles.css").read_text(encoding="utf-8")
+    garden_css = css[css.index(".problem-garden-view") : css.index(".paper-writing-view")]
+
+    assert "html {\n  background: var(--sheet);\n}" in css
+    assert "align-items: stretch;" in garden_css
+    assert "background: var(--sheet);" in garden_css
+    assert ".garden-detail-actions {\n  display: flex;\n  justify-content: center;" in garden_css
+    assert ".garden-graph-modal" in garden_css
+    assert ".garden-graph-placeholder" in garden_css
+    assert "min-height: calc(100vh - 8.2rem);" not in garden_css
+    assert ".garden-render-surface" in garden_css
+    assert "max-height: 14rem;" in garden_css
+    assert "max-height: 10rem;" in garden_css
+    assert "min-height: 7.5rem;" not in garden_css
+    assert ".garden-edit-form" not in garden_css
+    assert ".garden-submit-form label" in garden_css
+    label_css = garden_css[garden_css.index(".garden-submit-form label") : garden_css.index(".garden-empty")]
+    assert "text-transform: uppercase;" not in label_css
+
+
+def test_frontend_uses_chinese_dark_mode_without_display_toggles() -> None:
     node = shutil.which("node")
     if node is None:
         return
@@ -2609,8 +3020,6 @@ const translatable = [
   fakeElement({{ i18n: "auth.signIn" }}),
   fakeElement({{ i18n: "placeholder.soonTitle" }}),
 ];
-const langButtons = [fakeElement({{ languageToggle: "en" }}), fakeElement({{ languageToggle: "zh" }})];
-const themeButtons = [fakeElement({{ themeToggle: "light" }}), fakeElement({{ themeToggle: "dark" }})];
 const elementMap = new Map();
 const document = {{
   documentElement: {{
@@ -2625,8 +3034,8 @@ const document = {{
     if (selector === "[data-view]") return [fakeElement({{ view: "problem-solving" }})];
     if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "problem-solving" }})];
     if (selector === "[data-i18n]") return translatable;
-    if (selector === "[data-language-toggle]") return langButtons;
-    if (selector === "[data-theme-toggle]") return themeButtons;
+    if (selector === "[data-language-toggle]") return [];
+    if (selector === "[data-theme-toggle]") return [];
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -2664,19 +3073,10 @@ const context = {{
 }};
 
 vm.runInNewContext(code, context);
-context.applyLocale("zh");
 if (document.documentElement.lang !== "zh-CN") throw new Error(`unexpected lang: ${{document.documentElement.lang}}`);
 if (translatable[0].textContent !== "问题求解") throw new Error(`unexpected zh nav: ${{translatable[0].textContent}}`);
 if (translatable[1].textContent !== "登录") throw new Error(`unexpected zh auth: ${{translatable[1].textContent}}`);
-if (!langButtons[1].classList.contains("active")) throw new Error("zh language button should be active");
-if (langButtons[1].attributes["aria-pressed"] !== "true") throw new Error("zh language aria state missing");
-if (storage["galois-language"] !== "zh") throw new Error("language preference was not saved");
-
-context.applyTheme("dark");
 if (document.documentElement.dataset.theme !== "dark") throw new Error("dark theme was not applied");
-if (!themeButtons[1].classList.contains("active")) throw new Error("dark theme button should be active");
-if (themeButtons[1].attributes["aria-pressed"] !== "true") throw new Error("dark theme aria state missing");
-if (storage["galois-theme"] !== "dark") throw new Error("theme preference was not saved");
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -2736,14 +3136,9 @@ const preview = fakeElement();
 const proofSheet = fakeElement();
 const output = fakeElement();
 const copyButton = fakeElement();
-const currentTitle = fakeElement();
-const statusPill = fakeElement();
-const runId = fakeElement();
-const runPipeline = fakeElement();
 const submit = fakeElement();
 const submitProxy = fakeElement();
 const message = fakeElement();
-const ladder = [fakeElement(), fakeElement(), fakeElement(), fakeElement(), fakeElement()];
 const elementMap = new Map();
 const document = {{
   documentElement: {{ lang: "en", dataset: {{}} }},
@@ -2754,10 +3149,6 @@ const document = {{
     if (selector === "#proof-sheet") return proofSheet;
     if (selector === "#output") return output;
     if (selector === "#copy-proof-markdown") return copyButton;
-    if (selector === "#current-run-title") return currentTitle;
-    if (selector === "#status-pill") return statusPill;
-    if (selector === "#run-id") return runId;
-    if (selector === "#run-pipeline") return runPipeline;
     if (selector === "#submit-button") return submit;
     if (selector === "#submit-proxy") return submitProxy;
     if (selector === "#form-message") return message;
@@ -2767,7 +3158,6 @@ const document = {{
   querySelectorAll(selector) {{
     if (selector === "[data-view]") return [fakeElement({{ view: "problem-solving" }})];
     if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "problem-solving" }})];
-    if (selector === "#progress-ladder li") return ladder;
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -2811,38 +3201,21 @@ preview.innerHTML = "<h1>Old problem</h1>";
 proofSheet.hidden = false;
 output.innerHTML = "<h2>Solution</h2>";
 copyButton.disabled = false;
-currentTitle.textContent = "Finished run";
-statusPill.textContent = "status.succeeded";
-statusPill.className = "status-pill succeeded";
-runId.textContent = "done-run";
-runPipeline.textContent = "reasoning-verification";
 submit.disabled = true;
 submitProxy.disabled = true;
 message.textContent = "Queued: done-run";
-ladder.forEach((item) => {{
-  item.classList.add("done");
-  item.classList.add("current");
-}});
 context.startNewProof();
 
 if (title.value !== "") throw new Error("title should be cleared");
 if (markdown.value !== "") throw new Error("problem markdown should be cleared");
-if (!preview.innerHTML.includes("Preview updates as you write.")) throw new Error(preview.innerHTML);
+if (!preview.innerHTML.includes("预览会随输入更新。")) throw new Error(preview.innerHTML);
 if (proofSheet.hidden !== true) throw new Error("proof sheet should be hidden");
 if (output.innerHTML !== "") throw new Error("output should be cleared");
 if (copyButton.disabled !== true) throw new Error("copy button should be disabled");
-if (currentTitle.textContent !== "No active run") throw new Error(`unexpected title: ${{currentTitle.textContent}}`);
-if (statusPill.textContent !== "Idle") throw new Error(`unexpected status: ${{statusPill.textContent}}`);
-if (statusPill.className !== "status-pill idle") throw new Error(`unexpected status class: ${{statusPill.className}}`);
-if (runId.textContent !== "—") throw new Error(`unexpected run id: ${{runId.textContent}}`);
-if (runPipeline.textContent !== "—") throw new Error(`unexpected pipeline: ${{runPipeline.textContent}}`);
 if (submit.disabled !== false || submitProxy.disabled !== false) throw new Error("submit controls should be enabled");
 if (message.textContent !== "") throw new Error(`message should be blank: ${{message.textContent}}`);
 if (storage["galois-current-run-id"] !== undefined) throw new Error("stored run id should be removed");
 if (clearedIntervals !== 1) throw new Error(`poll interval should be cleared once, got ${{clearedIntervals}}`);
-if (ladder.some((item) => item.classList.contains("done") || item.classList.contains("current"))) {{
-  throw new Error("progress ladder should be reset");
-}}
 if (!title.focused) throw new Error("title input should be focused");
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
@@ -2896,16 +3269,12 @@ function fakeElement(dataset = {{}}) {{
   return element;
 }}
 
-const currentTitle = fakeElement();
-const statusPill = fakeElement();
 const proofSheet = fakeElement();
 const output = fakeElement();
 const elementMap = new Map();
 const document = {{
   documentElement: {{ lang: "en", dataset: {{}} }},
   querySelector(selector) {{
-    if (selector === "#current-run-title") return currentTitle;
-    if (selector === "#status-pill") return statusPill;
     if (selector === "#proof-sheet") return proofSheet;
     if (selector === "#output") return output;
     if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
@@ -2914,7 +3283,6 @@ const document = {{
   querySelectorAll(selector) {{
     if (selector === "[data-view]") return [fakeElement({{ view: "problem-solving" }})];
     if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "problem-solving" }})];
-    if (selector === "#progress-ladder li") return [fakeElement(), fakeElement(), fakeElement(), fakeElement(), fakeElement()];
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -2969,8 +3337,6 @@ const context = {{
 
 vm.runInNewContext(code, context);
 storage["galois-current-run-id"] = "done-run";
-currentTitle.textContent = "No active run";
-statusPill.textContent = "Idle";
 proofSheet.hidden = true;
 output.innerHTML = "";
 
@@ -2978,8 +3344,6 @@ output.innerHTML = "";
   await context.restoreCurrentRun();
   if (intervalCount !== 0) throw new Error(`completed run should not start polling, got ${{intervalCount}} intervals`);
   if (storage["galois-current-run-id"] !== undefined) throw new Error("completed stored run id should be removed");
-  if (currentTitle.textContent !== "No active run") throw new Error(`completed run should not be rendered: ${{currentTitle.textContent}}`);
-  if (statusPill.textContent !== "Idle") throw new Error(`status should remain idle: ${{statusPill.textContent}}`);
   if (proofSheet.hidden !== true) throw new Error("completed proof sheet should not be restored as active state");
   if (output.innerHTML !== "") throw new Error(`old output should not be rendered: ${{output.innerHTML}}`);
 }})().catch((error) => {{
@@ -3038,16 +3402,12 @@ function fakeElement(dataset = {{}}) {{
   return element;
 }}
 
-const currentTitle = fakeElement();
-const statusPill = fakeElement();
 const proofSheet = fakeElement();
 const output = fakeElement();
 const elementMap = new Map();
 const document = {{
   documentElement: {{ lang: "en", dataset: {{}} }},
   querySelector(selector) {{
-    if (selector === "#current-run-title") return currentTitle;
-    if (selector === "#status-pill") return statusPill;
     if (selector === "#proof-sheet") return proofSheet;
     if (selector === "#output") return output;
     if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
@@ -3056,7 +3416,6 @@ const document = {{
   querySelectorAll(selector) {{
     if (selector === "[data-view]") return [fakeElement({{ view: "problem-solving" }})];
     if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "problem-solving" }})];
-    if (selector === "#progress-ladder li") return [fakeElement(), fakeElement(), fakeElement(), fakeElement(), fakeElement()];
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -3094,8 +3453,6 @@ const context = {{
 
 vm.runInNewContext(code, context);
 context.state = undefined;
-currentTitle.textContent = "No active run";
-statusPill.textContent = "Idle";
 proofSheet.hidden = true;
 output.innerHTML = "";
 const restorable = context.latestRestorableRun([
@@ -3108,8 +3465,6 @@ if (intervalCount !== 0) throw new Error("latestRestorableRun should not poll by
 (async () => {{
   await context.restoreCurrentRun();
   if (intervalCount !== 0) throw new Error(`run list should not restore without saved id, got ${{intervalCount}} intervals`);
-  if (currentTitle.textContent !== "No active run") throw new Error(`unexpected restored title: ${{currentTitle.textContent}}`);
-  if (statusPill.textContent !== "Idle") throw new Error(`unexpected status: ${{statusPill.textContent}}`);
   if (proofSheet.hidden !== true) throw new Error("proof sheet should stay hidden");
   if (output.innerHTML !== "") throw new Error(`output should stay blank: ${{output.innerHTML}}`);
 }})().catch((error) => {{
@@ -3152,19 +3507,17 @@ function fakeElement(dataset = {{}}) {{
   }};
 }}
 
-const statusPill = fakeElement();
-const elementMap = new Map();
+const paperStatusPill = fakeElement();
+const elementMap = new Map([["#paper-status-pill", paperStatusPill]]);
 const document = {{
   documentElement: {{ lang: "en", dataset: {{}} }},
   querySelector(selector) {{
-    if (selector === "#status-pill") return statusPill;
     if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
     return elementMap.get(selector);
   }},
   querySelectorAll(selector) {{
     if (selector === "[data-view]") return [fakeElement({{ view: "problem-solving" }})];
     if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "problem-solving" }})];
-    if (selector === "#progress-ladder li") return [fakeElement(), fakeElement(), fakeElement(), fakeElement(), fakeElement()];
     return [];
   }},
   createElement() {{ return fakeElement(); }},
@@ -3194,17 +3547,14 @@ const context = {{
 }};
 
 vm.runInNewContext(code, context);
-context.renderSnapshot({{
+context.renderWritingSnapshot({{
   run_id: "done-run",
   status: "succeeded",
   pipeline: "reasoning-verification",
-  problem: {{ title: "Done" }},
-  events: [],
-  workflows: ["reasoning", "verification"],
-  output: null,
+  output: {{ artifacts: {{ manuscript_draft: {{ content: "Done." }} }} }},
 }});
-if (statusPill.textContent === "status.succeeded") throw new Error("raw status key leaked into UI");
-if (statusPill.textContent !== "Verified") throw new Error(`unexpected succeeded label: ${{statusPill.textContent}}`);
+if (paperStatusPill.textContent === "status.succeeded") throw new Error("raw status key leaked into UI");
+if (paperStatusPill.textContent !== "已验证") throw new Error(`unexpected succeeded label: ${{paperStatusPill.textContent}}`);
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -3225,6 +3575,22 @@ def test_create_run_rejects_blank_problem_markdown(tmp_path: Path) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "problem_markdown must not be blank"
+
+
+def test_create_run_rejects_blank_title(tmp_path: Path) -> None:
+    from galois.platform.web import create_app
+
+    config_path = tmp_path / "config.toml"
+    _write_config(config_path, tmp_path / "runs")
+
+    client = TestClient(create_app(config_path=config_path))
+    response = client.post(
+        "/api/runs",
+        json={"title": "   ", "problem_markdown": "Show that $1=1$.", "pipeline": "reasoning-verification"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "title must not be blank"
 
 
 def test_latest_blueprint_prefers_highest_revision(tmp_path: Path) -> None:
@@ -3344,6 +3710,7 @@ def test_create_run_writes_problem_and_starts_background_launch(monkeypatch, tmp
     payload = response.json()
     assert payload["status"] == "queued"
     assert payload["model"] == "gpt-5.4"
+    assert payload["display_title"] == "Euler identity"
     assert not payload["run_id"].startswith("web_")
     problem_path = Path(payload["problem_path"])
     assert problem_path.exists()
@@ -3373,6 +3740,11 @@ def test_create_run_writes_problem_and_starts_background_launch(monkeypatch, tmp
 
     snapshot = client.get(f"/api/runs/{payload['run_id']}").json()
     assert snapshot["problem_input"]["content"] == "Prove $e^{i\\pi}+1=0$.\n"
+
+    runs = client.get("/api/runs").json()["runs"]
+    indexed = next(run for run in runs if run["run_id"] == payload["run_id"])
+    assert indexed["display_title"] == "Euler identity"
+    assert indexed["problem"]["display_title"] == "Euler identity"
 
 
 def test_create_run_rejects_unsupported_model(monkeypatch, tmp_path: Path) -> None:
@@ -3475,7 +3847,12 @@ def test_list_runs_includes_recent_real_runs(monkeypatch, tmp_path: Path) -> Non
     client = TestClient(web.create_app(config_path=config_path))
     created = client.post(
         "/api/runs",
-        json={"title": "Recent", "problem_markdown": "Show that $1+1=2$.", "pipeline": "reasoning-verification"},
+        json={
+            "title": "Recent",
+            "problem_markdown": "Show that $1+1=2$.",
+            "pipeline": "reasoning-verification",
+            "model": "gpt-5.4",
+        },
     ).json()
 
     response = client.get("/api/runs")
@@ -3483,12 +3860,15 @@ def test_list_runs_includes_recent_real_runs(monkeypatch, tmp_path: Path) -> Non
     assert response.status_code == 200
     runs = response.json()["runs"]
     assert any(
-        run["run_id"] == created["run_id"] and run["status"] == "created" and run["model"] == "gpt-5.4"
+        run["run_id"] == created["run_id"]
+        and run["status"] == "created"
+        and run["model"] == "gpt-5.4"
+        and run["display_title"] == "Recent"
         for run in runs
     )
 
 
-def test_list_runs_ignores_legacy_web_run_directories(tmp_path: Path) -> None:
+def test_list_runs_uses_readable_index_titles_and_ignores_legacy_web_run_directories(tmp_path: Path) -> None:
     from galois.platform import web
 
     config_path = tmp_path / "config.toml"
@@ -3510,8 +3890,11 @@ def test_list_runs_ignores_legacy_web_run_directories(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    real_dir = run_root / "20260426T144445Z_22997820"
+    real_dir = run_root / "20260426T144446Z_testtitle"
     real_dir.mkdir(parents=True)
+    problem_dir = real_dir / "problem"
+    problem_dir.mkdir()
+    (problem_dir / "statement.md").write_text("# Friendly theorem\n\nShow it.", encoding="utf-8")
     (real_dir / "manifest.json").write_text(
         json.dumps(
             {
@@ -3519,7 +3902,7 @@ def test_list_runs_ignores_legacy_web_run_directories(tmp_path: Path) -> None:
                 "status": "succeeded",
                 "pipeline": "reasoning-verification",
                 "model": "gpt-5.5",
-                "problem": {"problem_id": "finished-proof", "title": "Finished proof"},
+                "problem": {"problem_id": "problem", "title": ""},
                 "workflows": ["reasoning", "verification"],
             }
         ),
@@ -3533,6 +3916,59 @@ def test_list_runs_ignores_legacy_web_run_directories(tmp_path: Path) -> None:
     runs = response.json()["runs"]
     assert [run["run_id"] for run in runs] == [real_dir.name]
     assert runs[0]["status"] == "succeeded"
+    assert runs[0]["display_title"] == "Friendly theorem"
+    assert runs[0]["problem"]["title"] == "Friendly theorem"
+
+
+def test_run_index_keeps_database_display_title_when_resyncing(tmp_path: Path) -> None:
+    from galois.platform.run_index import RunIndexStore, manifest_run_record
+
+    database_url = "postgresql://galois:galois_dev@127.0.0.1:5432/galois"
+    import psycopg
+
+    try:
+        with psycopg.connect(database_url, connect_timeout=2) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+    except psycopg.OperationalError:
+        return
+
+    run_root = tmp_path / "runs"
+    run_dir = run_root / "20260428T010203Z_manual"
+    problem_dir = run_dir / "problem"
+    problem_dir.mkdir(parents=True)
+    (problem_dir / "statement.md").write_text("# Auto title\n\nShow $x=x$.", encoding="utf-8")
+    (run_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_dir.name,
+                "status": "succeeded",
+                "pipeline": "reasoning-verification",
+                "model": "gpt-5.4",
+                "problem": {"problem_id": "problem", "title": ""},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with RunIndexStore(database_url) as store:
+        store.initialize()
+        with store.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM run_index WHERE run_id = %s", (run_dir.name,))
+        store.connection.commit()
+        record = manifest_run_record(run_dir)
+        assert record is not None
+        store.upsert_run(record)
+        with store.connection.cursor() as cursor:
+            cursor.execute("UPDATE run_index SET display_title = %s WHERE run_id = %s", ("Manual $x=x$ title", run_dir.name))
+        store.connection.commit()
+        store.upsert_run(record)
+        indexed = store.list_runs(run_root=run_root, limit=1)[0]
+        assert indexed["display_title"] == "Manual $x=x$ title"
+        assert indexed["auto_display_title"] == "Auto title"
+        with store.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM run_index WHERE run_id = %s", (run_dir.name,))
+        store.connection.commit()
 
 
 def test_cli_parser_accepts_web_command() -> None:

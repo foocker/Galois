@@ -10,7 +10,7 @@
       integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="/assets/styles.css?v=problem-garden-db-1" />
+    <link rel="stylesheet" href="/assets/styles.css?v=garden-graph-modal-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -35,7 +35,6 @@
         <section class="recent-panel" aria-labelledby="recent-title">
           <div class="panel-heading">
             <h2 id="recent-title" data-i18n="history.recentRuns">Recent Runs</h2>
-            <button id="refresh-runs" class="text-button" type="button" data-i18n="actions.refresh">Refresh</button>
           </div>
           <div id="recent-runs" class="run-list" aria-live="polite">
             <p class="muted" data-i18n="empty.noRunsLoaded">No runs loaded yet.</p>
@@ -54,16 +53,6 @@
             <button class="product-tab" type="button" data-view-target="paper-writing" data-i18n="nav.paperWriting">Paper Writing</button>
           </nav>
           <div class="top-actions">
-            <div class="display-controls" aria-label="Display preferences">
-              <div class="segmented-control" role="group" aria-label="Language">
-                <button class="active" type="button" data-language-toggle="en" aria-pressed="true">EN</button>
-                <button type="button" data-language-toggle="zh" aria-pressed="false">中</button>
-              </div>
-              <div class="segmented-control" role="group" aria-label="Theme">
-                <button class="active" type="button" data-theme-toggle="light" aria-pressed="true" data-i18n="theme.day">Day</button>
-                <button type="button" data-theme-toggle="dark" aria-pressed="false" data-i18n="theme.night">Night</button>
-              </div>
-            </div>
             <button class="login-placeholder" type="button" disabled data-i18n="auth.signIn">Sign In</button>
           </div>
         </header>
@@ -105,9 +94,8 @@
                   id="problem-title"
                   name="title"
                   type="text"
-                  placeholder="Riemann Hypothesis"
-                  data-i18n-placeholder="problem.titlePlaceholder"
                   autocomplete="off"
+                  required
                 />
               </div>
 
@@ -115,19 +103,19 @@
 
               <div class="editor-head">
                 <label class="field-label" for="problem-markdown" data-i18n="problem.markdownLabel">Problem</label>
-                <span data-i18n="problem.livePreview">Preview</span>
               </div>
               <div class="problem-editor">
+                <article id="problem-preview" class="markdown-output editor-preview problem-render-surface" data-problem-edit-target="problem" aria-live="polite" tabindex="0">
+                  <p class="empty-state" data-i18n="empty.previewPending">Preview updates as you write.</p>
+                </article>
                 <textarea
                   id="problem-markdown"
                   name="problem_markdown"
                   spellcheck="false"
                   placeholder="Paste a theorem, exercise, proof attempt, or research question here..."
                   data-i18n-placeholder="problem.markdownPlaceholder"
+                  hidden
                 ></textarea>
-                <article id="problem-preview" class="markdown-output editor-preview" aria-live="polite">
-                  <p class="empty-state" data-i18n="empty.previewPending">Preview updates as you write.</p>
-                </article>
               </div>
 
               <footer class="draft-footer">
@@ -155,11 +143,10 @@
             </section>
           </section>
 
-          <aside class="control-pane" aria-label="Problem configuration and run status">
+          <aside class="control-pane" aria-label="Problem configuration">
             <section class="config-panel">
               <div class="section-title">
                 <h2 data-i18n="config.title">Problem Configuration</h2>
-                <p data-i18n="config.description">Choose the model and verification pipeline for the current proof obligation.</p>
               </div>
 
               <fieldset class="pipeline-field">
@@ -168,17 +155,13 @@
                   <input id="pipeline-verification" name="pipeline-choice" type="radio" value="reasoning-verification" checked />
                   <span>
                     <strong data-i18n="pipeline.reasoningVerification">Reasoning &amp; Verification</strong>
-                    <small data-i18n="pipeline.reasoningVerificationDesc">Constructs a proof attempt, then runs the verification service.</small>
                   </span>
-                  <em data-i18n="pipeline.formalCheck">Formal Check</em>
                 </label>
                 <label class="pipeline-option" for="pipeline-reasoning">
                   <input id="pipeline-reasoning" name="pipeline-choice" type="radio" value="reasoning-only" />
                   <span>
                     <strong data-i18n="pipeline.reasoningOnly">Reasoning-Only</strong>
-                    <small data-i18n="pipeline.reasoningOnlyDesc">Generates mathematical reasoning without strict downstream verification.</small>
                   </span>
-                  <em data-i18n="pipeline.fastDraft">Fast Draft</em>
                 </label>
               </fieldset>
 
@@ -199,29 +182,6 @@
 
               <button id="submit-proxy" class="primary-button" type="button"><span data-i18n="actions.commenceRun">Commence Run</span> <span>▶</span></button>
             </section>
-
-            <section class="status-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="kicker" data-i18n="status.verificationStatus">Verification Status</p>
-                  <h2 id="current-run-title" data-i18n="status.noActiveRun">No active run</h2>
-                </div>
-                <span id="status-pill" class="status-pill idle" data-i18n="status.idle">Idle</span>
-              </div>
-
-              <ol id="progress-ladder" class="ladder" aria-label="Research progress">
-                <li data-step="queued"><span></span><b data-i18n="status.queued">Queued</b></li>
-                <li data-step="reasoning"><span></span><b data-i18n="status.reasoning">Reasoning</b></li>
-                <li data-step="verification"><span></span><b data-i18n="status.verification">Verification</b></li>
-                <li data-step="repair"><span></span><b data-i18n="status.repairLoop">Repair Loop</b></li>
-                <li data-step="complete"><span></span><b data-i18n="status.complete">Complete</b></li>
-              </ol>
-
-              <dl class="run-meta">
-                <div><dt data-i18n="status.runId">Run Id</dt><dd id="run-id">—</dd></div>
-                <div><dt data-i18n="status.pipeline">Pipeline</dt><dd id="run-pipeline">—</dd></div>
-              </dl>
-            </section>
           </aside>
         </main>
 
@@ -230,7 +190,7 @@
             <aside class="garden-index-panel">
               <p class="kicker" data-i18n="garden.kicker">Problem Garden</p>
               <h1 id="problem-garden-title" data-i18n="garden.title">Open Problem Garden</h1>
-              <p class="garden-brief" data-i18n="garden.brief">Curated research problems with source trails, attempts, related literature, and graph links.</p>
+              <p class="garden-brief" data-i18n="garden.brief">Curated research problems with source trails, attempts, and graph links.</p>
               <form id="garden-search-form" class="garden-search-form" role="search">
                 <label class="visually-hidden" for="garden-query" data-i18n="garden.searchLabel">Search problems</label>
                 <input id="garden-query" type="search" placeholder="Search title, statement, or source" data-i18n-placeholder="garden.searchPlaceholder" />
@@ -265,34 +225,32 @@
             <section id="garden-detail" class="garden-detail markdown-output" aria-live="polite">
               <article>
                 <header class="garden-detail-head">
-                  <p class="kicker">Problem Seed</p>
-                  <h2>Polynomial Freiman-Ruzsa conjecture</h2>
-                  <div class="garden-meta-strip">
-                    <span>open</span>
-                    <span>frontier</span>
-                    <span>additive combinatorics</span>
+                  <div class="garden-detail-title-row">
+                    <div>
+                      <p class="kicker">Problem Seed</p>
+                      <h2>Polynomial Freiman-Ruzsa conjecture</h2>
+                    </div>
+                    <button class="secondary-button garden-graph-trigger" type="button" data-garden-open-graph data-i18n="garden.graphOpen">链接图谱</button>
+                  </div>
+                  <div class="garden-meta-row">
+                    <div class="garden-meta-strip">
+                      <span>open</span>
+                      <span>frontier</span>
+                      <span>additive combinatorics</span>
+                    </div>
                   </div>
                 </header>
                 <section class="garden-statement">
                   <h3>Statement</h3>
                   <p>Let <span class="math-source inline">A \subseteq \mathbb{F}_p^n</span> have small doubling. Must it be covered by polynomially many cosets of a bounded-size subspace?</p>
                 </section>
-                <button class="primary-button garden-use-button" type="button" data-garden-use-problem="pfr-finite-fields">Use in Problem Solving</button>
+                <div class="garden-detail-actions">
+                  <button class="primary-button garden-use-button" type="button" data-garden-use-problem="pfr-finite-fields">Use in Problem Solving</button>
+                </div>
               </article>
             </section>
 
-            <aside class="garden-graph-panel" aria-labelledby="garden-graph-title">
-              <div class="garden-graph-head">
-                <p class="kicker" data-i18n="garden.graphKicker">Link Graph</p>
-                <h2 id="garden-graph-title" data-i18n="garden.graphTitle">Problem links</h2>
-              </div>
-              <div id="garden-graph" class="garden-graph" aria-live="polite">
-                <div class="garden-edge">
-                  <span>Problem</span>
-                  <strong>stated_in</strong>
-                  <span>Peluse 2024 survey</span>
-                </div>
-              </div>
+            <aside class="garden-submit-panel">
               <form id="garden-submit-form" class="garden-submit-form">
                 <h3 data-i18n="garden.submitTitle">Submit candidate</h3>
                 <label for="garden-submit-title">
@@ -301,7 +259,8 @@
                 </label>
                 <label for="garden-submit-statement">
                   <span data-i18n="garden.submitStatement">Statement</span>
-                  <textarea id="garden-submit-statement" rows="5" required></textarea>
+                  <article class="garden-render-surface markdown-output" data-garden-submit-render="statement" tabindex="0" aria-live="polite"></article>
+                  <textarea id="garden-submit-statement" rows="5" data-garden-submit-text="statement" required hidden></textarea>
                 </label>
                 <label for="garden-submit-source">
                   <span data-i18n="garden.submitSource">Source URL</span>
@@ -311,19 +270,41 @@
                   <span data-i18n="garden.submitDomain">Domain</span>
                   <input id="garden-submit-domain" type="text" />
                 </label>
-                <label for="garden-submit-context">
-                  <span data-i18n="garden.submitContext">Context</span>
-                  <textarea id="garden-submit-context" rows="3"></textarea>
+                <label for="garden-submit-source-literature">
+                  <span data-i18n="garden.submitSourceLiterature">Source literature</span>
+                  <article class="garden-render-surface markdown-output compact" data-garden-submit-render="source-literature" tabindex="0" aria-live="polite"></article>
+                  <textarea id="garden-submit-source-literature" rows="3" data-garden-submit-text="source-literature" hidden></textarea>
                 </label>
-                <label for="garden-submit-references">
-                  <span data-i18n="garden.submitReferences">Seed references</span>
-                  <textarea id="garden-submit-references" rows="4"></textarea>
+                <label for="garden-submit-progress">
+                  <span data-i18n="garden.submitProgress">Progress</span>
+                  <article class="garden-render-surface markdown-output compact" data-garden-submit-render="progress" tabindex="0" aria-live="polite"></article>
+                  <textarea id="garden-submit-progress" rows="3" data-garden-submit-text="progress" hidden></textarea>
                 </label>
                 <button class="secondary-button" type="submit" data-i18n="garden.submitAction">Send to review</button>
                 <p id="garden-message" class="form-message" role="status" aria-live="polite"></p>
               </form>
             </aside>
           </section>
+          <div id="garden-graph-modal" class="garden-graph-modal" hidden>
+            <button class="garden-graph-backdrop" type="button" data-garden-close-graph aria-label="Close graph"></button>
+            <section class="garden-graph-dialog" role="dialog" aria-modal="true" aria-labelledby="garden-graph-title">
+              <header class="garden-graph-dialog-head">
+                <div>
+                  <p class="kicker" data-i18n="garden.graphKicker">链接图谱</p>
+                  <h2 id="garden-graph-title" data-i18n="garden.graphTitle">问题关系</h2>
+                </div>
+                <button class="secondary-button compact-button" type="button" data-garden-close-graph>关闭</button>
+              </header>
+              <div class="garden-graph-placeholder" data-i18n="garden.graphPlaceholder">Obsidian-style graph placeholder.</div>
+              <div id="garden-graph" class="garden-graph" aria-live="polite">
+                <div class="garden-edge">
+                  <span>Problem</span>
+                  <strong>stated_in</strong>
+                  <span>Peluse 2024 survey</span>
+                </div>
+              </div>
+            </section>
+          </div>
         </main>
 
         <main class="placeholder-view app-view" data-view="math-learning" hidden>
@@ -427,41 +408,28 @@
                 <button class="paper-tab" type="button" data-paper-tab="references" data-i18n="paper.tabReferences">References</button>
                 <button class="paper-tab" type="button" data-paper-tab="reviewer" data-i18n="paper.tabReviewer">Reviewer</button>
               </div>
-              <div class="paper-draft-panel active" data-paper-panel="draft">
-                <div class="paper-draft-toolbar" role="group" aria-label="Draft view">
-                  <button class="paper-draft-view active" type="button" data-paper-draft-view="edit" aria-pressed="true" data-i18n="paper.draftEdit">Edit</button>
-                  <button class="paper-draft-view" type="button" data-paper-draft-view="preview" aria-pressed="false" data-i18n="paper.draftPreview">Preview</button>
-                </div>
-                <div class="paper-draft-surface">
-                  <textarea id="paper-draft" class="paper-input active paper-draft-editor" rows="18" data-paper-input="draft" data-i18n-placeholder="paper.draftPlaceholder" placeholder="Paste a theorem, proof draft, rough notes, or manuscript here."></textarea>
-                  <article id="paper-draft-preview" class="paper-draft-preview output-sheet" aria-live="polite" hidden></article>
-                </div>
+              <div class="paper-input-panel active" data-paper-panel="draft">
+                <article id="paper-draft-preview" class="paper-input-render output-sheet paper-editable-render" data-paper-render="draft" data-paper-edit-target="draft" aria-live="polite" tabindex="0"></article>
+                <textarea id="paper-draft" class="paper-input active paper-input-editor" rows="18" data-paper-input="draft" data-i18n-placeholder="paper.draftPlaceholder" placeholder="Paste a theorem, proof draft, rough notes, or manuscript here." hidden></textarea>
               </div>
-              <textarea id="paper-references" class="paper-input" rows="18" data-paper-input="references" data-i18n-placeholder="paper.referencesPlaceholder" placeholder="Paste seed BibTeX, arXiv IDs, DOI list, or literature notes here."></textarea>
-              <textarea id="paper-reviewer" class="paper-input" rows="18" data-paper-input="reviewer" data-i18n-placeholder="paper.reviewerPlaceholder" placeholder="Paste reviewer comments here."></textarea>
-            </section>
+              <div class="paper-input-panel" data-paper-panel="references">
+                <article id="paper-references-preview" class="paper-input-render output-sheet paper-editable-render" data-paper-render="references" data-paper-edit-target="references" aria-live="polite" tabindex="0"></article>
+                <textarea id="paper-references" class="paper-input paper-input-editor" rows="18" data-paper-input="references" data-i18n-placeholder="paper.referencesPlaceholder" placeholder="Paste seed BibTeX, arXiv IDs, DOI list, or literature notes here." hidden></textarea>
+              </div>
+              <div class="paper-input-panel" data-paper-panel="reviewer">
+                <article id="paper-reviewer-preview" class="paper-input-render output-sheet paper-editable-render" data-paper-render="reviewer" data-paper-edit-target="reviewer" aria-live="polite" tabindex="0"></article>
+                <textarea id="paper-reviewer" class="paper-input paper-input-editor" rows="18" data-paper-input="reviewer" data-i18n-placeholder="paper.reviewerPlaceholder" placeholder="Paste reviewer comments here." hidden></textarea>
+              </div>
 
-            <aside class="paper-output-panel">
-              <div class="paper-output-header">
-                <p class="kicker" data-i18n="paper.agentOutput">Agent Output</p>
-                <span id="paper-status-pill" class="status-pill" data-status="idle" data-i18n="status.idle">Idle</span>
-              </div>
-              <dl class="run-meta compact">
-                <div>
-                  <dt data-i18n="status.runId">Run Id</dt>
-                  <dd id="paper-run-id" data-i18n="status.noActiveRun">No active run</dd>
+              <section class="paper-output-panel">
+                <div class="paper-output-header">
+                  <p class="kicker" data-i18n="paper.agentOutput">Agent Output</p>
+                  <span id="paper-status-pill" class="status-pill" data-status="idle" data-i18n="status.idle">Idle</span>
                 </div>
-                <div>
-                  <dt data-i18n="status.pipeline">Pipeline</dt>
-                  <dd id="paper-run-pipeline">writing-only</dd>
-                </div>
-              </dl>
-              <section class="paper-output-actions" aria-label="Writing outputs">
-                <button class="paper-output-choice active" type="button" data-paper-output="manuscript_draft" data-i18n="paper.outputManuscript">Manuscript</button>
-                <button class="paper-output-choice" type="button" data-paper-output="citation_report" data-i18n="paper.outputCitations">Citations</button>
+                <article id="paper-output" class="output-sheet paper-output paper-editable-render" data-paper-edit-target="output" aria-live="polite" tabindex="0"></article>
+                <textarea id="paper-output-editor" class="paper-output-editor" rows="18" hidden></textarea>
               </section>
-              <article id="paper-output" class="output-sheet paper-output" aria-live="polite"></article>
-            </aside>
+            </section>
           </section>
         </main>
       </div>
@@ -487,6 +455,6 @@
       src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
       defer
     ></script>
-    <script src="/assets/app.js?v=problem-garden-db-1" defer></script>
+    <script src="/assets/app.js?v=garden-graph-modal-1" defer></script>
   </body>
 </html>

@@ -208,6 +208,21 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument("--config", type=Path, default=None)
     inspect_parser.add_argument("--tail", type=int, default=5, help="Number of recent events to show.")
 
+    garden_parser = subparsers.add_parser("garden", help="Manage Problem Garden data.")
+    garden_subparsers = garden_parser.add_subparsers(dest="garden_command", required=True)
+    erdos_parser = garden_subparsers.add_parser(
+        "import-erdos",
+        help="Fetch teorth/erdosproblems and upsert it into the Problem Garden database.",
+    )
+    erdos_parser.add_argument("--config", type=Path, default=None)
+    erdos_parser.add_argument("--source-url", default=None, help="Override the problems.yaml URL.")
+    erdos_parser.add_argument("--cache", type=Path, default=None, help="YAML cache path.")
+    erdos_parser.add_argument("--no-fetch-yaml", action="store_true", help="Use an existing YAML cache file.")
+    erdos_parser.add_argument("--fetch-pages", action="store_true", help="Fetch erdosproblems.com pages for statements.")
+    erdos_parser.add_argument("--status", default="open", help="Filter by normalized status. Defaults to open.")
+    erdos_parser.add_argument("--limit", type=int, default=10, help="Import only the first N matching records. Defaults to 10.")
+    erdos_parser.add_argument("--dry-run", action="store_true", help="Parse and report without writing to the database.")
+
     web_parser = subparsers.add_parser("web", help="Start the Galois research workbench web UI.")
     web_parser.add_argument("--host", default="127.0.0.1")
     web_parser.add_argument("--port", type=int, default=8000)
@@ -1307,6 +1322,90 @@ def cmd_web(host: str, port: int, config_path: Path | None) -> int:
     return 0
 
 
+def cmd_import_erdos_problems(
+    *,
+    config_path: Path | None,
+    source_url: str | None,
+    cache_path: Path | None,
+    no_fetch_yaml: bool,
+    fetch_pages: bool,
+    status: str | None,
+    limit: int | None,
+    dry_run: bool,
+) -> int:
+    from datetime import UTC
+
+    from galois.tools.erdos_problems import (
+        DEFAULT_CACHE_PATH,
+        ERDOS_PROBLEMS_YAML_URL,
+        build_garden_problems,
+        fetch_yaml,
+        load_yaml_records,
+        write_yaml_cache,
+    )
+
+    from .problem_garden import ProblemGardenStore
+
+    config = load_config(config_path)
+    yaml_url = source_url or ERDOS_PROBLEMS_YAML_URL
+    cache = cache_path or DEFAULT_CACHE_PATH
+    if not no_fetch_yaml:
+        write_yaml_cache(fetch_yaml(yaml_url), cache)
+    records = load_yaml_records(cache)
+    normalized_status = status.strip() if status else None
+    problems, errors = build_garden_problems(
+        records,
+        fetch_pages=fetch_pages,
+        limit=limit,
+        status=normalized_status or None,
+    )
+    if dry_run:
+        print(
+            json.dumps(
+                {
+                    "source_url": yaml_url,
+                    "cache": str(cache),
+                    "records": len(records),
+                    "status": normalized_status,
+                    "parsed": len(problems),
+                    "errors": errors,
+                    "sample_ids": [problem["id"] for problem in problems[:5]],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0 if not errors else 2
+
+    with ProblemGardenStore(config.database.connection_url) as store:
+        store.initialize()
+        imported = store.upsert_problems(problems)
+        store.record_import_batch(
+            batch_id=f"erdosproblems-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}",
+            source_name="teorth/erdosproblems",
+            source_url=yaml_url,
+            item_count=len(problems) + len(errors),
+            imported_count=imported,
+            skipped_count=len(errors),
+            fetch_pages=fetch_pages,
+        )
+    print(
+        json.dumps(
+            {
+                "source_url": yaml_url,
+                "cache": str(cache),
+                "records": len(records),
+                "status": normalized_status,
+                "imported": imported,
+                "errors": errors,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0 if not errors else 2
+
+
 def main() -> int:
     args = build_parser().parse_args()
     if args.command == "config":
@@ -1356,6 +1455,19 @@ def main() -> int:
         )
     if args.command == "inspect":
         return cmd_inspect_run(args.run_id_or_path, args.tail, getattr(args, "config", None))
+    if args.command == "garden":
+        if args.garden_command == "import-erdos":
+            return cmd_import_erdos_problems(
+                config_path=args.config,
+                source_url=args.source_url,
+                cache_path=args.cache,
+                no_fetch_yaml=args.no_fetch_yaml,
+                fetch_pages=args.fetch_pages,
+                status=args.status,
+                limit=args.limit,
+                dry_run=args.dry_run,
+            )
+        raise SystemExit(f"unknown garden command: {args.garden_command}")
     if args.command == "web":
         return cmd_web(args.host, args.port, args.config)
     raise SystemExit(f"unknown command: {args.command}")
