@@ -1182,6 +1182,32 @@ const fetch = async (url, options = {{}}) => {{
           year: "1994",
           statement: "The Riemann hypothesis is the conjecture that $\\\\zeta(s)$ has no zeros.",
           candidate_id: "candidate-1",
+        }}, {{
+          type: "paper",
+          title: "A URL-only Matlas result",
+          authors: "Example Author",
+          year: "2025",
+          url: "https://example.org/matlas/result",
+          statement: "This result only provides a URL field.",
+          candidate_id: "candidate-2",
+        }}, {{
+          type: "preprint",
+          title: "An arXiv-only Matlas result",
+          arxiv_id: "2401.01234v2",
+          statement: "This result only provides an arXiv id.",
+          candidate_id: "candidate-3",
+        }}, {{
+          type: "note",
+          title: "A result without an external link",
+          entity_name: "Fallback source",
+          statement: "This result has no DOI, URL, or arXiv id.",
+          candidate_id: "candidate-4",
+        }}, {{
+          type: "book",
+          title: "Counting: The Art of Enumerative Combinatorics",
+          authors: "George E. Martin",
+          statement: "This book result only provides title and author metadata.",
+          candidate_id: "candidate-5",
         }}],
       }}),
     }};
@@ -1216,6 +1242,12 @@ const context = {{
   if (!resultsHtml.includes('class="matlas-card"')) throw new Error(resultsHtml);
   if (!resultsHtml.includes("A conjecture which implies the Riemann hypothesis")) throw new Error(resultsHtml);
   if (!resultsHtml.includes('<a href="https://doi.org/10.1006/jfan.1994.1046" target="_blank" rel="noreferrer">A conjecture which implies the Riemann hypothesis</a>')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes('<a href="https://example.org/matlas/result" target="_blank" rel="noreferrer">A URL-only Matlas result</a>')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes('<a href="https://arxiv.org/abs/2401.01234v2" target="_blank" rel="noreferrer">An arXiv-only Matlas result</a>')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes('<a href="https://www.google.com/search?q=A%20result%20without%20an%20external%20link%20Fallback%20source')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes('target="_blank" rel="noreferrer">A result without an external link</a>')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes('<a href="https://www.google.com/search?q=Counting%3A%20The%20Art%20of%20Enumerative%20Combinatorics')) throw new Error(resultsHtml);
+  if (!resultsHtml.includes('target="_blank" rel="noreferrer">Counting: The Art of Enumerative Combinatorics</a>')) throw new Error(resultsHtml);
   if (!resultsHtml.includes("RIEMANN HYPOTHESIS CONJECTURE")) throw new Error(resultsHtml);
   if (elementMap.get("#matlas-message").textContent !== "") throw new Error("search message should clear after results render");
   const searchCalls = fetchCalls.filter(([url]) => url === "/api/matlas/search");

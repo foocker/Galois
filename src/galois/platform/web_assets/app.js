@@ -1330,11 +1330,95 @@ function sourceLine(result) {
   return [result.authors, result.journal, result.year].filter(Boolean).join(', ');
 }
 
+function normalizeHttpUrl(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const { core } = trimLinkedToken(text);
+  if (/^https?:\/\//i.test(core)) return core;
+  if (/^www\./i.test(core)) return `https://${core}`;
+  return '';
+}
+
 function normalizeDoi(doi) {
   const value = String(doi || '').trim();
   if (!value) return '';
-  if (/^https?:\/\//i.test(value)) return value;
-  return `https://${value}`;
+  const directUrl = normalizeHttpUrl(value);
+  if (directUrl) return directUrl;
+  const doiHost = value.match(/^(?:doi\.org|dx\.doi\.org)\/(.+)$/i);
+  const doiValue = doiHost ? doiHost[1] : value.replace(/^doi:\s*/i, '');
+  const match = doiValue.match(/(10\.\d{4,9}\/[^\s<>]+)/i);
+  if (!match) return '';
+  const { core } = trimLinkedToken(match[1]);
+  return `https://doi.org/${core}`;
+}
+
+function normalizeArxiv(arxiv) {
+  const value = String(arxiv || '').trim();
+  if (!value) return '';
+  const directUrl = normalizeHttpUrl(value);
+  if (/^https?:\/\/(?:www\.)?arxiv\.org\/(?:abs|pdf)\//i.test(directUrl)) return directUrl;
+  const idText = value.replace(/^arxiv:\s*/i, '');
+  const match = idText.match(/([a-z-]+\/\d{7}|[0-9]{4}\.[0-9]{4,5}(?:v\d+)?)/i);
+  if (!match) return '';
+  const { core } = trimLinkedToken(match[1]);
+  return `https://arxiv.org/abs/${core}`;
+}
+
+function firstStringValue(result, fields) {
+  for (const field of fields) {
+    const value = result[field];
+    if (typeof value === 'string' || typeof value === 'number') {
+      const text = String(value).trim();
+      if (text) return text;
+    }
+  }
+  return '';
+}
+
+function matlasSearchUrl(result) {
+  const query = [
+    firstStringValue(result, ['title']),
+    firstStringValue(result, ['entity_name', 'entityName', 'name']),
+    firstStringValue(result, ['authors', 'author']),
+    firstStringValue(result, ['journal']),
+    firstStringValue(result, ['year']),
+    firstStringValue(result, ['statement']).slice(0, 160),
+    firstStringValue(result, ['candidate_id', 'candidateId']),
+  ].filter(Boolean).join(' ');
+  return query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : '';
+}
+
+function matlasResultLink(result) {
+  const doi = normalizeDoi(firstStringValue(result, ['doi', 'DOI', 'identifier']));
+  if (doi) return doi;
+
+  const directUrl = normalizeHttpUrl(firstStringValue(result, [
+    'url',
+    'link',
+    'href',
+    'source_url',
+    'sourceUrl',
+    'paper_url',
+    'paperUrl',
+    'pdf_url',
+    'pdfUrl',
+    'external_url',
+    'externalUrl',
+    'landing_page',
+    'landingPage',
+  ]));
+  if (directUrl) return directUrl;
+
+  const arxiv = normalizeArxiv(firstStringValue(result, ['arxiv', 'arxiv_id', 'arxivId', 'eprint']));
+  if (arxiv) return arxiv;
+
+  return matlasSearchUrl(result);
+}
+
+function matlasResultLinkLabel(result, source, link) {
+  return source
+    || firstStringValue(result, ['doi', 'url', 'link', 'arxiv', 'arxiv_id', 'arxivId'])
+    || (link ? 'Search source' : '');
 }
 
 function resultTypeLabel(type) {
@@ -1353,14 +1437,14 @@ function renderMatlasResults(results, query) {
     const title = result.title || 'Untitled source';
     const entity = result.entity_name || '';
     const source = sourceLine(result);
-    const doi = normalizeDoi(result.doi);
+    const link = matlasResultLink(result);
     const statement = renderMarkdownLite(result.statement || '');
     const candidateId = result.candidate_id || '';
-    const titleHtml = doi
-      ? `<a href="${escapeHtml(doi)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>`
+    const titleHtml = link
+      ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>`
       : escapeHtml(title);
-    const sourceHtml = doi
-      ? `<a href="${escapeHtml(doi)}" target="_blank" rel="noreferrer">${escapeHtml(source || result.doi)}</a>`
+    const sourceHtml = link
+      ? `<a href="${escapeHtml(link)}" target="_blank" rel="noreferrer">${escapeHtml(matlasResultLinkLabel(result, source, link))}</a>`
       : escapeHtml(source);
     return `<article class="matlas-card" data-candidate-id="${escapeHtml(candidateId)}" data-query="${escapeHtml(query)}">
       <div class="matlas-card-head">
