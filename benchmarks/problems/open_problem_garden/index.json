@@ -1,0 +1,226 @@
+{
+  "source": "Open Problem Garden",
+  "source_url": "http://www.openproblemgarden.org",
+  "count": 5,
+  "problems": [
+    {
+      "id": "opg-trace_inequality",
+      "title": "trace inequality",
+      "status": "open",
+      "difficulty": "research",
+      "domains": [
+        "Algebra"
+      ],
+      "source": "Open Problem Garden",
+      "source_url": "http://www.openproblemgarden.org/op/trace_inequality",
+      "statement": "Let $ A,B $ be positive semidefinite, by Jensen's inequality, it is easy to see $ [tr(A^s+B^s)]^{\\frac{1}{s}}\\leq [tr(A^r+B^r)]^{\\frac{1}{r}} $ , whenever $ s>r>0 $ .\n\nWhat about the $ tr(A^s+B^s)^{\\frac{1}{s}}\\leq tr(A^r+B^r)^{\\frac{1}{r}} $ , is it still valid?",
+      "source_literature": [
+        "http://www.openproblemgarden.org/op/trace_inequality"
+      ],
+      "progress": [
+        "Status: open."
+      ],
+      "community_reactions": [],
+      "graph_links": [
+        {
+          "from": "Problem",
+          "relation": "stated_in",
+          "to": "Open Problem Garden"
+        },
+        {
+          "from": "Problem",
+          "relation": "imported_from",
+          "to": "openproblemgarden.org"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "Algebra"
+        }
+      ]
+    },
+    {
+      "id": "opg-finite_congruence_lattice_problem",
+      "title": "Finite Lattice Representation Problem",
+      "status": "open",
+      "difficulty": "frontier",
+      "domains": [
+        "Algebra",
+        "congruence lattice",
+        "finite algebra"
+      ],
+      "source": "Open Problem Garden",
+      "source_url": "http://www.openproblemgarden.org/op/finite_congruence_lattice_problem",
+      "statement": "Conjecture\n\nThere exists a finite lattice which is not the congruence lattice of a finite algebra.",
+      "source_literature": [
+        "http://www.openproblemgarden.org/op/finite_congruence_lattice_problem",
+        "[GS] Gratzer and Schmidt, Characterizations of congruence lattices of abstract algebras, Acta Sci. Math. (Szeged) 24 (1963), 34-59.",
+        "[P5] Palfy and Pudlak. Congruence lattices of finite algebras and intervals in subgroup lattices of finite groups. Algebra Universalis, 11 (1980), 22–27.",
+        "[PT] Pudlak and Tuma, Every finite lattice can be embedded in the lattice of all equivalences over a finite set. Algebra Universalis, 10 (1980), 74–95."
+      ],
+      "progress": [
+        "A well-known result of universal algebra states: every algebraic lattice is isomorphic to the congruence lattice of an algebra. Thus there is essentially no restriction on the shape of a congruence lattice of a general algebra. It is natural to ask whether the same is true for finite lattices and finite algebras. That is, does every finite lattice occur as the congruence lattice of a finite algebra? This fundamental question, asked over 40 years ago, is among the most elusive problems of universal algebra.\n\nThis question is important because, until it is answered, we lack something very basic in our understanding of algebras -- namely, if we assume an algebra is finite, does this place any restriction on the shape of its congruence lattice? If so, then finite algebras are fundamentally different from infinite algebras in this sense."
+      ],
+      "community_reactions": [],
+      "graph_links": [
+        {
+          "from": "Problem",
+          "relation": "stated_in",
+          "to": "Open Problem Garden"
+        },
+        {
+          "from": "Problem",
+          "relation": "imported_from",
+          "to": "openproblemgarden.org"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "Algebra"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "congruence lattice"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "finite algebra"
+        },
+        {
+          "from": "Problem",
+          "relation": "related_to",
+          "to": "Which lattices occur as intervals in subgroup lattices of finite groups?"
+        }
+      ]
+    },
+    {
+      "id": "opg-sub_atomic_product_of_funcoids_is_a_categorical_product",
+      "title": "Sub-atomic product of funcoids is a categorical product",
+      "status": "open",
+      "difficulty": "research",
+      "domains": [
+        "Algebra"
+      ],
+      "source": "Open Problem Garden",
+      "source_url": "http://www.openproblemgarden.org/op/sub_atomic_product_of_funcoids_is_a_categorical_product",
+      "statement": "Conjecture In the category of continuous funcoids (defined similarly to the category of topological spaces) the following is a direct categorical product:\n\n\\item Product morphism is defined similarly to the category of topological spaces. \\item Product object is the sub-atomic product. \\item Projections are sub-atomic projections.\n\nSee details, exact definitions, and attempted proofs here.",
+      "source_literature": [
+        "http://www.openproblemgarden.org/op/sub_atomic_product_of_funcoids_is_a_categorical_product"
+      ],
+      "progress": [
+        "See Algebraic General Topology for definitions of used concepts."
+      ],
+      "community_reactions": [],
+      "graph_links": [
+        {
+          "from": "Problem",
+          "relation": "stated_in",
+          "to": "Open Problem Garden"
+        },
+        {
+          "from": "Problem",
+          "relation": "imported_from",
+          "to": "openproblemgarden.org"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "Algebra"
+        },
+        {
+          "from": "Problem",
+          "relation": "related_to",
+          "to": "A construction of direct product in the category of continuous maps between endo-funcoids"
+        }
+      ]
+    },
+    {
+      "id": "opg-inverse_of_an_integer_matrix",
+      "title": "inverse of an integer matrix",
+      "status": "open",
+      "difficulty": "research",
+      "domains": [
+        "Algebra",
+        "Gregory, Steven A",
+        "invertable matrices, integer matrices"
+      ],
+      "source": "Open Problem Garden",
+      "source_url": "http://www.openproblemgarden.org/op/inverse_of_an_integer_matrix",
+      "statement": "Question I've been working on this for a long time and I'm getting nowhere. Could you help me or at least tell me where to look for help. Suppose D is an m-by-m diagonal matrix with integer elements all $ \\ge 2 $ . Suppose X is an m-by-n integer matrix $ (m \\le n) $ . Consider the partitioned matrix M = [D X]. Obviously M has full row rank so it has a right inverse of rational numbers. The question is, under what conditions does it have an integer right inverse? My guess, which I can't prove, is that the integers in each row need to be relatively prime.",
+      "source_literature": [
+        "http://www.openproblemgarden.org/op/inverse_of_an_integer_matrix"
+      ],
+      "progress": [
+        "Status: open."
+      ],
+      "community_reactions": [],
+      "graph_links": [
+        {
+          "from": "Problem",
+          "relation": "stated_in",
+          "to": "Open Problem Garden"
+        },
+        {
+          "from": "Problem",
+          "relation": "imported_from",
+          "to": "openproblemgarden.org"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "Algebra"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "Gregory, Steven A"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "invertable matrices, integer matrices"
+        }
+      ]
+    },
+    {
+      "id": "opg-graphs_of_exact_colorings",
+      "title": "Graphs of exact colorings",
+      "status": "open",
+      "difficulty": "research",
+      "domains": [
+        "Algebra"
+      ],
+      "source": "Open Problem Garden",
+      "source_url": "http://www.openproblemgarden.org/op/graphs_of_exact_colorings",
+      "statement": "Conjecture For $ c \\geq m \\geq 1 $ , let $ P(c,m) $ be the statement that given any exact $ c $ -coloring of the edges of a complete countably infinite graph (that is, a coloring with $ c $ colors all of which must be used at least once), there exists an exactly $ m $ -colored countably infinite complete subgraph. Then $ P(c,m) $ is true if and only if $ m=1 $ , $ m=2 $ , or $ c=m $ .",
+      "source_literature": [
+        "http://www.openproblemgarden.org/op/graphs_of_exact_colorings"
+      ],
+      "progress": [
+        "Stacey and Weidl have shown that given $ m \\geq 3 $ , there is an integer $ C(m) $ such that $ P(c,m) $ is false for all $ c \\geq C(m) $ .\n\n* M. Erickson, ``A Conjecture Concerning Ramsey's Theorem,'' Discrete Mathematics 126, 395--398 (1994); MR 95b:05209\n\nA. Stacey and P. Weidl, \"The Existence of Exactly m-Coloured Complete Subgraphs,\" J. of Combinatorial Theory, Series B 75, 1-18 (1999)\n\n* indicates original appearance(s) of problem."
+      ],
+      "community_reactions": [],
+      "graph_links": [
+        {
+          "from": "Problem",
+          "relation": "stated_in",
+          "to": "Open Problem Garden"
+        },
+        {
+          "from": "Problem",
+          "relation": "imported_from",
+          "to": "openproblemgarden.org"
+        },
+        {
+          "from": "Problem",
+          "relation": "belongs_to_domain",
+          "to": "Algebra"
+        }
+      ]
+    }
+  ],
+  "skipped": [],
+  "errors": []
+}

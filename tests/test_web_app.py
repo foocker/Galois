@@ -667,6 +667,152 @@ def test_cli_garden_import_erdos_dry_run_uses_tools_cache(monkeypatch, tmp_path:
     assert payload["sample_ids"] == ["erdos-1"]
 
 
+def test_open_problem_garden_tool_parses_category_and_problem_html() -> None:
+    from galois.tools.open_problem_garden import (
+        CATEGORY_BY_SLUG,
+        opg_problem_to_garden_problem,
+        parse_category_page,
+        parse_problem_page,
+    )
+
+    category = CATEGORY_BY_SLUG["algebra"]
+    links, max_page = parse_category_page(
+        """
+        <table><tbody>
+          <tr><td class="view-field view-field-node-title">
+            <a href="/op/finite_congruence_lattice_problem">Finite Lattice Representation Problem</a>
+          </td></tr>
+        </tbody></table>
+        <div id="pager"><a href="/category/algebra?page=1">2</a><a href="/category/algebra?page=2">3</a></div>
+        """,
+        category,
+    )
+    assert max_page == 2
+    assert links[0].slug == "finite_congruence_lattice_problem"
+    assert links[0].url == "http://www.openproblemgarden.org/op/finite_congruence_lattice_problem"
+
+    page = parse_problem_page(
+        """
+        <html><body>
+          <h1 class="title">Finite Lattice Representation Problem</h1>
+          <div class="metatable">
+            <table><tr><td>Importance:</td><td>High</td></tr>
+            <tr><td>Subject:</td><td><a href="/category/algebra">Algebra</a></td></tr>
+            <tr><td>Keywords:</td><td><a href="/keywords/lattices">lattices</a></td></tr></table>
+          </div>
+          <div class="problem"><p>Represent every finite lattice as <img class="teximage" alt="$Con A$" />.</p></div>
+          <div class="discussion"><p>Known for several restricted classes.</p></div>
+          <div class="related"><h2 class="OP">Related problems</h2><a href="/op/other_problem">Other problem</a></div>
+          <div class="bibliography"><h2 class="OP">Bibliography</h2><p>[GS] Grätzer and Schmidt.</p></div>
+        </body></html>
+        """
+    )
+    problem = opg_problem_to_garden_problem(links[0], page, category=category)
+
+    assert problem["id"] == "opg-finite_congruence_lattice_problem"
+    assert problem["title"] == "Finite Lattice Representation Problem"
+    assert problem["status"] == "open"
+    assert problem["difficulty"] == "frontier"
+    assert problem["domains"] == ["Algebra", "lattices"]
+    assert problem["statement"] == "Represent every finite lattice as $Con A$ ."
+    assert problem["progress"] == ["Known for several restricted classes."]
+    assert "[GS] Grätzer and Schmidt." in problem["source_literature"]
+    assert any(edge["relation"] == "related_to" and edge["to"] == "Other problem" for edge in problem["graph_links"])
+
+
+def test_open_problem_garden_tool_skips_spam_and_writes_problem_files(tmp_path: Path) -> None:
+    from galois.tools.open_problem_garden import is_probable_spam, write_problem_files
+
+    assert is_probable_spam("Write my essay assignment help", "/op/write_my_essay_assignment_help")
+    assert not is_probable_spam("Finite Lattice Representation Problem")
+
+    written = write_problem_files(
+        [
+            {
+                "id": "opg-finite_lattice",
+                "title": "Finite Lattice Representation Problem",
+                "status": "open",
+                "difficulty": "frontier",
+                "domains": ["Algebra", "lattices"],
+                "source": "Open Problem Garden",
+                "source_url": "http://www.openproblemgarden.org/op/finite_lattice",
+                "statement": "Represent every finite lattice as $Con A$.",
+                "source_literature": ["http://www.openproblemgarden.org/op/finite_lattice", "[GS] Grätzer and Schmidt."],
+                "progress": ["Status: open."],
+                "graph_links": [{"from": "Problem", "relation": "belongs_to_domain", "to": "Algebra"}],
+            }
+        ],
+        output_dir=tmp_path / "open_problem_garden",
+        skipped=[{"slug": "spam", "title": "Write my essay", "reason": "probable spam"}],
+    )
+
+    assert tmp_path / "open_problem_garden" / "algebra" / "opg-finite_lattice.md" in written
+    markdown = (tmp_path / "open_problem_garden" / "algebra" / "opg-finite_lattice.md").read_text(encoding="utf-8")
+    assert "# Statement" in markdown
+    assert "# Source literature" in markdown
+    assert "# Progress" in markdown
+    assert "Related literature" not in markdown
+    index = json.loads((tmp_path / "open_problem_garden" / "index.json").read_text(encoding="utf-8"))
+    assert index["count"] == 1
+    assert index["skipped"][0]["reason"] == "probable spam"
+
+
+def test_cli_garden_import_open_problem_garden_dry_run(monkeypatch, tmp_path: Path, capsys) -> None:
+    from galois.platform.cli import cmd_import_open_problem_garden
+    from galois.tools.open_problem_garden import OpenProblemGardenCrawlResult
+
+    def fake_crawl_open_problem_garden(**kwargs):
+        assert kwargs["category_slugs"] == ["algebra"]
+        assert kwargs["limit"] == 1
+        assert kwargs["pages"] == 1
+        return OpenProblemGardenCrawlResult(
+            problems=[
+                {
+                    "id": "opg-test",
+                    "title": "Test problem",
+                    "status": "open",
+                    "difficulty": "research",
+                    "domains": ["Algebra"],
+                    "source": "Open Problem Garden",
+                    "source_url": "http://www.openproblemgarden.org/op/test",
+                    "statement": "Statement.",
+                    "source_literature": ["http://www.openproblemgarden.org/op/test"],
+                    "progress": ["Status: open."],
+                    "community_reactions": [],
+                    "graph_links": [],
+                }
+            ],
+            skipped=[],
+            errors=[],
+            source_urls=["http://www.openproblemgarden.org/category/algebra"],
+        )
+
+    monkeypatch.setattr("galois.tools.open_problem_garden.crawl_open_problem_garden", fake_crawl_open_problem_garden)
+    result = cmd_import_open_problem_garden(
+        config_path=None,
+        output_dir=tmp_path / "opg",
+        cache_dir=tmp_path / "cache",
+        category_slugs=["algebra"],
+        limit=1,
+        pages=1,
+        include_spam=False,
+        no_cache=False,
+        delay=0.0,
+        timeout=30.0,
+        dry_run=True,
+        write_files=True,
+        import_db=True,
+    )
+
+    assert result == 0
+    assert not (tmp_path / "opg").exists()
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["parsed"] == 1
+    assert payload["sample_ids"] == ["opg-test"]
+    assert payload["written"] == []
+    assert payload["imported"] == 0
+
+
 def test_problem_garden_store_initializes_schema_and_submission_in_live_postgres(monkeypatch) -> None:
     database_url = "postgresql://galois:galois_dev@127.0.0.1:5432/galois"
     import psycopg

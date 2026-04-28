@@ -222,6 +222,29 @@ def build_parser() -> argparse.ArgumentParser:
     erdos_parser.add_argument("--status", default="open", help="Filter by normalized status. Defaults to open.")
     erdos_parser.add_argument("--limit", type=int, default=10, help="Import only the first N matching records. Defaults to 10.")
     erdos_parser.add_argument("--dry-run", action="store_true", help="Parse and report without writing to the database.")
+    opg_parser = garden_subparsers.add_parser(
+        "import-open-problem-garden",
+        help="Fetch openproblemgarden.org and normalize entries for the Problem Garden.",
+    )
+    opg_parser.add_argument("--config", type=Path, default=None)
+    opg_parser.add_argument("--output-dir", type=Path, default=None, help="Markdown/JSON output directory.")
+    opg_parser.add_argument("--cache-dir", type=Path, default=None, help="HTML cache directory.")
+    opg_parser.add_argument(
+        "--category",
+        action="append",
+        default=None,
+        help="Open Problem Garden category slug. Repeat to import multiple categories.",
+    )
+    opg_parser.add_argument("--limit", type=int, default=None, help="Limit imported problems across all categories.")
+    opg_parser.add_argument("--pages", type=int, default=None, help="Limit category listing pages per category.")
+    opg_parser.add_argument("--include-spam", action="store_true", help="Keep obvious spam entries instead of skipping them.")
+    opg_parser.add_argument("--no-cache", action="store_true", help="Ignore cached HTML and fetch pages again.")
+    opg_parser.add_argument("--delay", type=float, default=0.0, help="Sleep between page fetches.")
+    opg_parser.add_argument("--timeout", type=float, default=10.0)
+    opg_parser.add_argument("--dry-run", action="store_true", help="Crawl and report without writing files or database rows.")
+    opg_parser.add_argument("--write-files", dest="write_files", action="store_true", default=True, help="Write Markdown and index.json files. Enabled by default.")
+    opg_parser.add_argument("--no-write-files", dest="write_files", action="store_false", help="Do not write Markdown or index.json files.")
+    opg_parser.add_argument("--import-db", action="store_true", help="Upsert normalized problems into the Problem Garden database.")
 
     web_parser = subparsers.add_parser("web", help="Start the Galois research workbench web UI.")
     web_parser.add_argument("--host", default="127.0.0.1")
@@ -1406,6 +1429,89 @@ def cmd_import_erdos_problems(
     return 0 if not errors else 2
 
 
+def cmd_import_open_problem_garden(
+    *,
+    config_path: Path | None,
+    output_dir: Path | None,
+    cache_dir: Path | None,
+    category_slugs: list[str] | None,
+    limit: int | None,
+    pages: int | None,
+    include_spam: bool,
+    no_cache: bool,
+    delay: float,
+    timeout: float,
+    dry_run: bool,
+    write_files: bool,
+    import_db: bool,
+) -> int:
+    from datetime import UTC
+
+    from galois.tools.open_problem_garden import (
+        DEFAULT_CACHE_DIR,
+        DEFAULT_OUTPUT_DIR,
+        OPEN_PROBLEM_GARDEN_BASE_URL,
+        crawl_open_problem_garden,
+        write_problem_files,
+    )
+
+    from .problem_garden import ProblemGardenStore
+
+    result = crawl_open_problem_garden(
+        category_slugs=category_slugs,
+        limit=limit,
+        pages=pages,
+        include_spam=include_spam,
+        cache_dir=cache_dir or DEFAULT_CACHE_DIR,
+        use_cache=not no_cache,
+        timeout=timeout,
+        delay=delay,
+    )
+    written: list[Path] = []
+    imported = 0
+    should_write_files = write_files and not dry_run
+    should_import_db = import_db and not dry_run
+    if should_write_files:
+        written = write_problem_files(
+            result.problems,
+            output_dir=output_dir or DEFAULT_OUTPUT_DIR,
+            errors=result.errors,
+            skipped=result.skipped,
+        )
+    if should_import_db:
+        config = load_config(config_path)
+        with ProblemGardenStore(config.database.connection_url) as store:
+            store.initialize()
+            imported = store.upsert_problems(result.problems)
+            store.record_import_batch(
+                batch_id=f"openproblemgarden-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}",
+                source_name="openproblemgarden.org",
+                source_url=OPEN_PROBLEM_GARDEN_BASE_URL,
+                item_count=len(result.problems) + len(result.skipped) + len(result.errors),
+                imported_count=imported,
+                skipped_count=len(result.skipped) + len(result.errors),
+                fetch_pages=True,
+            )
+    print(
+        json.dumps(
+            {
+                "source_url": OPEN_PROBLEM_GARDEN_BASE_URL,
+                "categories": category_slugs or "all",
+                "parsed": len(result.problems),
+                "skipped": len(result.skipped),
+                "errors": result.errors,
+                "sample_ids": [problem["id"] for problem in result.problems[:5]],
+                "written": [str(path) for path in written],
+                "imported": imported,
+                "dry_run": dry_run,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0 if not result.errors else 2
+
+
 def main() -> int:
     args = build_parser().parse_args()
     if args.command == "config":
@@ -1466,6 +1572,22 @@ def main() -> int:
                 status=args.status,
                 limit=args.limit,
                 dry_run=args.dry_run,
+            )
+        if args.garden_command == "import-open-problem-garden":
+            return cmd_import_open_problem_garden(
+                config_path=args.config,
+                output_dir=args.output_dir,
+                cache_dir=args.cache_dir,
+                category_slugs=args.category,
+                limit=args.limit,
+                pages=args.pages,
+                include_spam=args.include_spam,
+                no_cache=args.no_cache,
+                delay=args.delay,
+                timeout=args.timeout,
+                dry_run=args.dry_run,
+                write_files=args.write_files,
+                import_db=args.import_db,
             )
         raise SystemExit(f"unknown garden command: {args.garden_command}")
     if args.command == "web":
