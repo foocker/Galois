@@ -4,8 +4,6 @@ This reference is a reverse checklist distilled from Jean-Pierre Serre's lecture
 
 Local source: `mathematics writting/md/How to write mathematics badly.md`
 
-The source Markdown is a transcript and may contain OCR or transcription noise. Use the lessons, not the wording.
-
 ## When To Use
 
 Run this pass when:

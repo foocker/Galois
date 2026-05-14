@@ -26,7 +26,7 @@ Use them deliberately:
 - For paper architecture, introduction strategy, or section ordering, consult `exemplar-patterns.md`.
 - For field-specific models or classic paper analogies, consult `classic-literature-map.md` before choosing examples.
 - For adversarial exposition review or unclear proofs, run the Serre anti-pattern pass in `anti-patterns.md`.
-- Never require PDF files. Treat OCR Markdown as noisy evidence. Never copy long passages from source books or papers.
+- Never require PDF files. Never copy long passages from source books or papers.
 
 ## Core Standard
 

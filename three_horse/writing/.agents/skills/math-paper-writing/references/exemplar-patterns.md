@@ -1,6 +1,6 @@
 # Mathematical Paper Exemplar Patterns
 
-This reference distills reusable architecture from strong mathematical papers and lecture-style articles. The source Markdown is OCR-derived, so treat details as noisy. Use patterns, not wording; do not copy source prose.
+This reference distills reusable architecture from strong mathematical papers and lecture-style articles. Use patterns, not wording; do not copy source prose.
 
 For field-specific classic paper choices, first consult `classic-literature-map.md`, then load only the matching local Markdown source.
 
@@ -193,7 +193,3 @@ For papers whose contribution is a construction:
 - Use "such that" for conditions; use "so that" for purpose or result.
 - Do not add "We now prove the following proposition" unless the sentence says why the proposition matters.
 - If a proof ends with a proof symbol, do not also write a redundant proof-ending sentence.
-
-## OCR Caution
-
-The local exemplar Markdown contains OCR errors in names, symbols, equation layout, accents, section marks, and punctuation. Never use it as authoritative text. Use it only to infer architecture and writing moves; verify mathematical statements and bibliographic data elsewhere before citing them.

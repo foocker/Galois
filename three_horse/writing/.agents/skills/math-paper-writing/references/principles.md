@@ -50,7 +50,6 @@ This reference condenses `references/guide.md` for skill use.
 - Delete empty phrases, repeated sentences, unused symbols, unused definitions, and unreferenced equation numbers.
 - Check section balance and merge tiny sections.
 - Make figures and tables support a claim; do not dump data.
-- Treat OCR-derived source text as noisy; extract principles, not wording.
 - Run the Serre anti-pattern pass in `references/anti-patterns.md` when a draft is hard to read despite appearing mathematically correct.
 - Verify title, abstract, introduction, theorem statements, proof steps, notation, references, and acknowledgments before submission.
 

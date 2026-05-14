@@ -1,13 +1,12 @@
 # Classic Mathematical Literature Map
 
-This file indexes local classic-paper Markdown as reference models for mathematical writing. The local Markdown comes from OCR or conversion, so it is not authoritative. Use these papers as architecture and style references, not as text to copy.
+This file indexes local classic-paper Markdown as reference models for mathematical writing. Use these papers as architecture and style references, not as text to copy.
 
 ## Use Rules
 
 - Use this map before selecting exemplar papers for a manuscript, introduction, survey, thesis chapter, or proof rewrite.
 - Match by mathematical direction, paper type, and writing problem.
 - Load only the specific local Markdown files that fit the task.
-- Treat OCR text as noisy: verify names, statements, formulas, citations, and bibliographic data before using them.
 - Do not imitate archaic typography, outdated notation, or source-specific quirks unless the user explicitly wants historical style.
 - Do not copy long passages. Extract structure, sequencing, and rhetorical moves.
 
@@ -298,6 +297,4 @@ Do not extract:
 
 - exact prose;
 - old typographic conventions;
-- OCR spellings;
-- unverified bibliographic metadata;
 - obsolete terminology unless historically necessary.
