@@ -12,7 +12,7 @@ def _write_config(path: Path, run_root: Path) -> None:
     path.write_text(
         f"""
 backend = "codex"
-model = "gpt-5.4"
+model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
 personality = "pragmatic"
 
@@ -236,8 +236,8 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert "Auto-Import Context" not in response.text
     assert 'id="model-select"' in response.text
     assert ">Model Selection<" in response.text
-    assert '<option value="gpt-5.4" selected>GPT-5.4</option>' in response.text
-    assert '<option value="gpt-5.5">GPT-5.5</option>' in response.text
+    assert '<option value="gpt-5.4">GPT-5.4</option>' in response.text
+    assert '<option value="gpt-5.5" selected>GPT-5.5</option>' in response.text
     assert '<option value="gemini-pro-3.1">Gemini Pro 3.1</option>' in response.text
     assert "gpt-5.4-mini" not in response.text
     assert "gpt-5.3-codex" not in response.text

@@ -19,6 +19,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from galois.platform.config import DEFAULT_MODEL
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ASSET_DIR = (REPO_ROOT / "three_horse" / "verification").resolve()
@@ -27,7 +29,7 @@ RUNTIME_DIR = Path(os.getenv("GALOIS_VERIFICATION_RUNTIME_DIR", str(WORK_DIR))).
 RESULTS_ROOT = Path(os.getenv("GALOIS_VERIFICATION_RESULTS_DIR", str(RUNTIME_DIR / "results"))).resolve()
 
 CODEX_BIN = os.getenv("CODEX_BIN", "codex")
-CODEX_MODEL = os.getenv("CODEX_MODEL", "gpt-5.4")
+CODEX_MODEL = os.getenv("CODEX_MODEL", DEFAULT_MODEL)
 CODEX_REASONING_EFFORT = os.getenv("CODEX_REASONING_EFFORT", "high")
 CODEX_TIMEOUT_SECONDS = int(os.getenv("CODEX_TIMEOUT_SECONDS", "0")) or None
 VERIFICATION_FILENAMES = ("verification.json", "verificationt.json")

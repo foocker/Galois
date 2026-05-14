@@ -1,7 +1,7 @@
 # Galois 系统设计
 
 状态：Current  
-默认模型：`codex / gpt-5.4 / xhigh`  
+默认模型：`codex / gpt-5.5 / xhigh`
 环境管理：`uv`
 
 ## 1. 目标
@@ -254,7 +254,7 @@ projects/default/runs/<run_id>/
 当前固定配置：
 
 - backend：`codex`
-- model：`gpt-5.4`
+- model：`gpt-5.5`
 - reasoning effort：`xhigh`
 - personality：`pragmatic`
 

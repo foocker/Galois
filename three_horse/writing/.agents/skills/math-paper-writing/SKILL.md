@@ -14,13 +14,19 @@ This skill has local supporting files:
 - `references/principles.md`: compact principles for quick checks.
 - `references/guide.md`: detailed mathematical paper-writing guide with section rules, revision workflow, submission workflow, and product module design.
 - `references/case-library.md`: parsed Markdown case cards replacing raw PDF dependence.
+- `references/exemplar-patterns.md`: architecture patterns distilled from strong mathematical papers and lectures.
+- `references/classic-literature-map.md`: reference map of classic papers by field, paper type, and reusable writing pattern.
+- `references/anti-patterns.md`: reverse checklist distilled from Serre's "How to write mathematics badly" and related writing warnings.
 
 Use them deliberately:
 
 - For a short local rewrite, use this `SKILL.md` and `principles.md`.
 - For a full manuscript, abstract, introduction, proof, revision, or submission task, consult `guide.md`.
 - For title, abstract, proof, revision, cover-letter, response-letter, survey, or review examples, consult `case-library.md`.
-- Never require PDF files. Never copy long passages from source books or papers.
+- For paper architecture, introduction strategy, or section ordering, consult `exemplar-patterns.md`.
+- For field-specific models or classic paper analogies, consult `classic-literature-map.md` before choosing examples.
+- For adversarial exposition review or unclear proofs, run the Serre anti-pattern pass in `anti-patterns.md`.
+- Never require PDF files. Treat OCR Markdown as noisy evidence. Never copy long passages from source books or papers.
 
 ## Core Standard
 
@@ -31,6 +37,8 @@ Mathematical writing is not generic English polishing. A good mathematical paper
 3. Can the intended reader follow the definitions, results, proofs, and context?
 
 Preserve mathematical claims. Do not strengthen theorem statements, hide assumptions, invent novelty, or fabricate citations. When the draft is incomplete, write around the gap honestly and turn the missing information into revision tasks.
+
+Use the resolution ladder: the title, abstract, introduction, and body should each describe the whole paper at increasing resolution. Each should still make sense if the reader stops there.
 
 ## Paper Structure
 
@@ -44,6 +52,8 @@ Evaluate title candidates by accuracy, concision, specificity, and searchability
 - Generate variants when useful: object-first, method-first, result-first, short-title.
 - If the title says only the topic, add the actual result, object, obstruction, or method.
 - If the title contains a formula, ask whether a named object or phrase would be clearer for indexing.
+- Remove padded title openers such as "A note on", "Remarks on", and "A study of" unless the genre requires them and the remaining title is still specific.
+- Run a reverse title check: would the title still be informative if the reader did not already know the theorem, author, or field?
 
 Output when asked to improve a title:
 
@@ -62,6 +72,7 @@ The abstract is a compressed version of the paper, not a stitched introduction.
 - Compress to target length when requested.
 - Do not start with empty phrases such as "In this paper, we study..." unless the next words immediately identify the precise problem and contribution.
 - Do not mention proof details, definitions, table numbers, theorem numbers, or internal section references unless the target venue explicitly permits it.
+- Repeat enough language from the title that the subject is recognizable, but add the result or method that the title could not contain.
 
 Build an abstract from these slots:
 
@@ -85,6 +96,8 @@ Use a background -> gap -> problem -> contribution -> relation-to-literature -> 
 - Do not write a textbook-style background section. Every background paragraph should move toward the paper's problem.
 - Do not stack citations without explaining the mathematical relation among them.
 - Avoid "to the best of our knowledge" unless the literature check supports it.
+- Get to the first new theorem, construction, algorithm, or explicit contribution early.
+- If definitions are standard enough, postpone them to a notation/preliminaries section so the introduction can state the contribution sooner.
 
 Concrete introduction plan:
 
@@ -109,6 +122,7 @@ Organize by the mathematical route of the argument.
 - End a difficult section with a bridge sentence explaining what was established and how it will be used.
 - Avoid single-subsection sections unless the journal style or exposition really needs them.
 - Do not dump preliminaries before the reader knows why they matter; move definitions near first use when possible.
+- If a section contains many lemmas but only one result is used later, identify that result and say what role it plays.
 
 For computational or applied mathematics, require clear model assumptions, algorithms, error or complexity claims, experiment setup, and evidence that computations support stated claims.
 
@@ -119,6 +133,7 @@ Proofs must be readable arguments, not symbol dumps.
 - Start long proofs with strategy.
 - State where each hypothesis is used.
 - Explain nontrivial steps; do not rely on "clear", "obvious", or "standard" without support.
+- Make local justification visible: when a claim does not follow from the previous sentence alone, say what it follows from.
 - Embed displayed equations in grammatical prose.
 - Put prose between adjacent displays.
 - Label only equations referenced later.
@@ -127,6 +142,9 @@ Proofs must be readable arguments, not symbol dumps.
 - If the proof uses cases, name the purpose of each case.
 - If the proof invokes compactness, convergence, regularity, density, boundedness, measurability, or independence, say where the hypothesis comes from.
 - If only a special case is proved, do not write the general theorem as proved.
+- For quantifier-heavy arguments, preserve dependency order: arbitrary objects first, then constructed objects with their dependencies, then the property they satisfy.
+- Prefer direct proof to contradiction when the direct proof is equally simple.
+- Do not hide the only hard part in a lemma whose proof is "a computation", "by definition", "clear", or a proof-ending symbol.
 
 Do not do these:
 
@@ -140,6 +158,9 @@ Do not do these:
 Treat every symbol as cognitive load.
 
 - Define symbols at first use and reuse them consistently.
+- Define variables before they are needed; avoid relying on a trailing ", where ..." clause for central notation.
+- State the type and role of each important object, not just set membership.
+- Do not switch from "there exists an object" to "the object" unless the proof has selected a specific object.
 - Avoid overloaded notation unless the convention is standard and harmless.
 - Make definitions rigorous but not needlessly verbose.
 - Reintroduce old notation after long gaps.
@@ -166,6 +187,10 @@ Use formulas to support reading, not to replace prose.
 - Explain what follows from the display after it appears.
 - Punctuate formulas as parts of sentences.
 - Align multi-line displays around the mathematical relation.
+- Do not use `=` to mean "the next step is"; each equality must be true as written.
+- Avoid starting sentences with symbols or formulas.
+- In running prose, write "there exists", "for all", and "implies" instead of logical symbols unless formal logic notation is the object of discussion.
+- When a displayed chain has multiple justifications, attach the reason to the relevant line or explain the chain before it appears.
 
 Run an equation label audit:
 
@@ -177,7 +202,7 @@ Run an equation label audit:
 
 ### Conclusion
 
-The conclusion closes the paper; it does not repeat the abstract.
+The conclusion closes the paper when one is appropriate; many mathematical research papers do not need a formal conclusion. Do not add one merely for symmetry.
 
 - Return to the main result and method.
 - State limitations or future questions when appropriate.

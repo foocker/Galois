@@ -11,6 +11,8 @@ import sys
 from datetime import datetime, timezone
 from typing import TextIO
 
+from galois.platform.config import DEFAULT_MODEL
+
 
 OPEN_PROBLEM_GUARD = (
     "Open Problem Research Protocol enforcement: if the problem is open or a frontier fails, "
@@ -454,7 +456,7 @@ def run_reasoning_resume(
     repair_input_file = runtime_env.get("REPAIR_INPUT_FILE", "")
     verification_enabled = not _bool_false(runtime_env.get("GALOIS_REASONING_VERIFICATION_ENABLED", "1"))
     verification_mode = runtime_env.get("GALOIS_REASONING_VERIFICATION_MODE", "agent")
-    model = runtime_env.get("MODEL", "gpt-5.4")
+    model = runtime_env.get("MODEL", DEFAULT_MODEL)
     reasoning_effort = runtime_env.get("REASONING_EFFORT", "xhigh")
     resume = runtime_env.get("RESUME", "auto")
     codex_bin = runtime_env.get("CODEX_BIN", "codex")

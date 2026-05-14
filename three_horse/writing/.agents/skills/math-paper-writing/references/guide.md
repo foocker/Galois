@@ -1,6 +1,6 @@
 # Mathematical Paper Writing Guide
 
-Source: distilled from the local mathematical English writing book notes used to build this skill.
+Source: distilled from the local mathematical English writing notes and strong mathematical-paper examples used to build this skill.
 
 Purpose: provide writing rules, review checklists, product modules, and evaluation criteria for the Galois Paper Writing page. This guide is a structured extraction and product translation. It does not reproduce long passages from the source book.
 
@@ -37,6 +37,19 @@ Galois diagnostic dimensions:
 | Conventions | Do title, abstract, keywords, references, figures, and format meet journal norms? | Submission checklist |
 | Integrity | Are sources cited correctly and is improper reuse avoided? | Citation and originality guard |
 
+### 1.1 Reader Model
+
+Write for a mathematically serious reader who is not inside the author's head. The reader should not have to guess the type of an object, the dependency of a constant, why a cited theorem applies, or which result will be used later.
+
+Operational rules:
+
+- A sentence should not end before the reader knows why each claim in that sentence is true. If the justification comes next, announce that fact or make the claim a lemma.
+- Do not merely write so that the intended meaning is possible; write so that unintended meanings are unreasonable.
+- Minimize reader memory. Break long arguments into named claims, state the purpose of one-use lemmas, and remind the reader of notation after long gaps.
+- Mathematical presentation is linear. Avoid side-by-side proof blocks except for genuinely small side calculations.
+- Preserve the resolution ladder: title, abstract, introduction, and body should each describe the whole paper at increasing resolution.
+- Use the Serre anti-pattern pass in `anti-patterns.md` when the draft may be leaving too much work to the reader.
+
 ## 2. Paper Structure
 
 ### 2.1 Title
@@ -51,6 +64,8 @@ Checklist:
 - It avoids repeated technical words that make it heavy.
 - It avoids unnecessary formulas, abbreviations, and internal numbering.
 - It lets specialists infer the field and problem class.
+- It avoids padded openers such as "A note on", "Remarks on", and "A study of" unless the genre makes them necessary.
+- It does not merely say "A proof of a theorem of ..." or name a broad subject without identifying the actual mathematical content.
 
 Galois features:
 
@@ -70,6 +85,7 @@ Checklist:
 - Can be understood when indexed separately by a database.
 - Fits the journal length limit.
 - Avoids empty phrases such as "this result is important" without explaining why.
+- Reuses enough terminology from the title to confirm the subject, then adds the result, method, or comparison that did not fit in the title.
 
 Useful structure:
 
@@ -103,6 +119,8 @@ Common problems:
 - Existing work is described unfairly.
 - Claims exceed what the paper proves.
 - Readers outside the narrow subfield get too little motivation.
+- The first theorem-level contribution arrives too late.
+- Definitions and notation crowd out the contribution before the reader knows why they matter.
 
 Galois features:
 
@@ -122,6 +140,7 @@ For theoretical papers:
 - Split long proofs into lemmas when that helps the reader.
 - Move highly technical material to an appendix only if the main line remains complete.
 - Start a section with a brief goal and end it with a short bridge when useful.
+- If a section proves several formal statements but only one is needed later, say which one carries the subsequent argument.
 
 For computational or applied mathematics papers:
 
@@ -138,7 +157,7 @@ Galois features:
 
 ### 2.5 Conclusion
 
-The conclusion is not a repeated abstract. It should close the paper by summarizing completed work and giving reasonable directions.
+The conclusion is not a repeated abstract. Many mathematical research papers do not need a formal conclusion; use one only when it adds perspective, limitations, or future directions.
 
 Checklist:
 
@@ -147,6 +166,7 @@ Checklist:
 - It states limitations or future questions when appropriate.
 - It avoids self-promotion.
 - It complements the abstract: the abstract opens the paper, the conclusion closes it.
+- It is not added merely to balance the introduction.
 
 Galois features:
 
@@ -242,6 +262,10 @@ Rules:
 - Split long sentences, especially when subject and verb are far apart.
 - Passive voice is allowed, but not when it makes the sentence heavy.
 - Define or cite terms that the intended reader may not know.
+- Use ordinary words in prose for "there exists", "for all", "implies", and "if and only if"; reserve logical symbols for displayed formulas or formal logic.
+- Avoid blackboard abbreviations such as WLOG, iff, s.t., and standalone arrows in polished prose.
+- Place "only" near the word it modifies.
+- Use "such that" for conditions and "so that" for purpose or result.
 
 Galois features:
 
@@ -262,6 +286,10 @@ Rules:
 - Prefer standard notation in the field.
 - Put important notation in a notation table.
 - Reintroduce notation briefly when it has not appeared for a while.
+- State the mathematical type and role of important objects. Bare set membership is sometimes too little context.
+- Define variables before they are used. Avoid making central notation depend on a trailing ", where ..." clause.
+- When an existentially chosen object depends on previous data, make that dependency visible through prose or notation.
+- Do not change an indefinite existence statement into a definite object. If Theorem 1 says an object exists, Theorem 2 cannot discuss "the object of Theorem 1" unless a construction or choice has been specified.
 
 Galois features:
 
@@ -281,6 +309,9 @@ Rules:
 - Add punctuation and explanation around formulas.
 - Do not use equation numbers as substitutes for mathematical description.
 - Align and format displayed formulas cleanly.
+- Use `=` only for equality. Do not use it to mean "therefore", "the next line is", or "implies".
+- In a chain of equalities or inequalities, make clear which reason justifies which line.
+- Do not start a sentence with a formula or symbol; add a noun phrase such as "The function", "This equation", or "For this value".
 
 Galois features:
 
@@ -301,6 +332,11 @@ Rules:
 - Cite existing results accurately.
 - Mark the end of the proof clearly.
 - If a result is not proved, say whether it is standard, similar, follows from a reference, or is outside scope.
+- When applying a theorem, check and state the hypotheses that are not automatic.
+- For quantifier-heavy statements, prove them in dependency order: arbitrary input, constructed witness, property of the witness.
+- When using a quantified hypothesis, feed it the specific input being used; do not restate the whole quantifier string with reused symbols.
+- Prefer a direct proof over contradiction when it is no harder.
+- Do not put all the difficulty into a lemma and replace its proof by "it follows from the definitions", "a computation", or a proof-ending symbol.
 
 Common proof problems:
 

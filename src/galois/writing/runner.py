@@ -10,6 +10,8 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
+from galois.platform.config import DEFAULT_MODEL
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
@@ -205,7 +207,7 @@ def run_writing_project(
     downloads_dir = Path(runtime_env.get("DOWNLOADS_DIR", str(runtime_root / "downloads")))
     log_dir = Path(runtime_env.get("LOG_DIR", str(runtime_root / "logs")))
     session_file = Path(runtime_env.get("SESSION_FILE", str(log_dir / f"{project_id}.session")))
-    model = runtime_env.get("MODEL", "gpt-5.4")
+    model = runtime_env.get("MODEL", DEFAULT_MODEL)
     reasoning_effort = runtime_env.get("REASONING_EFFORT", "high")
     resume = runtime_env.get("RESUME", "auto")
     codex_bin = runtime_env.get("CODEX_BIN", "codex")

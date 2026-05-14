@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import subprocess
@@ -273,6 +274,8 @@ def test_writing_runner_builds_command_and_saves_session(tmp_path: Path) -> None
     assert exit_code == 0
     assert session_file.read_text(encoding="utf-8").strip() == "123e4567-e89b-12d3-a456-426614174000"
     stdin_text = (runtime / "codex_stdin.txt").read_text(encoding="utf-8")
+    args_text = (runtime / "codex_args.txt").read_text(encoding="utf-8")
+    assert "test-model" in args_text
     assert "Galois Paper Writing workflow" in stdin_text
     assert "manuscript_draft.md" in stdin_text
     assert (runtime / "results" / "paper" / "review_report.md").exists()
@@ -382,6 +385,101 @@ def test_reasoning_runner_builds_resume_command_and_saves_session(tmp_path: Path
     assert 'model_reasoning_effort="low"' in args_text
     assert "-" in args_text.splitlines()
     assert "Use AGENTS.md exactly" in stdin_text
+
+
+def test_agent_runners_default_to_platform_default_model(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform.config import DEFAULT_MODEL
+    from galois.reasoning.runner import run_reasoning_resume
+    from galois.writing.runner import run_writing_project
+
+    monkeypatch.delenv("MODEL", raising=False)
+
+    codex_calls = tmp_path / "codex_calls"
+    fake_codex = tmp_path / "fake_codex.py"
+    fake_codex.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import os, pathlib, sys",
+                f"calls = pathlib.Path({str(codex_calls)!r})",
+                "calls.mkdir(parents=True, exist_ok=True)",
+                "call_id = len(list(calls.glob('*.args')))",
+                "(calls / f'{call_id}.args').write_text('\\n'.join(sys.argv[1:]), encoding='utf-8')",
+                "sys.stdin.read()",
+                "if 'GALOIS_WRITING_PROJECT_ID' in os.environ:",
+                "    project = pathlib.Path(os.environ['RESULTS_DIR']) / os.environ['GALOIS_WRITING_PROJECT_ID']",
+                "    project.mkdir(parents=True, exist_ok=True)",
+                "    (project / 'manuscript_draft.md').write_text('# Draft\\n', encoding='utf-8')",
+                "    (project / 'review_report.md').write_text('# Review\\n', encoding='utf-8')",
+                "    (project / 'citation_report.md').write_text('# Citations\\n', encoding='utf-8')",
+                "    (project / 'revision_tasks.json').write_text('{\"tasks\": []}\\n', encoding='utf-8')",
+                "    (project / 'export_bundle.json').write_text('{\"artifact_paths\": {}}\\n', encoding='utf-8')",
+                "print('session id: 123e4567-e89b-12d3-a456-426614174000')",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    reasoning_workdir = tmp_path / "reasoning-assets"
+    (reasoning_workdir / "data").mkdir(parents=True)
+    (reasoning_workdir / "AGENTS.md").write_text("agent instructions", encoding="utf-8")
+    (reasoning_workdir / "data" / "example.md").write_text("# Problem\nShow something.", encoding="utf-8")
+    reasoning_exit = run_reasoning_resume(
+        repo_root=Path(__file__).resolve().parents[1],
+        workdir=reasoning_workdir,
+        env={
+            "CODEX_BIN": str(fake_codex),
+            "PROBLEM_FILE": "data/example.md",
+            "LOG_DIR": str(tmp_path / "reasoning-logs"),
+            "RESULTS_DIR": str(tmp_path / "reasoning-results"),
+            "SESSION_FILE": str(tmp_path / "reasoning.session"),
+            "RESUME": "0",
+            "REASONING_EFFORT": "low",
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+        },
+    )
+
+    writing_workdir = tmp_path / "writing-assets"
+    (writing_workdir / "data").mkdir(parents=True)
+    (writing_workdir / "AGENTS.md").write_text("writing instructions", encoding="utf-8")
+    (writing_workdir / "data" / "paper.md").write_text("# Paper\nDraft.", encoding="utf-8")
+    writing_runtime = tmp_path / "writing-runtime"
+    writing_exit = run_writing_project(
+        repo_root=Path(__file__).resolve().parents[1],
+        workdir=writing_workdir,
+        env={
+            "CODEX_BIN": str(fake_codex),
+            "WRITING_FILE": "data/paper.md",
+            "GALOIS_WRITING_PROJECT_ID": "paper",
+            "GALOIS_WRITING_RUNTIME_DIR": str(writing_runtime),
+            "LOG_DIR": str(tmp_path / "writing-logs"),
+            "RESULTS_DIR": str(writing_runtime / "results"),
+            "SESSION_FILE": str(tmp_path / "writing.session"),
+            "RESUME": "0",
+            "REASONING_EFFORT": "low",
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+        },
+    )
+
+    assert reasoning_exit == 0
+    assert writing_exit == 0
+    args_texts = [path.read_text(encoding="utf-8") for path in sorted(codex_calls.glob("*.args"))]
+    assert len(args_texts) == 2
+    assert all(DEFAULT_MODEL in args_text for args_text in args_texts)
+
+
+def test_verification_service_defaults_to_platform_default_model(monkeypatch) -> None:
+    import galois.verification.service as verification_service
+    from galois.platform.config import DEFAULT_MODEL
+
+    monkeypatch.delenv("CODEX_MODEL", raising=False)
+    service = importlib.reload(verification_service)
+
+    command = service.build_codex_command(run_id="run", statement="S", proof="P")
+
+    assert command[command.index("-m") + 1] == DEFAULT_MODEL
 
 
 def test_reasoning_only_prompt_uses_trimmed_contract(tmp_path: Path) -> None:
@@ -823,6 +921,7 @@ def test_default_config_places_runs_under_project_root() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     config = load_config(repo_root / "configs" / "defaults.toml")
 
+    assert config.model == "gpt-5.5"
     assert config.project_root == "projects/default"
     assert config.project_root_path == repo_root / "projects" / "default"
     assert config.run_root_path == repo_root / "projects" / "default" / "runs"
