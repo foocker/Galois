@@ -2350,3 +2350,135 @@ textarea:focus {
   max-height: 18rem;
   overflow: auto;
 }
+
+.references-panel {
+  margin: 1rem 0;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 0.55rem;
+  background: rgba(250, 245, 255, 0.5);
+}
+
+.references-panel > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #6b21a8;
+  font-size: 0.95rem;
+}
+
+.references-count {
+  color: #94a3b8;
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+.references-hint {
+  margin: 0.5rem 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.reference-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem 0.6rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.4);
+}
+
+.reference-row:last-child {
+  border-bottom: none;
+}
+
+.reference-name {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.35rem;
+  background: white;
+}
+
+.reference-content {
+  grid-column: 1 / -1;
+  resize: vertical;
+  min-height: 4rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.35rem;
+  background: white;
+}
+
+.reference-remove {
+  align-self: start;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+.continue-panel {
+  margin-top: 1.5rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(254, 252, 232, 0.7);
+}
+
+.continue-panel h3 {
+  margin: 0 0 0.35rem 0;
+  font-size: 1rem;
+  color: #92400e;
+}
+
+.continue-hint {
+  margin: 0 0 0.65rem 0;
+  font-size: 0.85rem;
+  color: #78350f;
+}
+
+.continue-panel textarea {
+  width: 100%;
+  min-height: 5rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 0.4rem;
+  background: white;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.continue-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.continue-submit {
+  background: #b45309;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.continue-submit:hover:not(:disabled) {
+  background: #92400e;
+}
+
+.continue-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.continue-message {
+  font-size: 0.82rem;
+  color: #475569;
+}

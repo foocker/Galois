@@ -125,6 +125,18 @@
                 <button id="example-button" class="text-button" type="button" data-i18n="actions.loadExample">Load example</button>
               </footer>
 
+              <details id="references-panel" class="references-panel">
+                <summary>
+                  <span data-i18n="references.title">Reference materials (optional)</span>
+                  <span class="references-count" id="references-count" aria-live="polite"></span>
+                </summary>
+                <p class="references-hint" data-i18n="references.hint">
+                  Attach background notes, definitions, or paper excerpts. The agent will read these before doing external search.
+                </p>
+                <div id="references-list"></div>
+                <button id="references-add" class="text-button" type="button" data-i18n="references.add">Add reference</button>
+              </details>
+
               <button id="submit-button" class="submit-hidden" type="submit" data-i18n="actions.startRun">Start research run</button>
               <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
             </form>
@@ -140,6 +152,22 @@
               </div>
               <article id="output" class="markdown-output">
               </article>
+              <section id="continue-panel" class="continue-panel" hidden>
+                <h3 data-i18n="continue.title">Continue with feedback</h3>
+                <p class="continue-hint" data-i18n="continue.hint">
+                  Add a correction, hint, or follow-up question. A new run will resume from this attempt with your feedback.
+                </p>
+                <textarea
+                  id="continue-feedback"
+                  rows="4"
+                  placeholder="e.g. Tighten the argument for Lemma 2; the empty-interior step needs justification."
+                  data-i18n-placeholder="continue.placeholder"
+                ></textarea>
+                <div class="continue-actions">
+                  <button id="continue-submit" type="button" class="continue-submit" data-i18n="continue.submit">Run continuation</button>
+                  <span id="continue-message" class="continue-message" role="status" aria-live="polite"></span>
+                </div>
+              </section>
             </section>
           </section>
 

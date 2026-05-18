@@ -1,5 +1,6 @@
 const state = {
   currentRunId: null,
+  references: [],
   currentWritingRunId: null,
   pollHandle: null,
   writingPollHandle: null,
@@ -31,6 +32,14 @@ const elements = {
   proofSheet: document.querySelector('#proof-sheet'),
   copyProofMarkdown: document.querySelector('#copy-proof-markdown'),
   output: document.querySelector('#output'),
+  referencesPanel: document.querySelector('#references-panel'),
+  referencesList: document.querySelector('#references-list'),
+  referencesAdd: document.querySelector('#references-add'),
+  referencesCount: document.querySelector('#references-count'),
+  continuePanel: document.querySelector('#continue-panel'),
+  continueFeedback: document.querySelector('#continue-feedback'),
+  continueSubmit: document.querySelector('#continue-submit'),
+  continueMessage: document.querySelector('#continue-message'),
   matlasForm: document.querySelector('#matlas-form'),
   matlasQuery: document.querySelector('#matlas-query'),
   matlasCount: document.querySelector('#matlas-count'),
@@ -98,6 +107,18 @@ const translations = {
     'actions.loadExample': 'Load example',
     'actions.newProof': 'New Proof',
     'actions.startRun': 'Start research run',
+    'continue.title': 'Continue with feedback',
+    'continue.hint': 'Add a correction, hint, or follow-up question. A new run will resume from this attempt with your feedback.',
+    'continue.placeholder': 'e.g. Tighten the argument for Lemma 2; the empty-interior step needs justification.',
+    'continue.submit': 'Run continuation',
+    'continue.submitting': 'Queuing continuation...',
+    'continue.queued': 'Continuation queued',
+    'references.title': 'Reference materials (optional)',
+    'references.hint': 'Attach background notes, definitions, or paper excerpts. The agent will read these before doing external search.',
+    'references.add': 'Add reference',
+    'references.namePlaceholder': 'reference.md',
+    'references.contentPlaceholder': 'Paste reference text (markdown / LaTeX / plain text)',
+    'references.remove': 'Remove',
     'auth.signIn': 'Sign In',
     'brand.subtitle': 'Mathematics<br />Learning &amp;<br /><span>Research</span>',
     'config.modelSelection': 'Model Selection',
@@ -239,6 +260,18 @@ const translations = {
     'actions.loadExample': '加载示例',
     'actions.newProof': '新证明',
     'actions.startRun': '开始研究运行',
+    'continue.title': '使用反馈继续',
+    'continue.hint': '添加修正、提示或后续问题。新的运行将基于此次尝试和你的反馈继续。',
+    'continue.placeholder': '例如：加强引理 2 的证明；空内部部分需要更明确的理由。',
+    'continue.submit': '继续运行',
+    'continue.submitting': '正在排队继续运行...',
+    'continue.queued': '已排队继续运行',
+    'references.title': '参考资料（可选）',
+    'references.hint': '附加背景说明、定义或论文片段。代理会在外部搜索前优先读取它们。',
+    'references.add': '添加参考',
+    'references.namePlaceholder': 'reference.md',
+    'references.contentPlaceholder': '粘贴参考内容（markdown / LaTeX / 纯文本）',
+    'references.remove': '删除',
     'auth.signIn': '登录',
     'brand.subtitle': '数学学习与研究',
     'config.modelSelection': '模型选择',
@@ -1729,6 +1762,7 @@ function renderSnapshot(snapshot) {
     elements.copyProofMarkdown.textContent = translate('actions.copyProofMarkdown');
     elements.output.innerHTML = '';
   }
+  showContinuePanel(snapshot);
 }
 
 function clearCurrentRunStorage(runId = null) {
@@ -1937,6 +1971,146 @@ function renderLedgerRuns(runs) {
   renderMath(elements.ledgerRuns);
 }
 
+function renderReferenceList() {
+  if (!elements.referencesList) return;
+  if (!state.references.length) {
+    elements.referencesList.innerHTML = '';
+    if (elements.referencesCount) elements.referencesCount.textContent = '';
+    return;
+  }
+  elements.referencesList.innerHTML = state.references
+    .map(
+      (ref, index) => `
+        <div class="reference-row" data-reference-index="${index}">
+          <input
+            type="text"
+            class="reference-name"
+            value="${escapeHtml(ref.name)}"
+            placeholder="${escapeHtml(translate('references.namePlaceholder'))}"
+            data-reference-field="name"
+            data-reference-index="${index}"
+          />
+          <textarea
+            class="reference-content"
+            rows="3"
+            placeholder="${escapeHtml(translate('references.contentPlaceholder'))}"
+            data-reference-field="content"
+            data-reference-index="${index}"
+          >${escapeHtml(ref.content)}</textarea>
+          <button type="button" class="text-button reference-remove" data-reference-remove="${index}">${escapeHtml(translate('references.remove'))}</button>
+        </div>
+      `,
+    )
+    .join('');
+  if (elements.referencesCount) {
+    elements.referencesCount.textContent = ` · ${state.references.length}`;
+  }
+}
+
+function collectReferenceFiles() {
+  return state.references
+    .map((ref) => ({ name: (ref.name || '').trim(), content: (ref.content || '').trim() }))
+    .filter((ref) => ref.name && ref.content);
+}
+
+function addReferenceRow() {
+  state.references.push({ name: `reference-${state.references.length + 1}.md`, content: '' });
+  renderReferenceList();
+  if (elements.referencesPanel) elements.referencesPanel.open = true;
+  const rows = elements.referencesList?.querySelectorAll('.reference-name');
+  if (rows && rows.length) rows[rows.length - 1].focus();
+}
+
+function removeReferenceRow(index) {
+  state.references.splice(index, 1);
+  renderReferenceList();
+}
+
+function handleReferenceInput(event) {
+  const field = event.target.dataset.referenceField;
+  const index = Number(event.target.dataset.referenceIndex);
+  if (!field || Number.isNaN(index) || !state.references[index]) return;
+  state.references[index][field] = event.target.value;
+  if (elements.referencesCount) {
+    elements.referencesCount.textContent = state.references.length ? ` · ${state.references.length}` : '';
+  }
+}
+
+function handleReferenceClick(event) {
+  const removeIndex = event.target.dataset.referenceRemove;
+  if (removeIndex !== undefined) {
+    removeReferenceRow(Number(removeIndex));
+  }
+}
+
+function clearReferenceList() {
+  state.references = [];
+  renderReferenceList();
+}
+
+function showContinuePanel(snapshot) {
+  if (!elements.continuePanel) return;
+  const status = snapshot?.status;
+  const hasOutput = Boolean(snapshot?.output?.content);
+  const finished = status === 'succeeded' || status === 'failed';
+  if (finished && hasOutput) {
+    elements.continuePanel.hidden = false;
+    elements.continuePanel.dataset.runId = snapshot.run_id;
+  } else {
+    elements.continuePanel.hidden = true;
+    elements.continuePanel.dataset.runId = '';
+    if (elements.continueFeedback) elements.continueFeedback.value = '';
+    if (elements.continueMessage) elements.continueMessage.textContent = '';
+  }
+}
+
+async function submitContinue() {
+  if (!elements.continuePanel) return;
+  const runId = elements.continuePanel.dataset.runId;
+  const feedback = (elements.continueFeedback?.value || '').trim();
+  if (!runId) return;
+  if (!feedback) {
+    if (elements.continueMessage) elements.continueMessage.textContent = translate('message.problemRequired');
+    elements.continueFeedback?.focus();
+    return;
+  }
+  if (elements.continueSubmit) elements.continueSubmit.disabled = true;
+  if (elements.continueMessage) elements.continueMessage.textContent = translate('continue.submitting');
+  try {
+    const created = await fetchJson(`/api/runs/${encodeURIComponent(runId)}/continue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        feedback,
+        pipeline: elements.pipeline.value,
+        model: elements.model.value,
+      }),
+    });
+    if (elements.continueMessage) {
+      elements.continueMessage.textContent = `${translate('continue.queued')}: ${created.run_id}`;
+    }
+    if (elements.continueFeedback) elements.continueFeedback.value = '';
+    setMessage(`${translate('status.queued')}: ${created.run_id}`);
+    renderSnapshot({
+      run_id: created.run_id,
+      status: 'queued',
+      pipeline: created.pipeline,
+      model: created.model,
+      display_title: created.display_title,
+      problem: { title: created.display_title, problem_id: created.problem_id },
+      events: [],
+      output: null,
+      workflows: [],
+    });
+    startPolling(created.run_id);
+    await loadRecentRuns();
+  } catch (error) {
+    if (elements.continueMessage) elements.continueMessage.textContent = error.message;
+  } finally {
+    if (elements.continueSubmit) elements.continueSubmit.disabled = false;
+  }
+}
+
 async function submitRun(event) {
   event.preventDefault();
   const title = elements.title.value.trim();
@@ -1963,6 +2137,7 @@ async function submitRun(event) {
         problem_markdown: problemMarkdown,
         pipeline: elements.pipeline.value,
         model: elements.model.value,
+        references: collectReferenceFiles(),
       }),
     });
     setMessage(`${translate('status.queued')}: ${created.run_id}`);
@@ -2040,6 +2215,10 @@ function wireEvents() {
     });
   });
   elements.form.addEventListener('submit', submitRun);
+  elements.referencesAdd?.addEventListener('click', addReferenceRow);
+  elements.referencesList?.addEventListener('input', handleReferenceInput);
+  elements.referencesList?.addEventListener('click', handleReferenceClick);
+  elements.continueSubmit?.addEventListener('click', submitContinue);
   elements.matlasForm?.addEventListener('submit', submitMatlasSearch);
   elements.matlasQuery?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {

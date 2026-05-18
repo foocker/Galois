@@ -40,11 +40,23 @@ ASSET_DIR = Path(__file__).with_name("web_assets")
 MATLAS_BASE_URL = "https://matlas.ai"
 
 
+class ReferenceFile(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1)
+
+
 class RunCreateRequest(BaseModel):
     title: str | None = None
     problem_markdown: str
     pipeline: str = "reasoning-verification"
     model: str = DEFAULT_MODEL
+    references: list[ReferenceFile] = Field(default_factory=list)
+
+
+class RunContinueRequest(BaseModel):
+    feedback: str = Field(min_length=1)
+    pipeline: str | None = None
+    model: str | None = None
 
 
 class MatlasSearchRequest(BaseModel):
@@ -108,6 +120,32 @@ def _write_web_problem(run_dir: Path, problem_markdown: str) -> Path:
     source_path.write_text(content, encoding="utf-8")
     statement_path.write_text(content, encoding="utf-8")
     return statement_path
+
+
+def _write_web_references(run_dir: Path, references: list[ReferenceFile]) -> Path | None:
+    """Stage user-uploaded reference files into a run-local refs directory.
+
+    Mirrors Rethlas's `<problem>.refs/` convention. The CLI's
+    `_prepare_reference_dir` will pick these up because the staged problem
+    file at `run_dir/problem/statement.md` has a sibling `statement.refs/`
+    directory once we drop files there.
+    """
+    if not references:
+        return None
+    refs_dir = run_dir / "problem" / "statement.refs"
+    refs_dir.mkdir(parents=True, exist_ok=True)
+    for ref in references:
+        sanitized = re.sub(r"[^A-Za-z0-9._/\-]+", "_", ref.name).strip("/.")
+        if not sanitized:
+            sanitized = "reference.md"
+        target = (refs_dir / sanitized).resolve()
+        try:
+            target.relative_to(refs_dir.resolve())
+        except ValueError:
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(ref.content, encoding="utf-8")
+    return refs_dir
 
 
 def _finalize_web_problem_artifacts(
@@ -526,6 +564,7 @@ def _create_prepared_run(
     statement_path = _write_web_problem(run_dir, payload.problem_markdown)
     problem.problem_path = str(statement_path)
     manifest.problem = problem
+    _write_web_references(run_dir, payload.references)
     _finalize_web_problem_artifacts(
         run_dir=run_dir,
         problem=problem,
@@ -581,6 +620,106 @@ def _create_prepared_run(
         if record is not None:
             index.upsert_run(record)
     return manifest.run_id, problem.problem_id, str(statement_path), feature_flags.pipeline.value, problem.title or problem.problem_id
+
+
+def _continue_prepared_run(
+    *,
+    config_path: Path | None,
+    previous_run_dir: Path,
+    feedback: str,
+    pipeline: str,
+    model: str,
+) -> tuple[str, str, str, str, str]:
+    """Create a new run that continues from a previous one with user feedback.
+
+    The continuation merges three things into the new run's problem markdown:
+    the original problem statement, the previous blueprint (whether verified
+    or not), and the user's natural-language feedback. The new run is a fresh
+    codex session — the verification audit trail makes attempt history visible
+    in the run list rather than mutating an existing artifact.
+    """
+    previous_problem = previous_run_dir / "problem"
+    statement_path = previous_problem / "statement.md"
+    if not statement_path.exists():
+        statement_path = previous_problem / "source_statement.md"
+    if not statement_path.exists():
+        raise FileNotFoundError("previous run has no problem statement")
+    original_statement = statement_path.read_text(encoding="utf-8")
+
+    blueprint_candidates = sorted(
+        (previous_run_dir / "reasoning").glob("blueprint_r*.md"),
+        key=lambda candidate: _latest_revision(candidate),
+    )
+    previous_blueprint = blueprint_candidates[-1].read_text(encoding="utf-8") if blueprint_candidates else ""
+
+    decision_files = sorted(
+        (previous_run_dir / "verification").glob("verification_decision_r*.json"),
+        key=lambda candidate: _latest_revision(candidate),
+    )
+    previous_decision = ""
+    if decision_files:
+        decision = _safe_json(decision_files[-1], {})
+        if isinstance(decision, dict):
+            previous_decision = decision.get("decision") or decision.get("verdict") or ""
+
+    sections = [
+        "# Continuation request",
+        "",
+        f"This run continues from `{previous_run_dir.name}`"
+        + (f" (previous decision: `{previous_decision}`)" if previous_decision else "")
+        + ".",
+        "",
+        "## Original problem",
+        "",
+        original_statement.strip(),
+        "",
+        "## User feedback",
+        "",
+        feedback.strip(),
+        "",
+    ]
+    if previous_blueprint:
+        sections.extend(
+            [
+                "## Previous attempt (for revision)",
+                "",
+                previous_blueprint.strip(),
+                "",
+            ]
+        )
+    continuation_markdown = "\n".join(sections)
+
+    previous_meta = _safe_json(previous_problem / "meta.json", {}) or {}
+    previous_title = previous_meta.get("title") if isinstance(previous_meta, dict) else None
+    title = f"{previous_title or 'Continuation'} (continued)"
+
+    references = []
+    previous_refs_dir = previous_problem / "statement.refs"
+    if previous_refs_dir.exists():
+        for ref_path in sorted(previous_refs_dir.rglob("*")):
+            if not ref_path.is_file():
+                continue
+            try:
+                relative = ref_path.relative_to(previous_refs_dir)
+            except ValueError:
+                continue
+            if relative.parts and relative.parts[0] == ".extracted":
+                continue
+            try:
+                references.append(
+                    ReferenceFile(name=str(relative), content=ref_path.read_text(encoding="utf-8"))
+                )
+            except (UnicodeDecodeError, OSError):
+                continue
+
+    payload = RunCreateRequest(
+        title=title,
+        problem_markdown=continuation_markdown,
+        pipeline=pipeline,
+        model=model,
+        references=references,
+    )
+    return _create_prepared_run(config_path=config_path, payload=payload)
 
 
 def _create_prepared_writing_run(
@@ -732,6 +871,44 @@ def create_app(config_path: Path | None = None) -> FastAPI:
                 "status": "queued",
                 "pipeline": pipeline,
                 "model": payload.model,
+            },
+        )
+
+    @app.post("/api/runs/{run_id}/continue")
+    def continue_run(run_id: str, payload: RunContinueRequest) -> JSONResponse:
+        run_root = config.run_root_path
+        try:
+            previous = read_run_snapshot(run_root, run_id, project_root=config.project_root_path)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="run not found") from exc
+        if not payload.feedback.strip():
+            raise HTTPException(status_code=400, detail="feedback must not be blank")
+        pipeline = payload.pipeline or previous.get("pipeline") or "reasoning-verification"
+        model = payload.model or previous.get("model") or DEFAULT_MODEL
+        if model not in SUPPORTED_MODELS:
+            raise HTTPException(status_code=400, detail="unsupported model")
+        if not model_is_configured(config, model):
+            raise HTTPException(status_code=400, detail="model credentials are not configured")
+        try:
+            new_run_id, problem_id, _, new_pipeline, display_title = _continue_prepared_run(
+                config_path=config_path,
+                previous_run_dir=Path(previous["run_dir"]),
+                feedback=payload.feedback,
+                pipeline=pipeline,
+                model=model,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return JSONResponse(
+            status_code=202,
+            content={
+                "run_id": new_run_id,
+                "problem_id": problem_id,
+                "display_title": display_title,
+                "status": "queued",
+                "pipeline": new_pipeline,
+                "model": model,
+                "continued_from": run_id,
             },
         )
 
