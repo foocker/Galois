@@ -58,4 +58,4 @@ tests/                    接口与运行时测试
 references/Lumen/         底层 agent 资产；不是公共 API
 ```
 
-运行数据默认写入 `.research-runtime/`，也可以通过 `agent-runtime serve --runtime-root <dir>` 指定。每个 project 初始化一次底层 workspace，`memory/`、`results/`、`downloads/`、`scripts/` 和 `input/` 在 project 内持续复用；每个 run 只保留本轮 `logs/`、`events`、输入快照和 artifact 快照。
+运行数据默认写入 `.research-runtime/`，也可以通过 `agent-runtime serve --runtime-root <dir>` 指定。每个 project 只创建一个薄 workspace：静态 agent 资产通过符号链接复用，`data/`、`input/`、`memory/`、`results/`、`downloads/`、`scripts/` 在 project 内持续写入和复用；每个 run 只保留本轮 `logs/`、`events`、输入快照和 artifact 快照。

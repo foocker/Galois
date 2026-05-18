@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -181,6 +182,66 @@ def test_project_workspace_is_reused_across_continuation_runs(tmp_path: Path) ->
     assert seen_contexts[1].run_dir == tmp_path / "projects" / created["project_id"] / "runs" / continued["latest_run_id"]
     assert seen_contexts[0].logs_dir == seen_contexts[0].run_dir / "logs"
     assert seen_contexts[1].logs_dir == seen_contexts[1].run_dir / "logs"
+
+
+def test_project_workspace_uses_static_symlinks_and_writable_dirs(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    seen_contexts: list[ResearchRunContext] = []
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        seen_contexts.append(context)
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text("# Solution\n", encoding="utf-8")
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=False)
+    client = TestClient(app)
+
+    created = client.post(
+        "/v1/projects",
+        json={
+            "title": "Thin workspace",
+            "problem": {"content": "Solve it."},
+            "instructions": [{"name": "strategy.md", "content": "Keep it short."}],
+            "references": [{"name": "note.md", "content": "Reference note."}],
+        },
+    ).json()
+
+    assert created["status"] == "succeeded"
+    assert seen_contexts
+    context = seen_contexts[0]
+    source = Path("references/Lumen/agents/generation").resolve()
+
+    for name in ("AGENTS.md", ".agents", ".codex", "tests"):
+        entry = context.workspace_dir / name
+        assert entry.is_symlink()
+        assert entry.resolve() == source / name
+
+    mcp_dir = context.workspace_dir / "mcp"
+    assert mcp_dir.is_dir()
+    assert not mcp_dir.is_symlink()
+    assert (mcp_dir / "server.py").is_file()
+    assert not (mcp_dir / "server.py").is_symlink()
+    assert (mcp_dir / "requirements.txt").is_symlink()
+    assert (mcp_dir / "requirements.txt").resolve() == source / "mcp" / "requirements.txt"
+    spec = importlib.util.spec_from_file_location("thin_workspace_mcp_server", mcp_dir / "server.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.REPO_ROOT == context.workspace_dir
+    assert module.MEMORY_ROOT == context.workspace_dir / "memory"
+
+    for name in ("data", "input", "memory", "results", "downloads", "scripts", "logs"):
+        entry = context.workspace_dir / name
+        assert entry.is_dir()
+        assert not entry.is_symlink()
+
+    assert context.problem_file == context.workspace_dir / "data" / "thin-workspace.md"
+    assert context.problem_file.read_text(encoding="utf-8") == "Solve it."
+    assert (context.prompt_dir / "strategy.md").read_text(encoding="utf-8") == "Keep it short."
+    assert (context.reference_dir / "note.md").read_text(encoding="utf-8") == "Reference note."
 
 
 def test_run_artifacts_are_snapshotted_per_run(tmp_path: Path) -> None:

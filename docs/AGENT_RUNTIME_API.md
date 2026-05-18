@@ -65,7 +65,9 @@ Returns `202` with `project_id`, `latest_run_id`, `status`, `capability`, and li
 
 Continues an existing project with a new prompt. Project workspace state is reused
 across runs, including memory, results, downloads, scripts, and current input files.
-Each run keeps its own logs, lifecycle events, input snapshot, and artifact snapshot.
+The workspace is thin: static runtime assets are linked from the local asset source,
+while writable state is kept under the project. Each run keeps its own logs,
+lifecycle events, input snapshot, and artifact snapshot.
 
 ```json
 {

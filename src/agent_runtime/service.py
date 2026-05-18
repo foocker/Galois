@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 
 CAPABILITY = "math_research"
 SUPPORTED_PROMPT_SUFFIXES = {".md", ".markdown", ".txt", ".tex"}
+STATIC_WORKSPACE_ENTRIES = ("AGENTS.md", ".agents", ".codex", "tests")
+WRITABLE_WORKSPACE_DIRS = ("data", "input", "memory", "results", "downloads", "scripts", "logs")
 
 
 class RuntimeFile(BaseModel):
@@ -220,27 +222,119 @@ def _read_events(run_dir: Path) -> list[dict[str, Any]]:
     return events
 
 
-def _copy_runtime_assets(workspace_dir: Path) -> None:
+def _ensure_symlink(target: Path, source: Path) -> None:
+    if target.exists() or target.is_symlink():
+        return
+    target.symlink_to(source, target_is_directory=source.is_dir())
+
+
+def _mcp_server_wrapper(source_server: Path) -> str:
+    source_literal = json.dumps(str(source_server))
+    return f'''from __future__ import annotations
+
+from importlib import util as _importlib_util
+from pathlib import Path as _Path
+import sys as _sys
+
+_WORKSPACE_ROOT = _Path(__file__).resolve().parents[1]
+_SOURCE_SERVER = _Path({source_literal})
+_SPEC = _importlib_util.spec_from_file_location("_agent_runtime_mcp_source", _SOURCE_SERVER)
+if _SPEC is None or _SPEC.loader is None:
+    raise ImportError(f"Could not load MCP server from {{_SOURCE_SERVER}}")
+_SOURCE = _importlib_util.module_from_spec(_SPEC)
+_WRITE_BYTECODE = _sys.dont_write_bytecode
+_sys.dont_write_bytecode = True
+try:
+    _SPEC.loader.exec_module(_SOURCE)
+finally:
+    _sys.dont_write_bytecode = _WRITE_BYTECODE
+
+REPO_ROOT = _WORKSPACE_ROOT
+MEMORY_ROOT = REPO_ROOT / "memory"
+_SOURCE.REPO_ROOT = REPO_ROOT
+_SOURCE.MEMORY_ROOT = MEMORY_ROOT
+
+CHANNEL_FILES = _SOURCE.CHANNEL_FILES
+search_arxiv_theorems = _SOURCE.search_arxiv_theorems
+verify_proof_service = _SOURCE.verify_proof_service
+sanitize_problem_id = _SOURCE.sanitize_problem_id
+build_problem_id = _SOURCE.build_problem_id
+memory_init = _SOURCE.memory_init
+memory_append = _SOURCE.memory_append
+memory_search = _SOURCE.memory_search
+branch_update = _SOURCE.branch_update
+
+
+def build_mcp_app():
+    return _SOURCE.build_mcp_app()
+
+
+APP = build_mcp_app()
+
+
+def main() -> None:
+    if APP is None:
+        raise SystemExit("fastmcp is not installed. Install requirements from mcp/requirements.txt first.")
+    APP.run()
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def _mcp_init_wrapper() -> str:
+    return '''from .server import (
+    APP,
+    branch_update,
+    build_problem_id,
+    memory_append,
+    memory_init,
+    memory_search,
+    sanitize_problem_id,
+    search_arxiv_theorems,
+    verify_proof_service,
+)
+
+__all__ = [
+    "APP",
+    "branch_update",
+    "build_problem_id",
+    "memory_append",
+    "memory_init",
+    "memory_search",
+    "sanitize_problem_id",
+    "search_arxiv_theorems",
+    "verify_proof_service",
+]
+'''
+
+
+def _prepare_mcp_workspace(workspace_dir: Path, source: Path) -> None:
+    target = workspace_dir / "mcp"
+    if target.exists() and not target.is_dir():
+        return
+    target.mkdir(parents=True, exist_ok=True)
+    server_file = target / "server.py"
+    init_file = target / "__init__.py"
+    requirements_file = target / "requirements.txt"
+    if not server_file.exists():
+        server_file.write_text(_mcp_server_wrapper(source / "mcp" / "server.py"), encoding="utf-8")
+    if not init_file.exists():
+        init_file.write_text(_mcp_init_wrapper(), encoding="utf-8")
+    _ensure_symlink(requirements_file, source / "mcp" / "requirements.txt")
+
+
+def _prepare_runtime_workspace(workspace_dir: Path) -> None:
     source = _runtime_asset_dir()
     if not source.exists():
         raise RuntimeError("research runtime assets are missing")
 
-    def ignore(_: str, names: list[str]) -> set[str]:
-        ignored = {
-            ".git",
-            ".venv",
-            "__pycache__",
-            "logs",
-            "memory",
-            "results",
-            "downloads",
-            "scripts",
-            "site",
-        }
-        return {name for name in names if name in ignored or name.endswith(".pyc")}
-
-    shutil.copytree(source, workspace_dir, ignore=ignore)
-    for name in ("logs", "memory", "results", "downloads", "scripts", "input"):
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    for name in STATIC_WORKSPACE_ENTRIES:
+        _ensure_symlink(workspace_dir / name, source / name)
+    _prepare_mcp_workspace(workspace_dir, source)
+    for name in WRITABLE_WORKSPACE_DIRS:
         (workspace_dir / name).mkdir(parents=True, exist_ok=True)
 
 
@@ -399,8 +493,7 @@ def _new_context(
     run_id = f"{_utc_stamp()}_{uuid.uuid4().hex[:8]}"
     run_dir = project_dir / "runs" / run_id
     workspace_dir = project_dir / "workspace" / "generation"
-    if not workspace_dir.exists():
-        _copy_runtime_assets(workspace_dir)
+    _prepare_runtime_workspace(workspace_dir)
 
     problem_id = project_id
     problem_file = workspace_dir / "data" / f"{problem_id}.md"
@@ -470,7 +563,7 @@ def _build_agent_prompt(context: ResearchRunContext) -> str:
         prompt += " Verification is disabled for this run; produce the best complete blueprint.md without requiring verifier success."
     if context.previous_run_id:
         prompt += (
-            " Continue this existing research project from the copied results, memory, downloads, and scripts in this workspace. "
+            " Continue this existing research project from the existing results, memory, downloads, and scripts in this workspace. "
             "Do not restart from scratch unless the prior artifacts are unusable."
         )
     if context.continuation_prompt:
