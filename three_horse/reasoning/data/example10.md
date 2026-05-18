@@ -1,1 +1,0 @@
-构造一个拓扑空间，它是连通的 (Connected)，但不是路径连通的 (Path-connected)

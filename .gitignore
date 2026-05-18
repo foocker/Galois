@@ -19,10 +19,13 @@ logs/
 tmp/
 
 # Local paper-writing source corpora and scratch notes.
-# Keep distilled skill references under three_horse/writing/.agents tracked.
 /great-math-paper/
 /mathematics writting/
-/references/
+
+# Runtime assets. Keep the selected agent asset visible to the main repo, but
+# keep unrelated local reference snapshots ignored.
+/references/*
+!/references/Lumen/
 
 /three_horse/reasoning/memory/
 /three_horse/reasoning/results/
@@ -32,3 +35,5 @@ tmp/
 .idea/
 .vscode/
 .cache/
+.research-runtime/
+.claude/

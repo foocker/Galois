@@ -1,72 +1,61 @@
-# Galois
+# Agent Runtime
 
-Galois 是一个 Codex-first 的数学研究工作台。它把数学题目提交给 reasoning / verification agent，生成证明草图、校验报告、run 记录和 benchmark 产物。
-
-
-## 功能示例
-
-![Galois workbench](./x_dir.png)
-
-上图展示 Web workbench：左侧是最近运行，中央输入 Markdown/LaTeX 题目，右侧选择流程和模型，运行后展示证明文档与验证状态。
+这是一个面向前端或其他后端的数学研究 agent 运行服务。公共接口只暴露项目、运行、事件和产物，不暴露底层 agent 名称、内部文件结构或本机路径。
 
 ## 快速开始
 
 ```bash
 uv sync
-uv run galois web
+uv run agent-runtime serve --host 127.0.0.1 --port 8765
 ```
 
-打开终端输出的本地地址后，可以提交数学问题并查看 run 结果。
-
-真实 reasoning / verification 需要配置模型环境变量：
+创建首轮研究：
 
 ```bash
-export OPENAI_BASE_URL="..."
-export OPENAI_API_KEY="..."
+uv run agent-runtime create \
+  --problem-file problem.md \
+  --title "Compactness problem" \
+  --instruction strategy.md \
+  --reference notes.md \
+  --json
 ```
 
-## 常用命令
+继续已有项目：
 
 ```bash
-uv run galois web
-uv run galois suite list
-uv run galois inspect <run_id_or_path>
-
-uv run galois plan \
-  --problem-id example \
-  --problem-path three_horse/reasoning/data/example.md \
-  --pipeline reasoning-verification
-
-uv run galois launch \
-  --problem-id example \
-  --problem-path three_horse/reasoning/data/example.md \
-  --pipeline reasoning-only
+uv run agent-runtime continue <project_id> \
+  --prompt "The first proof missed a boundary case. Continue from the prior work." \
+  --json
 ```
 
-## 能力
+查询状态和结果：
 
-- `reasoning-only`：生成自然语言证明草图并归档 `blueprint`。
-- `reasoning-verification`：生成证明草图后调用 verification service，产出 verdict 和 repair hints。
-- `web`：本地研究工作台，支持提交问题、轮询 run、查看 artifact。
-- `suite`：管理 benchmark 示例集。
-- `writing-only`：数学论文写作工作流，运行资产在 `three_horse/writing/`。
+```bash
+uv run agent-runtime status <run_id> --json
+uv run agent-runtime artifacts <run_id> --json
+uv run agent-runtime events <run_id> --json
+```
 
-## 项目结构
+## HTTP 接口
+
+服务默认地址：`http://127.0.0.1:8765`
+
+- `GET /v1/health`
+- `POST /v1/projects`
+- `POST /v1/projects/{project_id}/runs`
+- `GET /v1/runs/{run_id}`
+- `GET /v1/runs/{run_id}/artifacts`
+- `GET /v1/runs/{run_id}/events`
+
+详细请求和响应见 `docs/AGENT_RUNTIME_API.md`。
+
+## 目录
 
 ```text
-src/galois/      Python control plane
-three_horse/     reasoning、verification、writing 运行资产
-projects/        runs、logs、artifacts
-benchmarks/      benchmark problems 和 manifests
-configs/         默认配置
-docs/            系统设计与计划文档
-references/      只读上游参考快照
+src/agent_runtime/        CLI 和 HTTP service
+docs/AGENT_RUNTIME_API.md API 合约
+tests/                    接口与运行时测试
+references/Lumen/         底层 agent 资产；不是公共 API
 ```
 
-## 说明
-
-- 默认 backend 是 `codex`，默认模型配置见 `configs/defaults.toml`。
-- Problem Garden 使用 PostgreSQL；本地连接串可通过 `DATABASE_URL` 覆盖。
-- 新核心逻辑放进 `src/galois/`
-
-更多设计细节见 `docs/GALOIS_SYSTEM_DESIGN.md`。
+运行数据默认写入 `.research-runtime/`，也可以通过 `agent-runtime serve --runtime-root <dir>` 指定。
