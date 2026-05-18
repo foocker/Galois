@@ -22,6 +22,7 @@ CAPABILITY = "math_research"
 SUPPORTED_PROMPT_SUFFIXES = {".md", ".markdown", ".txt", ".tex"}
 STATIC_WORKSPACE_ENTRIES = ("AGENTS.md", ".agents", ".codex", "tests")
 WRITABLE_WORKSPACE_DIRS = ("data", "input", "memory", "results", "downloads", "scripts", "logs")
+RUN_SHARED_ENTRIES = ("memory", "results", "downloads", "scripts")
 
 
 class RuntimeFile(BaseModel):
@@ -389,6 +390,13 @@ def _snapshot_artifacts(context: ResearchRunContext) -> None:
             shutil.copy2(source, artifact_dir / target_name)
 
 
+def _prepare_run_directory(context: ResearchRunContext) -> None:
+    context.logs_dir.mkdir(parents=True, exist_ok=True)
+    _artifact_dir(context.run_dir).mkdir(parents=True, exist_ok=True)
+    for name in RUN_SHARED_ENTRIES:
+        _ensure_symlink(context.run_dir / name, context.workspace_dir / name)
+
+
 def _public_run_payload(context: ResearchRunContext, *, status: str, continued_from: str | None = None) -> dict[str, Any]:
     return {
         "project_id": context.project_id,
@@ -428,7 +436,7 @@ def _context_from_state(runtime_root: Path, run_id: str) -> ResearchRunContext:
     run_dir = _run_dir_from_id(runtime_root, run_id)
     state = _load_json(_run_state_path(run_dir))
     workspace_dir = Path(state.get("workspace_dir", run_dir / "workspace" / "generation"))
-    return ResearchRunContext(
+    context = ResearchRunContext(
         project_id=str(state["project_id"]),
         run_id=run_id,
         run_dir=run_dir,
@@ -449,6 +457,8 @@ def _context_from_state(runtime_root: Path, run_id: str) -> ResearchRunContext:
         previous_run_id=state.get("previous_run_id"),
         continuation_prompt=state.get("continuation_prompt"),
     )
+    _prepare_run_directory(context)
+    return context
 
 
 def _write_context_state(context: ResearchRunContext) -> None:
@@ -616,6 +626,7 @@ def _launch_context(
     run_async: bool,
 ) -> str:
     _write_context_state(context)
+    _prepare_run_directory(context)
     _append_event(context.run_dir, "created", "queued")
 
     def _run() -> None:
@@ -766,15 +777,15 @@ def create_app(
     @app.get("/v1/runs/{run_id}/events")
     def get_run_events(run_id: str) -> dict[str, Any]:
         try:
-            run_dir = _run_dir_from_id(runtime_root, run_id)
+            context = _context_from_state(runtime_root, run_id)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="run not found")
-        if not run_dir.exists():
+        if not context.run_dir.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return {
             "run_id": run_id,
             "capability": CAPABILITY,
-            "events": _read_events(run_dir),
+            "events": _read_events(context.run_dir),
         }
 
     return app

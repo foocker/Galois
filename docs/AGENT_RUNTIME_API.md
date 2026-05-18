@@ -67,7 +67,9 @@ Continues an existing project with a new prompt. Project workspace state is reus
 across runs, including memory, results, downloads, scripts, and current input files.
 The workspace is thin: static runtime assets are linked from the local asset source,
 while writable state is kept under the project. Each run keeps its own logs,
-lifecycle events, input snapshot, and artifact snapshot.
+lifecycle events, input snapshot, and artifact snapshot. For local inspection, each
+run directory also exposes memory, results, downloads, and scripts as symlinks to
+the shared project workspace rather than copying those directories.
 
 ```json
 {

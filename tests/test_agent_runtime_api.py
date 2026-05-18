@@ -244,6 +244,84 @@ def test_project_workspace_uses_static_symlinks_and_writable_dirs(tmp_path: Path
     assert (context.reference_dir / "note.md").read_text(encoding="utf-8") == "Reference note."
 
 
+def test_run_directory_exposes_shared_workspace_dirs_without_copying(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    seen_contexts: list[ResearchRunContext] = []
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        seen_contexts.append(context)
+        (context.memory_dir / context.problem_id).mkdir(parents=True, exist_ok=True)
+        (context.memory_dir / context.problem_id / "note.md").write_text("Memory note.", encoding="utf-8")
+        (context.downloads_dir / context.problem_id).mkdir(parents=True, exist_ok=True)
+        (context.downloads_dir / context.problem_id / "paper.txt").write_text("Downloaded note.", encoding="utf-8")
+        (context.scripts_dir / context.problem_id).mkdir(parents=True, exist_ok=True)
+        (context.scripts_dir / context.problem_id / "check.py").write_text("print('ok')\n", encoding="utf-8")
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text("# Solution\n", encoding="utf-8")
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=False)
+    client = TestClient(app)
+
+    created = client.post(
+        "/v1/projects",
+        json={"title": "Run entries", "problem": {"content": "Solve it."}},
+    ).json()
+
+    context = seen_contexts[0]
+    run_dir = tmp_path / "projects" / created["project_id"] / "runs" / created["latest_run_id"]
+    assert (run_dir / "input").is_dir()
+    assert (run_dir / "logs").is_dir()
+    assert (run_dir / "artifacts").is_dir()
+    assert not (run_dir / "input").is_symlink()
+    assert not (run_dir / "logs").is_symlink()
+    assert not (run_dir / "artifacts").is_symlink()
+
+    for name in ("memory", "results", "downloads", "scripts"):
+        entry = run_dir / name
+        assert entry.is_symlink()
+        assert entry.resolve() == context.workspace_dir / name
+
+    assert (run_dir / "memory" / "run-entries" / "note.md").read_text(encoding="utf-8") == "Memory note."
+    assert (run_dir / "results" / "run-entries" / "blueprint.md").read_text(encoding="utf-8") == "# Solution\n"
+    assert (run_dir / "downloads" / "run-entries" / "paper.txt").read_text(encoding="utf-8") == "Downloaded note."
+    assert (run_dir / "scripts" / "run-entries" / "check.py").read_text(encoding="utf-8") == "print('ok')\n"
+
+
+def test_existing_run_directory_is_backfilled_with_shared_entries(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    seen_contexts: list[ResearchRunContext] = []
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        seen_contexts.append(context)
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text("# Solution\n", encoding="utf-8")
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=False)
+    client = TestClient(app)
+
+    created = client.post(
+        "/v1/projects",
+        json={"title": "Legacy run", "problem": {"content": "Solve it."}},
+    ).json()
+
+    run_dir = tmp_path / "projects" / created["project_id"] / "runs" / created["latest_run_id"]
+    for name in ("memory", "results", "downloads", "scripts"):
+        (run_dir / name).unlink()
+    assert not (run_dir / "memory").exists()
+
+    status = client.get(f"/v1/runs/{created['latest_run_id']}")
+
+    assert status.status_code == 200
+    for name in ("memory", "results", "downloads", "scripts"):
+        entry = run_dir / name
+        assert entry.is_symlink()
+        assert entry.resolve() == seen_contexts[0].workspace_dir / name
+
+
 def test_run_artifacts_are_snapshotted_per_run(tmp_path: Path) -> None:
     from agent_runtime.service import ResearchRunContext, create_app
 
