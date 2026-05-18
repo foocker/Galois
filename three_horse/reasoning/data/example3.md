@@ -1,1 +1,0 @@
-考虑函数列 $f_n(x) = \frac{\sin(nx)}{\sqrt{n}}$。证明 $f_n(x)$ 在 $\mathbb{R}$ 上一致收敛于 $0$，但 $\lim_{n \to \infty} f_n'(0) \neq 0$

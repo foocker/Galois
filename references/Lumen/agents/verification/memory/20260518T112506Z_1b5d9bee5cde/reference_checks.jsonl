@@ -1,0 +1,1 @@
+{"timestamp_utc": "2026-05-18T11:26:09.006177+00:00", "channel": "reference_checks", "record": {"location": "theorem thm:even-square-test", "status": "no_external_references", "referenced_statement": "", "context_expansion": "The proof is self-contained and does not cite any external theorem, lemma, definition, or paper.", "arxiv_match_found": false, "web_match_found": false}}

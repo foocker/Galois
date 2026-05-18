@@ -1,0 +1,13 @@
+{"timestamp_utc": "2026-05-18T12:40:57.767073+00:00", "channel": "events", "record": {"event": "run_initialized", "statement": "Prove that if n is an even integer, then n^2 is even.", "proof_title": "thm:even-square-real-2"}}
+{"timestamp_utc": "2026-05-18T12:41:27.252947+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T12:41:27.303538+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T12:41:27.330595+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T12:41:27.351924+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T12:41:27.353575+00:00", "channel": "events", "record": {"event": "sequential_verification_completed", "result": "no_local_issues_found"}}
+{"timestamp_utc": "2026-05-18T12:41:43.638739+00:00", "event_type": "memory_append", "channel": "reference_checks"}
+{"timestamp_utc": "2026-05-18T12:41:43.652259+00:00", "event_type": "memory_append", "channel": "failed_checks"}
+{"timestamp_utc": "2026-05-18T12:41:43.655752+00:00", "channel": "events", "record": {"event": "reference_verification_completed", "result": "no_external_references_present"}}
+{"timestamp_utc": "2026-05-18T12:42:36.447340+00:00", "event_type": "memory_append", "channel": "verification_reports"}
+{"timestamp_utc": "2026-05-18T12:42:36.460163+00:00", "channel": "events", "record": {"event": "verification_payload_validated", "valid": true}}
+{"timestamp_utc": "2026-05-18T12:42:36.464185+00:00", "event_type": "memory_append", "channel": "verification_reports"}
+{"timestamp_utc": "2026-05-18T12:43:08.761744+00:00", "channel": "events", "record": {"event": "output_verified_from_disk", "command": "python -m json.tool results/20260518T124004Z_1b5d9bee5cde/verification.json", "exit_code": 0}}

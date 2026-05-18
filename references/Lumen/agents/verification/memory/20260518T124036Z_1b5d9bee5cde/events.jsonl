@@ -1,0 +1,6 @@
+{"timestamp_utc": "2026-05-18T12:41:24.027791+00:00", "channel": "events", "record": {"event": "verification_started", "statement": "Prove that if n is an even integer, then n^2 is even.", "has_external_references": false}}
+{"timestamp_utc": "2026-05-18T12:41:57.360625+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T12:41:57.369488+00:00", "event_type": "memory_append", "channel": "reference_checks"}
+{"timestamp_utc": "2026-05-18T12:41:57.490739+00:00", "channel": "events", "record": {"event": "sequential_and_reference_checks_completed", "statement_checks": 1, "reference_checks": 0}}
+{"timestamp_utc": "2026-05-18T12:42:35.662614+00:00", "event_type": "memory_append", "channel": "verification_reports"}
+{"timestamp_utc": "2026-05-18T12:42:35.675549+00:00", "event_type": "memory_append", "channel": "verification_reports"}

@@ -1,0 +1,7 @@
+{"timestamp_utc": "2026-05-18T10:45:33.502692+00:00", "channel": "events", "record": {"stage": "init", "message": "Initialized verification run and extracted hypotheses from the theorem statement.", "statement": "Prove that if n is an even integer, then n^2 is even.", "hypotheses": ["n is an even integer"]}}
+{"timestamp_utc": "2026-05-18T10:45:33.515512+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T10:45:33.563785+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T10:45:33.621273+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T10:45:33.631716+00:00", "event_type": "memory_append", "channel": "reference_checks"}
+{"timestamp_utc": "2026-05-18T10:45:57.771361+00:00", "event_type": "memory_append", "channel": "verification_reports"}
+{"timestamp_utc": "2026-05-18T10:46:05.722498+00:00", "event_type": "memory_append", "channel": "verification_reports"}

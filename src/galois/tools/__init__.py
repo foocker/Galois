@@ -1,2 +1,0 @@
-"""Data tooling for Galois."""
-
