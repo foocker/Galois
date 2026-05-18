@@ -162,6 +162,18 @@ def _run_state_path(run_dir: Path) -> Path:
     return run_dir / "run.json"
 
 
+def _run_dir_from_id(runtime_root: Path, run_id: str) -> Path:
+    legacy_run_dir = runtime_root / "runs" / run_id
+    if _run_state_path(legacy_run_dir).exists():
+        return legacy_run_dir
+    projects_dir = runtime_root / "projects"
+    if projects_dir.exists():
+        for candidate in projects_dir.glob(f"*/runs/{run_id}"):
+            if _run_state_path(candidate).exists():
+                return candidate
+    raise FileNotFoundError(run_id)
+
+
 def _events_path(run_dir: Path) -> Path:
     return run_dir / "events.jsonl"
 
@@ -212,8 +224,6 @@ def _copy_runtime_assets(workspace_dir: Path) -> None:
     source = _runtime_asset_dir()
     if not source.exists():
         raise RuntimeError("research runtime assets are missing")
-    if workspace_dir.exists():
-        shutil.rmtree(workspace_dir)
 
     def ignore(_: str, names: list[str]) -> set[str]:
         ignored = {
@@ -225,19 +235,13 @@ def _copy_runtime_assets(workspace_dir: Path) -> None:
             "results",
             "downloads",
             "scripts",
+            "site",
         }
         return {name for name in names if name in ignored or name.endswith(".pyc")}
 
     shutil.copytree(source, workspace_dir, ignore=ignore)
     for name in ("logs", "memory", "results", "downloads", "scripts", "input"):
         (workspace_dir / name).mkdir(parents=True, exist_ok=True)
-
-
-def _copy_tree_contents(source: Path, target: Path) -> None:
-    if not source.exists():
-        return
-    target.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(source, target, dirs_exist_ok=True)
 
 
 def _extract_session_id(output: str) -> str:
@@ -260,14 +264,35 @@ def _read_prompt_files(prompt_dir: Path) -> str:
     return "\n\nAdditional user instructions:\n\n" + "\n\n".join(chunks)
 
 
+def _artifact_dir(run_dir: Path) -> Path:
+    return run_dir / "artifacts"
+
+
 def _public_artifacts(context: ResearchRunContext) -> dict[str, Any]:
-    result_dir = context.results_dir / context.problem_id
-    solution = _read_text(result_dir / "blueprint.md")
-    verified_solution = _read_text(result_dir / "blueprint_verified.md")
+    artifact_dir = _artifact_dir(context.run_dir)
+    solution = _read_text(artifact_dir / "solution.md")
+    verified_solution = _read_text(artifact_dir / "verified_solution.md")
+    if solution is None and verified_solution is None and not _run_state_path(context.run_dir).exists():
+        result_dir = context.results_dir / context.problem_id
+        solution = _read_text(result_dir / "blueprint.md")
+        verified_solution = _read_text(result_dir / "blueprint_verified.md")
     return {
         "solution": {"content": solution} if solution is not None else None,
         "verified_solution": {"content": verified_solution} if verified_solution is not None else None,
     }
+
+
+def _snapshot_artifacts(context: ResearchRunContext) -> None:
+    result_dir = context.results_dir / context.problem_id
+    artifact_dir = _artifact_dir(context.run_dir)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    for source_name, target_name in (
+        ("blueprint.md", "solution.md"),
+        ("blueprint_verified.md", "verified_solution.md"),
+    ):
+        source = result_dir / source_name
+        if source.exists() and source.is_file():
+            shutil.copy2(source, artifact_dir / target_name)
 
 
 def _public_run_payload(context: ResearchRunContext, *, status: str, continued_from: str | None = None) -> dict[str, Any]:
@@ -306,7 +331,7 @@ def _public_project_payload(
 
 
 def _context_from_state(runtime_root: Path, run_id: str) -> ResearchRunContext:
-    run_dir = runtime_root / "runs" / run_id
+    run_dir = _run_dir_from_id(runtime_root, run_id)
     state = _load_json(_run_state_path(run_dir))
     workspace_dir = Path(state.get("workspace_dir", run_dir / "workspace" / "generation"))
     return ResearchRunContext(
@@ -360,7 +385,7 @@ def _write_context_state(context: ResearchRunContext) -> None:
 
 def _new_context(
     *,
-    runtime_root: Path,
+    project_dir: Path,
     project_id: str,
     problem_markdown: str,
     prompt_files: list[RuntimeFile],
@@ -372,9 +397,10 @@ def _new_context(
     continuation_prompt: str | None = None,
 ) -> ResearchRunContext:
     run_id = f"{_utc_stamp()}_{uuid.uuid4().hex[:8]}"
-    run_dir = runtime_root / "runs" / run_id
-    workspace_dir = run_dir / "workspace" / "generation"
-    _copy_runtime_assets(workspace_dir)
+    run_dir = project_dir / "runs" / run_id
+    workspace_dir = project_dir / "workspace" / "generation"
+    if not workspace_dir.exists():
+        _copy_runtime_assets(workspace_dir)
 
     problem_id = project_id
     problem_file = workspace_dir / "data" / f"{problem_id}.md"
@@ -384,6 +410,13 @@ def _new_context(
     problem_file.write_text(problem_markdown, encoding="utf-8")
     _write_runtime_files(prompt_dir, prompt_files)
     _write_runtime_files(reference_dir, references)
+    _snapshot_run_input(
+        run_dir=run_dir,
+        problem_markdown=problem_markdown,
+        prompt_files=prompt_files,
+        references=references,
+        continuation_prompt=continuation_prompt,
+    )
 
     return ResearchRunContext(
         project_id=project_id,
@@ -398,7 +431,7 @@ def _new_context(
         memory_dir=workspace_dir / "memory",
         downloads_dir=workspace_dir / "downloads",
         scripts_dir=workspace_dir / "scripts",
-        logs_dir=workspace_dir / "logs",
+        logs_dir=run_dir / "logs",
         agent_state_file=run_dir / "state" / "agent_state.txt",
         verification_enabled=verification_enabled,
         model=model,
@@ -408,15 +441,21 @@ def _new_context(
     )
 
 
-def _copy_previous_state(runtime_root: Path, previous_run_id: str, context: ResearchRunContext) -> None:
-    previous = _context_from_state(runtime_root, previous_run_id)
-    for source, target in (
-        (previous.results_dir, context.results_dir),
-        (previous.memory_dir, context.memory_dir),
-        (previous.downloads_dir, context.downloads_dir),
-        (previous.scripts_dir, context.scripts_dir),
-    ):
-        _copy_tree_contents(source, target)
+def _snapshot_run_input(
+    *,
+    run_dir: Path,
+    problem_markdown: str,
+    prompt_files: list[RuntimeFile],
+    references: list[RuntimeFile],
+    continuation_prompt: str | None,
+) -> None:
+    input_dir = run_dir / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    (input_dir / "problem.md").write_text(problem_markdown, encoding="utf-8")
+    if continuation_prompt:
+        (input_dir / "continuation.md").write_text(continuation_prompt, encoding="utf-8")
+    _write_runtime_files(input_dir / "prompts", prompt_files)
+    _write_runtime_files(input_dir / "references", references)
 
 
 def _build_agent_prompt(context: ResearchRunContext) -> str:
@@ -491,6 +530,7 @@ def _launch_context(
             _set_run_status(context.run_dir, "running")
             _append_event(context.run_dir, "running", "running")
             launcher(context)
+            _snapshot_artifacts(context)
             _set_run_status(context.run_dir, "succeeded")
             _append_event(context.run_dir, "succeeded", "succeeded")
         except Exception as exc:  # pragma: no cover - async failures are inspected through run state
@@ -534,7 +574,7 @@ def create_app(
         project_dir = runtime_root / "projects" / project_id
         project_dir.mkdir(parents=True, exist_ok=True)
         context = _new_context(
-            runtime_root=runtime_root,
+            project_dir=project_dir,
             project_id=project_id,
             problem_markdown=request.problem.content,
             prompt_files=request.instructions,
@@ -580,7 +620,7 @@ def create_app(
             reasoning_effort=prior_execution.get("reasoning_effort"),
         )
         context = _new_context(
-            runtime_root=runtime_root,
+            project_dir=project_dir,
             project_id=project_id,
             problem_markdown=str(project.get("problem", {}).get("content", "")),
             prompt_files=prompt_files,
@@ -591,7 +631,6 @@ def create_app(
             previous_run_id=previous_run_id,
             continuation_prompt=request.prompt,
         )
-        _copy_previous_state(runtime_root, previous_run_id, context)
         status = _launch_context(context=context, launcher=launcher, run_async=run_async)
         project["latest_run_id"] = context.run_id
         project["instructions"] = _serialize_files(prompt_files)
@@ -633,7 +672,10 @@ def create_app(
 
     @app.get("/v1/runs/{run_id}/events")
     def get_run_events(run_id: str) -> dict[str, Any]:
-        run_dir = runtime_root / "runs" / run_id
+        try:
+            run_dir = _run_dir_from_id(runtime_root, run_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="run not found")
         if not run_dir.exists():
             raise HTTPException(status_code=404, detail="run not found")
         return {

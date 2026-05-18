@@ -147,6 +147,117 @@ def test_v1_continuation_preserves_project_context_and_prior_workspace(tmp_path:
     assert (context.reference_dir / "new.md").read_text(encoding="utf-8") == "New reference."
 
 
+def test_project_workspace_is_reused_across_continuation_runs(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    seen_contexts: list[ResearchRunContext] = []
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        seen_contexts.append(context)
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text(
+            f"# Solution\n\nrun={len(seen_contexts)}",
+            encoding="utf-8",
+        )
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=False)
+    client = TestClient(app)
+
+    created = client.post(
+        "/v1/projects",
+        json={"title": "Reuse workspace", "problem": {"content": "Solve it."}},
+    ).json()
+    continued = client.post(
+        f"/v1/projects/{created['project_id']}/runs",
+        json={"prompt": "Continue the project."},
+    ).json()
+
+    assert len(seen_contexts) == 2
+    assert seen_contexts[0].workspace_dir == seen_contexts[1].workspace_dir
+    assert seen_contexts[0].workspace_dir == tmp_path / "projects" / created["project_id"] / "workspace" / "generation"
+    assert seen_contexts[0].run_dir != seen_contexts[1].run_dir
+    assert seen_contexts[0].run_dir == tmp_path / "projects" / created["project_id"] / "runs" / created["latest_run_id"]
+    assert seen_contexts[1].run_dir == tmp_path / "projects" / created["project_id"] / "runs" / continued["latest_run_id"]
+    assert seen_contexts[0].logs_dir == seen_contexts[0].run_dir / "logs"
+    assert seen_contexts[1].logs_dir == seen_contexts[1].run_dir / "logs"
+
+
+def test_run_artifacts_are_snapshotted_per_run(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    seen_contexts: list[ResearchRunContext] = []
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        seen_contexts.append(context)
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text(
+            f"# Solution\n\nversion={len(seen_contexts)}",
+            encoding="utf-8",
+        )
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=False)
+    client = TestClient(app)
+
+    created = client.post(
+        "/v1/projects",
+        json={"title": "Snapshot project", "problem": {"content": "Solve it."}},
+    ).json()
+    first_run_id = created["latest_run_id"]
+    continued = client.post(
+        f"/v1/projects/{created['project_id']}/runs",
+        json={"prompt": "Revise it."},
+    ).json()
+    second_run_id = continued["latest_run_id"]
+
+    first_artifacts = client.get(f"/v1/runs/{first_run_id}/artifacts").json()
+    second_artifacts = client.get(f"/v1/runs/{second_run_id}/artifacts").json()
+
+    _assert_public_payload_is_backend_neutral(first_artifacts)
+    _assert_public_payload_is_backend_neutral(second_artifacts)
+    assert first_artifacts["artifacts"]["solution"]["content"] == "# Solution\n\nversion=1"
+    assert second_artifacts["artifacts"]["solution"]["content"] == "# Solution\n\nversion=2"
+    assert (tmp_path / "projects" / created["project_id"] / "runs" / first_run_id / "artifacts" / "solution.md").exists()
+    assert (tmp_path / "projects" / created["project_id"] / "runs" / second_run_id / "artifacts" / "solution.md").exists()
+
+
+def test_failed_continuation_does_not_expose_prior_workspace_artifacts(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    seen_contexts: list[ResearchRunContext] = []
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        seen_contexts.append(context)
+        if len(seen_contexts) == 2:
+            raise RuntimeError("second run failed after prior result")
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text("# Solution\n\nversion=1", encoding="utf-8")
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=False)
+    client = TestClient(app)
+
+    created = client.post(
+        "/v1/projects",
+        json={"title": "Failed snapshot project", "problem": {"content": "Solve it."}},
+    ).json()
+    continued = client.post(
+        f"/v1/projects/{created['project_id']}/runs",
+        json={"prompt": "Try a failing continuation."},
+    ).json()
+
+    failed_run_id = continued["latest_run_id"]
+    status = client.get(f"/v1/runs/{failed_run_id}").json()
+    artifacts = client.get(f"/v1/runs/{failed_run_id}/artifacts").json()
+
+    _assert_public_payload_is_backend_neutral(status)
+    _assert_public_payload_is_backend_neutral(artifacts)
+    assert status["status"] == "failed"
+    assert artifacts["artifacts"]["solution"] is None
+    assert artifacts["artifacts"]["verified_solution"] is None
+
+
 def test_default_launcher_runs_vendored_generation_workspace(monkeypatch, tmp_path: Path) -> None:
     from agent_runtime.service import create_app
 

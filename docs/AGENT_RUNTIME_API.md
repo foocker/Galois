@@ -63,8 +63,9 @@ Returns `202` with `project_id`, `latest_run_id`, `status`, `capability`, and li
 
 ### `POST /v1/projects/{project_id}/runs`
 
-Continues an existing project with a new prompt. Prior project instructions, references,
-results, memory, downloads, and scripts are carried into the new run.
+Continues an existing project with a new prompt. Project workspace state is reused
+across runs, including memory, results, downloads, scripts, and current input files.
+Each run keeps its own logs, lifecycle events, input snapshot, and artifact snapshot.
 
 ```json
 {
