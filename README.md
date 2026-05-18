@@ -58,6 +58,7 @@ uv run agent-runtime events <run_id> --json
 ```text
 src/agent_runtime/        CLI 和 HTTP service
 docs/AGENT_RUNTIME_API.md API 合约
+docs/API_ERRORS.md       错误响应约定
 docs/FRONTEND_INTEGRATION.md 前端交互实现说明
 tests/                    接口与运行时测试
 references/Lumen/         底层 agent 资产；不是公共 API

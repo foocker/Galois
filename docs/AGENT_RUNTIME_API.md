@@ -5,6 +5,7 @@ other backend services should depend only on this API contract, not on the concr
 agent implementation behind it.
 
 For product-level UI flows, see `docs/FRONTEND_INTEGRATION.md`.
+For product-facing error codes, see `docs/API_ERRORS.md`.
 
 ## CLI
 

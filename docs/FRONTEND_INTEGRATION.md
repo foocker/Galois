@@ -221,12 +221,15 @@ type RunEvent = {
 
 Frontend should handle:
 
-- `400`: invalid file name or invalid request input.
-- `404`: project or run not found.
+- `not_found`: project or run not found.
+- `insufficient_credits`: show recharge or upgrade action.
+- `busy`: the user or system is temporarily at capacity; keep the input and show retry action.
+- `runtime_failed`: show failure on the run page and allow continue/retry.
+- `internal_error`: show a generic error.
 - Network errors: show retry action.
-- `failed` run status: show generic failure text and offer "continue/retry" with a new prompt.
 
-Do not show internal backend logs or local filesystem paths to end users.
+See `docs/API_ERRORS.md` for the exact error shape. Do not show internal backend
+logs or local filesystem paths to end users.
 
 ## Product Notes
 

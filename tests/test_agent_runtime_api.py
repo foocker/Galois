@@ -404,6 +404,11 @@ def test_failed_continuation_does_not_expose_prior_workspace_artifacts(tmp_path:
     _assert_public_payload_is_backend_neutral(status)
     _assert_public_payload_is_backend_neutral(artifacts)
     assert status["status"] == "failed"
+    assert status["error"] == {
+        "code": "runtime_failed",
+        "message": "The run failed during execution.",
+        "retryable": True,
+    }
     assert artifacts["artifacts"]["solution"] is None
     assert artifacts["artifacts"]["verified_solution"] is None
 
@@ -591,6 +596,33 @@ def test_v1_health_artifacts_events_and_file_validation(tmp_path: Path) -> None:
         },
     )
     assert invalid.status_code == 400
+
+
+def test_error_responses_use_simple_error_contract(tmp_path: Path) -> None:
+    from agent_runtime.service import create_app
+
+    app = create_app(runtime_root=tmp_path, run_async=False)
+    client = TestClient(app)
+
+    project_missing = client.get("/v1/projects/missing-project")
+    run_missing = client.get("/v1/runs/missing-run")
+
+    assert project_missing.status_code == 404
+    assert project_missing.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Project not found.",
+            "retryable": False,
+        }
+    }
+    assert run_missing.status_code == 404
+    assert run_missing.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Run not found.",
+            "retryable": False,
+        }
+    }
 
 
 def test_frontend_config_project_list_project_detail_and_run_history(tmp_path: Path) -> None:

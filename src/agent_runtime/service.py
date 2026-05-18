@@ -30,6 +30,32 @@ DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_REASONING_EFFORT = "high"
 
 
+def _error_payload(code: str, message: str, *, retryable: bool) -> dict[str, Any]:
+    return {
+        "error": {
+            "code": code,
+            "message": message,
+            "retryable": retryable,
+        }
+    }
+
+
+def _not_found(message: str) -> HTTPException:
+    return HTTPException(status_code=404, detail=_error_payload("not_found", message, retryable=False))
+
+
+def _internal_error(message: str = "Request failed.") -> dict[str, Any]:
+    return _error_payload("internal_error", message, retryable=False)
+
+
+def _runtime_failed_error() -> dict[str, Any]:
+    return {
+        "code": "runtime_failed",
+        "message": "The run failed during execution.",
+        "retryable": True,
+    }
+
+
 class RuntimeFile(BaseModel):
     name: str = Field(..., min_length=1)
     content: str = ""
@@ -203,7 +229,9 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    temp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temp_path.replace(path)
 
 
 def _append_event(run_dir: Path, event_type: str, status: str, message: str | None = None) -> None:
@@ -409,7 +437,7 @@ def _prepare_run_directory(context: ResearchRunContext) -> None:
 
 
 def _public_run_payload(context: ResearchRunContext, *, status: str, continued_from: str | None = None) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "project_id": context.project_id,
         "run_id": context.run_id,
         "status": status,
@@ -417,6 +445,9 @@ def _public_run_payload(context: ResearchRunContext, *, status: str, continued_f
         "continued_from": continued_from,
         "artifacts": _public_artifacts(context),
     }
+    if status == "failed":
+        payload["error"] = _runtime_failed_error()
+    return payload
 
 
 def _public_project_payload(
@@ -788,6 +819,17 @@ def create_app(
     scheduler = RuntimeScheduler(max_concurrency=max_concurrency) if run_async else None
     app = FastAPI(title="Research Runtime API", version="0.1.0")
 
+    @app.exception_handler(HTTPException)
+    def http_exception_handler(_: Any, exc: HTTPException) -> Any:
+        from fastapi.responses import JSONResponse
+
+        if isinstance(exc.detail, dict) and "error" in exc.detail:
+            return JSONResponse(status_code=exc.status_code, content=exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=_internal_error(),
+        )
+
     @app.get("/v1/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "capability": CAPABILITY}
@@ -824,7 +866,7 @@ def create_app(
         try:
             project_dir = _project_dir_from_id(runtime_root, project_id)
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="project not found") from exc
+            raise _not_found("Project not found.") from exc
         return _public_project_detail(runtime_root, project_dir)
 
     @app.get("/v1/projects/{project_id}/runs")
@@ -832,7 +874,7 @@ def create_app(
         try:
             project_dir = _project_dir_from_id(runtime_root, project_id)
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="project not found") from exc
+            raise _not_found("Project not found.") from exc
         runs_dir = project_dir / "runs"
         runs = [
             _public_run_history_item(runtime_root, run_dir)
@@ -882,7 +924,7 @@ def create_app(
         try:
             project = _load_json(_project_state_path(project_dir))
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="project not found") from exc
+            raise _not_found("Project not found.") from exc
         previous_run_id = str(project["latest_run_id"])
         prompt_files = _merge_runtime_files(_load_runtime_files(project.get("instructions")), request.instructions)
         references = _merge_runtime_files(_load_runtime_files(project.get("references")), request.references)
@@ -924,7 +966,7 @@ def create_app(
             context = _context_from_state(runtime_root, run_id)
             state = _load_json(_run_state_path(context.run_dir))
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="run not found") from exc
+            raise _not_found("Run not found.") from exc
         return _public_run_payload(
             context,
             status=str(state.get("status", "unknown")),
@@ -936,7 +978,7 @@ def create_app(
         try:
             context = _context_from_state(runtime_root, run_id)
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="run not found") from exc
+            raise _not_found("Run not found.") from exc
         return {
             "run_id": run_id,
             "capability": CAPABILITY,
@@ -948,9 +990,9 @@ def create_app(
         try:
             context = _context_from_state(runtime_root, run_id)
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="run not found")
+            raise _not_found("Run not found.") from exc
         if not context.run_dir.exists():
-            raise HTTPException(status_code=404, detail="run not found")
+            raise _not_found("Run not found.")
         return {
             "run_id": run_id,
             "capability": CAPABILITY,

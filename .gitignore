@@ -36,4 +36,5 @@ tmp/
 .vscode/
 .cache/
 .research-runtime/
+.research-runtime-real-concurrency/
 .claude/
