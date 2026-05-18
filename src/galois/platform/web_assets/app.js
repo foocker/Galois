@@ -1610,7 +1610,53 @@ function resolveSnapshotDocuments(snapshot) {
     outputKind: snapshot.output?.kind || null,
     verified: Boolean(snapshot.output?.verified),
     verification: snapshot.output?.verification || null,
+    problemMeta: snapshot.problem_input?.meta || null,
+    canonicalContent: snapshot.problem_input?.canonical_content || null,
+    references: Array.isArray(snapshot.problem_input?.references) ? snapshot.problem_input.references : [],
+    sessionId: snapshot.session_id || null,
   };
+}
+
+function renderProblemMetaBadges(documents) {
+  const badges = [];
+  if (documents.problemMeta?.translated_from_source) {
+    const source = documents.problemMeta.source_language || 'non-english';
+    badges.push(`<span class="meta-badge meta-badge--translated">translated · ${escapeHtml(source)} → english</span>`);
+  } else if (documents.problemMeta?.source_language) {
+    badges.push(`<span class="meta-badge">${escapeHtml(documents.problemMeta.source_language)}</span>`);
+  }
+  if (Array.isArray(documents.problemMeta?.tags)) {
+    for (const tag of documents.problemMeta.tags) {
+      badges.push(`<span class="meta-badge meta-badge--tag">${escapeHtml(String(tag))}</span>`);
+    }
+  }
+  if (documents.problemMeta?.reference_dir) {
+    const count = documents.references.length;
+    badges.push(`<span class="meta-badge meta-badge--refs">references · ${count}</span>`);
+  }
+  if (documents.sessionId) {
+    badges.push(`<span class="meta-badge meta-badge--session" title="${escapeHtml(documents.sessionId)}">session · ${escapeHtml(documents.sessionId.slice(0, 8))}…</span>`);
+  }
+  if (!badges.length) return '';
+  return `<div class="meta-badge-row">${badges.join('')}</div>`;
+}
+
+function renderReferencePanel(documents) {
+  if (!documents.references.length) return '';
+  const items = documents.references
+    .map((ref) => {
+      const label = `${escapeHtml(ref.name)} <small>(${escapeHtml(ref.kind)}, ${(ref.size / 1024).toFixed(1)} KB)</small>`;
+      if (ref.kind === 'pdf') {
+        const note = ref.extracted ? ' · text extracted' : ' · no text extraction';
+        return `<li>${label}${escapeHtml(note)}</li>`;
+      }
+      if (ref.content) {
+        return `<li><details><summary>${label}</summary><pre>${escapeHtml(ref.content)}</pre></details></li>`;
+      }
+      return `<li>${label}</li>`;
+    })
+    .join('');
+  return `<details class="reference-panel"><summary>${escapeHtml(translate('output.references') || 'References')} (${documents.references.length})</summary><ul>${items}</ul></details>`;
 }
 
 function renderVerificationBadge(documents) {
@@ -1670,9 +1716,11 @@ function renderSnapshot(snapshot) {
     elements.proofSheet.hidden = false;
     elements.copyProofMarkdown.disabled = false;
     elements.copyProofMarkdown.textContent = translate('actions.copyProofMarkdown');
+    const meta = renderProblemMetaBadges(documents);
+    const refs = renderReferencePanel(documents);
     const badge = renderVerificationBadge(documents);
     const report = renderVerificationReport(documents.verification);
-    elements.output.innerHTML = badge + renderMarkdownLite(documents.proofContent) + report;
+    elements.output.innerHTML = meta + refs + badge + renderMarkdownLite(documents.proofContent) + report;
     renderMath(elements.output);
   } else {
     state.proofMarkdown = '';

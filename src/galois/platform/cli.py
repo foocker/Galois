@@ -438,6 +438,9 @@ def _copy_problem_artifacts(run_dir: Path, problem: ProblemInput, repo_root: Pat
     if source_path.exists():
         (problem_dir / "source_statement.md").write_text(source_text, encoding="utf-8")
         (problem_dir / "statement.md").write_text(canonical_statement, encoding="utf-8")
+    reference_dir_path = _prepare_reference_dir(source_path)
+    if reference_dir_path is not None:
+        problem.reference_dir = str(reference_dir_path)
     payload = {
         "problem_id": problem.problem_id,
         "title": problem.title,
@@ -446,11 +449,46 @@ def _copy_problem_artifacts(run_dir: Path, problem: ProblemInput, repo_root: Pat
         "source_language": source_language,
         "canonical_language": "english",
         "translated_from_source": translated_from_source,
+        "reference_dir": problem.reference_dir,
     }
     (problem_dir / "meta.json").write_text(
         json.dumps(sanitize_for_run_artifact(payload, run_dir=run_dir), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def _prepare_reference_dir(source_path: Path) -> Path | None:
+    """Discover and prepare a Rethlas-style reference directory.
+
+    Convention from upstream: a problem at `<dir>/<name>.md` may have a sibling
+    `<dir>/<name>.refs/` directory holding `.md`, `.tex`, `.txt`, and `.pdf`
+    references. PDFs are pre-extracted to `.txt` files under
+    `<refs>/.extracted/` so the agent can read text rather than binary.
+    """
+    if not source_path.exists():
+        return None
+    refs = source_path.with_suffix(".refs")
+    if not refs.exists() or not refs.is_dir():
+        return None
+    pdftotext = shutil.which("pdftotext")
+    extracted_dir = refs / ".extracted"
+    if pdftotext is not None:
+        for pdf in refs.rglob("*.pdf"):
+            try:
+                pdf.relative_to(extracted_dir)
+                continue
+            except ValueError:
+                pass
+            relative = pdf.relative_to(refs).with_suffix(".txt")
+            target = extracted_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists() or pdf.stat().st_mtime > target.stat().st_mtime:
+                subprocess.run(
+                    [pdftotext, "-layout", str(pdf), str(target)],
+                    check=False,
+                    capture_output=True,
+                )
+    return refs.resolve()
 
 
 def _resolve_run_feature_flags(

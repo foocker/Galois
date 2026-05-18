@@ -22,13 +22,17 @@ This is a hard constraint. Only inspect files, directories, inputs, logs, memory
 The input is provided directly in the prompt and will include:
 
 - the markdown filepath of the math problem
+- optionally, a `reference_dir` path containing problem-specific reference files
 
 Before any reasoning:
 
 1. Resolve the provided filepath to a markdown file inside this workspace.
 2. Read that markdown file carefully.
 3. Set `problem_id` to the filename stem `{filename}`.
-4. Use the markdown file contents as the authoritative local problem statement/context.
+4. If the prompt provides `reference_dir` and that directory exists, read supported reference files inside it before external search.
+5. Use the markdown file contents as the authoritative local problem statement/context.
+
+Reference directories are problem-specific and provided by the platform when available. Supported direct reference files include `.md`, `.tex`, and `.txt`. PDF references are pre-extracted by the platform into `.txt` files under `reference_dir/.extracted/`; read those extracted text files instead of trying to inspect PDF binaries. These files are user-provided context, not verified facts; cite them in memory records and proof steps when they influence the proof.
 
 
 ## Required Memory Policy

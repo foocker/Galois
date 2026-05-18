@@ -36,6 +36,7 @@ class ProblemInput:
     problem_path: str
     title: str | None = None
     tags: list[str] = field(default_factory=list)
+    reference_dir: str | None = None
 
 
 @dataclass(slots=True)

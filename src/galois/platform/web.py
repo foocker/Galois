@@ -388,21 +388,86 @@ def _citation_lookup_service(cache_dir: Path) -> CitationLookupService:
 
 
 def _problem_payload(run_dir: Path) -> dict[str, Any] | None:
-    for problem_path in (run_dir / "problem" / "source_statement.md", run_dir / "problem" / "statement.md"):
+    meta = _safe_json(run_dir / "problem" / "meta.json", {}) or {}
+    source_path = run_dir / "problem" / "source_statement.md"
+    canonical_path = run_dir / "problem" / "statement.md"
+    references = _list_reference_files(meta.get("reference_dir") if isinstance(meta, dict) else None)
+
+    base: dict[str, Any] | None = None
+    for problem_path in (source_path, canonical_path):
         if problem_path.exists():
-            return {
+            base = {
                 "kind": problem_path.stem,
                 "path": str(problem_path),
                 "content": problem_path.read_text(encoding="utf-8"),
             }
-    writing_input = run_dir / "writing" / "input.md"
-    if writing_input.exists():
-        return {
-            "kind": "writing_input",
-            "path": str(writing_input),
-            "content": writing_input.read_text(encoding="utf-8"),
+            break
+    if base is None:
+        writing_input = run_dir / "writing" / "input.md"
+        if writing_input.exists():
+            base = {
+                "kind": "writing_input",
+                "path": str(writing_input),
+                "content": writing_input.read_text(encoding="utf-8"),
+            }
+    if base is None and not meta and not references:
+        return None
+    if base is None:
+        base = {}
+
+    if isinstance(meta, dict) and meta:
+        base["meta"] = {
+            "title": meta.get("title"),
+            "tags": meta.get("tags") or [],
+            "source_language": meta.get("source_language"),
+            "canonical_language": meta.get("canonical_language"),
+            "translated_from_source": bool(meta.get("translated_from_source")),
+            "reference_dir": meta.get("reference_dir"),
         }
-    return None
+        if canonical_path.exists() and source_path.exists() and canonical_path.read_bytes() != source_path.read_bytes():
+            base["canonical_content"] = canonical_path.read_text(encoding="utf-8")
+    if references:
+        base["references"] = references
+    return base
+
+
+def _list_reference_files(reference_dir: str | None) -> list[dict[str, Any]]:
+    if not reference_dir:
+        return []
+    base = Path(reference_dir)
+    if not base.exists() or not base.is_dir():
+        return []
+    entries: list[dict[str, Any]] = []
+    for path in sorted(base.rglob("*")):
+        if not path.is_file():
+            continue
+        try:
+            relative = path.relative_to(base)
+        except ValueError:
+            continue
+        if relative.parts and relative.parts[0] == ".extracted":
+            continue
+        suffix = path.suffix.lower()
+        kind = (
+            "pdf"
+            if suffix == ".pdf"
+            else ("text" if suffix in {".md", ".tex", ".txt"} else "other")
+        )
+        entry: dict[str, Any] = {
+            "name": str(relative),
+            "kind": kind,
+            "size": path.stat().st_size,
+        }
+        if suffix == ".pdf":
+            extracted = base / ".extracted" / relative.with_suffix(".txt")
+            entry["extracted"] = str(extracted) if extracted.exists() else None
+        if suffix in {".md", ".tex", ".txt"} and path.stat().st_size <= 200_000:
+            try:
+                entry["content"] = path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                pass
+        entries.append(entry)
+    return entries
 
 
 def read_run_snapshot(run_root: Path, run_id: str, project_root: Path | None = None) -> dict[str, Any]:
@@ -417,6 +482,8 @@ def read_run_snapshot(run_root: Path, run_id: str, project_root: Path | None = N
     output = _output_payload(run_dir)
     problem_input = _problem_payload(run_dir)
 
+    session_path = run_dir / "reasoning" / "session.txt"
+    session_id = session_path.read_text(encoding="utf-8").strip() if session_path.exists() else None
     return {
         "run_id": manifest.get("run_id", run_dir.name),
         "run_dir": str(run_dir),
@@ -430,6 +497,7 @@ def read_run_snapshot(run_root: Path, run_id: str, project_root: Path | None = N
         "subagents": subagents,
         "problem_input": problem_input,
         "output": output,
+        "session_id": session_id,
     }
 
 

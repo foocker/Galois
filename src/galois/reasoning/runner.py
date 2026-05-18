@@ -187,6 +187,7 @@ def _build_prompts(
     log_dir: Path,
     verification_enabled: bool,
     verification_mode: str,
+    reference_dir: str = "",
 ) -> tuple[str, str]:
     guard = OPEN_PROBLEM_GUARD.format(problem_id=problem_id)
     runtime_scope = (
@@ -196,6 +197,12 @@ def _build_prompts(
         f"memory artifacts under {memory_dir / problem_id}/. Static protocol assets stay under {asset_root}; do not copy them "
         f"into {runtime_root}."
     )
+    if reference_dir:
+        runtime_scope += (
+            f" reference_dir={reference_dir} is available; read supported reference files (.md, .tex, .txt) inside it before "
+            f"external search. PDFs there are pre-extracted to {reference_dir}/.extracted/*.txt — read those text files instead "
+            f"of the PDFs. Cite reference paths in memory records and proof steps when they influence the proof."
+        )
     blueprint_contract = (
         f" The primary deliverable for this run is {results_dir / problem_id / 'blueprint.md'}. "
         "Write it as a polished, self-contained final document, not a lab notebook. "
@@ -454,6 +461,7 @@ def run_reasoning_resume(
     downloads_dir = Path(runtime_env.get("DOWNLOADS_DIR", str(runtime_root / "downloads")))
     scripts_dir = Path(runtime_env.get("SCRIPTS_DIR", str(runtime_root / "scripts")))
     repair_input_file = runtime_env.get("REPAIR_INPUT_FILE", "")
+    reference_dir = runtime_env.get("GALOIS_REASONING_REFERENCE_DIR", "")
     verification_enabled = not _bool_false(runtime_env.get("GALOIS_REASONING_VERIFICATION_ENABLED", "1"))
     verification_mode = runtime_env.get("GALOIS_REASONING_VERIFICATION_MODE", "agent")
     model = runtime_env.get("MODEL", DEFAULT_MODEL)
@@ -494,6 +502,7 @@ def run_reasoning_resume(
         log_dir=log_dir,
         verification_enabled=verification_enabled,
         verification_mode=verification_mode,
+        reference_dir=reference_dir,
     )
     mode, prompt, codex_args, resume_id = _resolve_mode(
         resume=resume,

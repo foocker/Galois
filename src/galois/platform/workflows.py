@@ -74,6 +74,8 @@ def build_reasoning_launch(
         **_venv_path_prefix_env(),
         **model_runtime_environment(config),
     }
+    if problem.reference_dir:
+        environment["GALOIS_REASONING_REFERENCE_DIR"] = problem.reference_dir
     if run_dir is not None:
         runtime_dir = reasoning_workspace_dir(run_dir)
         environment.update(
