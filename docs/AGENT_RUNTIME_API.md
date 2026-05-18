@@ -4,6 +4,8 @@ This branch exposes a backend-neutral math research runtime. Frontend clients an
 other backend services should depend only on this API contract, not on the concrete
 agent implementation behind it.
 
+For product-level UI flows, see `docs/FRONTEND_INTEGRATION.md`.
+
 ## CLI
 
 ```bash
@@ -37,6 +39,97 @@ Returns:
 
 ```json
 { "status": "ok", "capability": "math_research" }
+```
+
+### `GET /v1/config`
+
+Returns frontend-selectable runtime options:
+
+```json
+{
+  "capability": "math_research",
+  "models": ["gpt-5.5", "gpt-5.4"],
+  "reasoning_efforts": ["low", "medium", "high", "xhigh"],
+  "defaults": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "high",
+    "verification": true
+  },
+  "limits": {
+    "max_concurrency": 2
+  }
+}
+```
+
+### `GET /v1/projects`
+
+Returns project summaries for list pages:
+
+```json
+{
+  "capability": "math_research",
+  "projects": [
+    {
+      "project_id": "compactness-problem",
+      "latest_run_id": "...",
+      "status": "succeeded",
+      "capability": "math_research",
+      "title": "Compactness problem",
+      "continued_from": null,
+      "links": {
+        "run": "/v1/runs/...",
+        "artifacts": "/v1/runs/.../artifacts",
+        "events": "/v1/runs/.../events"
+      }
+    }
+  ]
+}
+```
+
+### `GET /v1/projects/{project_id}`
+
+Returns project detail for refresh/re-entry:
+
+```json
+{
+  "project_id": "compactness-problem",
+  "latest_run_id": "...",
+  "status": "succeeded",
+  "capability": "math_research",
+  "title": "Compactness problem",
+  "continued_from": null,
+  "problem": { "format": "markdown", "content": "Prove that ..." },
+  "execution": {
+    "verification": true,
+    "model": "gpt-5.5",
+    "reasoning_effort": "high"
+  },
+  "instructions": [{ "name": "strategy.md" }],
+  "references": [{ "name": "notes.md" }]
+}
+```
+
+### `GET /v1/projects/{project_id}/runs`
+
+Returns run history in creation order:
+
+```json
+{
+  "project_id": "compactness-problem",
+  "capability": "math_research",
+  "runs": [
+    {
+      "run_id": "...",
+      "status": "succeeded",
+      "continued_from": null,
+      "links": {
+        "run": "/v1/runs/...",
+        "artifacts": "/v1/runs/.../artifacts",
+        "events": "/v1/runs/.../events"
+      }
+    }
+  ]
+}
 ```
 
 ### `POST /v1/projects`

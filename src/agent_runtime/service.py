@@ -24,6 +24,10 @@ SUPPORTED_PROMPT_SUFFIXES = {".md", ".markdown", ".txt", ".tex"}
 STATIC_WORKSPACE_ENTRIES = ("AGENTS.md", ".agents", ".codex", "tests")
 WRITABLE_WORKSPACE_DIRS = ("data", "input", "memory", "results", "downloads", "scripts", "logs")
 RUN_SHARED_ENTRIES = ("memory", "results", "downloads", "scripts")
+SUPPORTED_MODELS = ("gpt-5.5", "gpt-5.4")
+SUPPORTED_REASONING_EFFORTS = ("low", "medium", "high", "xhigh")
+DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_REASONING_EFFORT = "high"
 
 
 class RuntimeFile(BaseModel):
@@ -439,6 +443,71 @@ def _public_project_payload(
     }
 
 
+def _project_dir_from_id(runtime_root: Path, project_id: str) -> Path:
+    project_dir = runtime_root / "projects" / project_id
+    if not _project_state_path(project_dir).exists():
+        raise FileNotFoundError(project_id)
+    return project_dir
+
+
+def _run_status(run_dir: Path) -> str:
+    try:
+        return str(_load_json(_run_state_path(run_dir)).get("status", "unknown"))
+    except FileNotFoundError:
+        return "unknown"
+
+
+def _latest_run_context(runtime_root: Path, project: dict[str, Any]) -> ResearchRunContext:
+    return _context_from_state(runtime_root, str(project["latest_run_id"]))
+
+
+def _public_project_summary(runtime_root: Path, project_dir: Path) -> dict[str, Any]:
+    project = _load_json(_project_state_path(project_dir))
+    context = _latest_run_context(runtime_root, project)
+    status = _run_status(context.run_dir)
+    return _public_project_payload(
+        project_id=str(project["project_id"]),
+        latest_run_id=str(project["latest_run_id"]),
+        status=status,
+        title=project.get("title"),
+        continued_from=context.previous_run_id,
+    )
+
+
+def _public_project_detail(runtime_root: Path, project_dir: Path) -> dict[str, Any]:
+    project = _load_json(_project_state_path(project_dir))
+    summary = _public_project_summary(runtime_root, project_dir)
+    return {
+        **summary,
+        "problem": project.get("problem"),
+        "execution": project.get("execution"),
+        "instructions": [{"name": item.get("name", "")} for item in project.get("instructions", []) if isinstance(item, dict)],
+        "references": [{"name": item.get("name", "")} for item in project.get("references", []) if isinstance(item, dict)],
+    }
+
+
+def _public_run_history_item(runtime_root: Path, run_dir: Path) -> dict[str, Any]:
+    context = _context_from_state(runtime_root, run_dir.name)
+    status = _run_status(context.run_dir)
+    return {
+        "run_id": context.run_id,
+        "status": status,
+        "continued_from": context.previous_run_id,
+        "links": {
+            "run": f"/v1/runs/{context.run_id}",
+            "artifacts": f"/v1/runs/{context.run_id}/artifacts",
+            "events": f"/v1/runs/{context.run_id}/events",
+        },
+    }
+
+
+def _run_created_at(run_dir: Path) -> str:
+    events = _read_events(run_dir)
+    if events:
+        return str(events[0].get("created_at", ""))
+    return ""
+
+
 def _context_from_state(runtime_root: Path, run_id: str) -> ResearchRunContext:
     run_dir = _run_dir_from_id(runtime_root, run_id)
     state = _load_json(_run_state_path(run_dir))
@@ -722,6 +791,55 @@ def create_app(
     @app.get("/v1/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "capability": CAPABILITY}
+
+    @app.get("/v1/config")
+    def config() -> dict[str, Any]:
+        return {
+            "capability": CAPABILITY,
+            "models": list(SUPPORTED_MODELS),
+            "reasoning_efforts": list(SUPPORTED_REASONING_EFFORTS),
+            "defaults": {
+                "model": DEFAULT_MODEL,
+                "reasoning_effort": DEFAULT_REASONING_EFFORT,
+                "verification": True,
+            },
+            "limits": {
+                "max_concurrency": max_concurrency,
+            },
+        }
+
+    @app.get("/v1/projects")
+    def list_projects() -> dict[str, Any]:
+        projects_dir = runtime_root / "projects"
+        projects: list[dict[str, Any]] = []
+        if projects_dir.exists():
+            for project_dir in sorted(projects_dir.iterdir(), key=lambda path: path.name):
+                if not project_dir.is_dir() or not _project_state_path(project_dir).exists():
+                    continue
+                projects.append(_public_project_summary(runtime_root, project_dir))
+        return {"capability": CAPABILITY, "projects": projects}
+
+    @app.get("/v1/projects/{project_id}")
+    def get_project(project_id: str) -> dict[str, Any]:
+        try:
+            project_dir = _project_dir_from_id(runtime_root, project_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="project not found") from exc
+        return _public_project_detail(runtime_root, project_dir)
+
+    @app.get("/v1/projects/{project_id}/runs")
+    def list_project_runs(project_id: str) -> dict[str, Any]:
+        try:
+            project_dir = _project_dir_from_id(runtime_root, project_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="project not found") from exc
+        runs_dir = project_dir / "runs"
+        runs = [
+            _public_run_history_item(runtime_root, run_dir)
+            for run_dir in sorted(runs_dir.iterdir(), key=lambda path: (_run_created_at(path), path.name))
+            if run_dir.is_dir() and _run_state_path(run_dir).exists()
+        ] if runs_dir.exists() else []
+        return {"project_id": project_id, "capability": CAPABILITY, "runs": runs}
 
     @app.post("/v1/projects", status_code=202)
     def create_project(request: ProjectCreateRequest) -> dict[str, Any]:

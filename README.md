@@ -41,6 +41,10 @@ uv run agent-runtime events <run_id> --json
 服务默认地址：`http://127.0.0.1:8765`
 
 - `GET /v1/health`
+- `GET /v1/config`
+- `GET /v1/projects`
+- `GET /v1/projects/{project_id}`
+- `GET /v1/projects/{project_id}/runs`
 - `POST /v1/projects`
 - `POST /v1/projects/{project_id}/runs`
 - `GET /v1/runs/{run_id}`
@@ -54,6 +58,7 @@ uv run agent-runtime events <run_id> --json
 ```text
 src/agent_runtime/        CLI 和 HTTP service
 docs/AGENT_RUNTIME_API.md API 合约
+docs/FRONTEND_INTEGRATION.md 前端交互实现说明
 tests/                    接口与运行时测试
 references/Lumen/         底层 agent 资产；不是公共 API
 ```

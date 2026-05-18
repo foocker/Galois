@@ -593,6 +593,86 @@ def test_v1_health_artifacts_events_and_file_validation(tmp_path: Path) -> None:
     assert invalid.status_code == 400
 
 
+def test_frontend_config_project_list_project_detail_and_run_history(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text(
+            f"# Solution\n\nrun={context.run_id}",
+            encoding="utf-8",
+        )
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=False, max_concurrency=3)
+    client = TestClient(app)
+
+    config = client.get("/v1/config")
+    assert config.status_code == 200
+    config_payload = config.json()
+    _assert_public_payload_is_backend_neutral(config_payload)
+    assert config_payload["capability"] == "math_research"
+    assert "gpt-5.5" in config_payload["models"]
+    assert "high" in config_payload["reasoning_efforts"]
+    assert config_payload["defaults"]["verification"] is True
+    assert config_payload["limits"]["max_concurrency"] == 3
+
+    created = client.post(
+        "/v1/projects",
+        json={
+            "title": "Frontend project",
+            "problem": {"content": "Solve it."},
+            "instructions": [{"name": "strategy.md", "content": "Use direct proof."}],
+            "references": [{"name": "note.md", "content": "Reference note."}],
+            "execution": {"verification": False, "model": "gpt-5.5", "reasoning_effort": "high"},
+        },
+    ).json()
+    continued = client.post(
+        f"/v1/projects/{created['project_id']}/runs",
+        json={"prompt": "Continue it."},
+    ).json()
+
+    projects = client.get("/v1/projects")
+    assert projects.status_code == 200
+    projects_payload = projects.json()
+    _assert_public_payload_is_backend_neutral(projects_payload)
+    assert projects_payload["projects"] == [
+        {
+            "project_id": "frontend-project",
+            "latest_run_id": continued["latest_run_id"],
+            "status": "succeeded",
+            "capability": "math_research",
+            "title": "Frontend project",
+            "continued_from": created["latest_run_id"],
+            "links": {
+                "run": f"/v1/runs/{continued['latest_run_id']}",
+                "artifacts": f"/v1/runs/{continued['latest_run_id']}/artifacts",
+                "events": f"/v1/runs/{continued['latest_run_id']}/events",
+            },
+        }
+    ]
+
+    detail = client.get(f"/v1/projects/{created['project_id']}")
+    assert detail.status_code == 200
+    detail_payload = detail.json()
+    _assert_public_payload_is_backend_neutral(detail_payload)
+    assert detail_payload["project_id"] == created["project_id"]
+    assert detail_payload["title"] == "Frontend project"
+    assert detail_payload["latest_run_id"] == continued["latest_run_id"]
+    assert detail_payload["problem"]["format"] == "markdown"
+    assert detail_payload["execution"] == {"verification": False, "model": "gpt-5.5", "reasoning_effort": "high"}
+
+    history = client.get(f"/v1/projects/{created['project_id']}/runs")
+    assert history.status_code == 200
+    history_payload = history.json()
+    _assert_public_payload_is_backend_neutral(history_payload)
+    assert history_payload["project_id"] == created["project_id"]
+    assert [run["run_id"] for run in history_payload["runs"]] == [created["latest_run_id"], continued["latest_run_id"]]
+    assert [run["status"] for run in history_payload["runs"]] == ["succeeded", "succeeded"]
+    assert history_payload["runs"][0]["continued_from"] is None
+    assert history_payload["runs"][1]["continued_from"] == created["latest_run_id"]
+
+
 def test_failure_events_remain_backend_neutral(tmp_path: Path) -> None:
     from agent_runtime.service import ResearchRunContext, create_app
 
