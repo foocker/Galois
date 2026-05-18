@@ -180,6 +180,7 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert "frontier" in response.text
     assert 'class="paper-writing-view app-view" data-view="paper-writing"' in response.text
     assert 'id="paper-submit-button"' in response.text
+    assert 'id="paper-authors-input"' in response.text
     assert 'id="paper-draft"' in response.text
     assert 'id="paper-draft-preview"' in response.text
     assert 'data-paper-edit-target="draft"' in response.text
@@ -203,6 +204,9 @@ def test_index_contains_current_product_views(tmp_path: Path) -> None:
     assert 'id="paper-theorem"' not in response.text
     assert 'id="paper-proof"' not in response.text
     assert 'id="paper-status-pill"' in response.text
+    assert 'id="paper-continue-panel"' in response.text
+    assert 'id="paper-continue-feedback"' in response.text
+    assert 'id="paper-continue-submit"' in response.text
     assert 'id="paper-run-id"' not in response.text
     assert 'id="paper-run-pipeline"' not in response.text
     assert 'data-paper-output="manuscript_draft"' not in response.text
@@ -375,6 +379,7 @@ def test_writing_project_api_creates_independent_writing_run(monkeypatch, tmp_pa
         "/api/writing/projects",
         json={
             "title": "Compactness paper",
+            "authors": "A. Student and B. Advisor",
             "project_type": "paper",
             "draft_markdown": "We prove the result.",
             "references_markdown": "@article{sample, title={Sample}}",
@@ -406,11 +411,104 @@ def test_writing_project_api_creates_independent_writing_run(monkeypatch, tmp_pa
     assert "## References" in input_text
     assert "@article{sample" in input_text
     assert "## Writing Parameters" in input_text
+    assert "## Authors" in input_text
+    assert "A. Student and B. Advisor" in input_text
     assert "min_references: 5" in input_text
     assert "max_references: 12" in input_text
     assert "min_pages: 6" in input_text
     assert "max_pages: 10" in input_text
     assert "review_rounds: 2" in input_text
+
+
+def test_writing_project_api_continues_from_previous_manuscript(monkeypatch, tmp_path: Path) -> None:
+    from galois.platform import web
+    from galois.platform.contracts import PipelinePreset, ProblemInput, RunManifest, RunStatus, WorkflowKind
+    from galois.platform.run_registry import write_manifest
+
+    config_path = tmp_path / "config.toml"
+    run_root = tmp_path / "runs"
+    _write_config(config_path, run_root)
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example.test/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    launches = []
+
+    def fake_start_run_thread(**kwargs):
+      launches.append(kwargs)
+
+    monkeypatch.setattr(web, "_start_run_thread", fake_start_run_thread)
+
+    previous_run = run_root / "previous-writing-run"
+    previous_writing = previous_run / "writing"
+    previous_writing.mkdir(parents=True)
+    write_manifest(
+        previous_run,
+        RunManifest(
+            run_id="previous-writing-run",
+            problem=ProblemInput(
+                problem_id="compactness-paper",
+                problem_path=str(previous_run / "writing" / "input.md"),
+                title="Compactness paper",
+            ),
+            backend="codex",
+            model="gpt-5.4",
+            model_reasoning_effort="xhigh",
+            status=RunStatus.SUCCEEDED,
+            pipeline=PipelinePreset.WRITING_ONLY,
+            workflows=[WorkflowKind.WRITING],
+        ),
+    )
+    (previous_run / "writing" / "input.md").write_text(
+        "\n".join(
+            [
+                "# Galois Paper Writing Request",
+                "",
+                "## Authors",
+                "",
+                "A. Student",
+                "",
+                "## Draft",
+                "",
+                "Initial draft.",
+                "",
+                "## References",
+                "",
+                "@article{banach1932, title={Theory}}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (previous_writing / "manuscript_draft_r1.md").write_text("# Compactness\n\nA first manuscript.", encoding="utf-8")
+    (previous_writing / "citation_report_r1.md").write_text("# References\n\n1. Banach.", encoding="utf-8")
+    (previous_writing / "review_report_r1.md").write_text("# Review\n\nNeeds citations.", encoding="utf-8")
+    (previous_writing / "revision_tasks_r1.json").write_text('{"tasks":[{"title":"Add citations"}]}\n', encoding="utf-8")
+
+    client = TestClient(web.create_app(config_path=config_path))
+    response = client.post(
+        "/api/writing/projects/previous-writing-run/continue",
+        json={
+            "feedback": "Polish the introduction and cite Banach inline.",
+            "manuscript_markdown": "# Compactness\n\nEdited manuscript body.",
+            "model": "gpt-5.4",
+        },
+    )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["continued_from"] == "previous-writing-run"
+    assert payload["pipeline"] == "writing-only"
+    assert launches
+    launch = launches[0]["launches"][0]
+    assert launch.kind.value == "writing"
+    input_text = Path(payload["input_path"]).read_text(encoding="utf-8")
+    assert "## Continuation Feedback" in input_text
+    assert "Polish the introduction and cite Banach inline." in input_text
+    assert "## Current Edited Manuscript" in input_text
+    assert "Edited manuscript body." in input_text
+    assert "## Previous Manuscript" in input_text
+    assert "A first manuscript." in input_text
+    assert "## Previous Citation Report" in input_text
+    assert "1. Banach." in input_text
 
 
 def test_problem_garden_api_lists_filters_and_details(monkeypatch, tmp_path: Path) -> None:

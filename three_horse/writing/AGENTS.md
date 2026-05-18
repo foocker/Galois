@@ -29,6 +29,8 @@ The input is a Markdown file that may contain:
 - title or research problem;
 - a single `Draft` section containing a theorem, proof draft, rough notes, or manuscript text;
 - a `References` section containing BibTeX, arXiv IDs, DOI lists, seed papers, or literature notes;
+- an `Authors` section;
+- continuation feedback plus previous manuscript, citation, review, and revision-task artifacts;
 - reviewer comments;
 - target journal instructions.
 
@@ -48,6 +50,9 @@ Always write the following files:
 
 1. `manuscript_draft.md`
    - A polished draft or revised section in fluent English mathematical prose.
+   - Put the title first and the author line immediately below it.
+   - If an `Authors` section is provided, use it exactly except for safe whitespace cleanup.
+   - If authors are not provided, write `Author not provided` below the title and add a revision task requesting author metadata.
    - Use Markdown with LaTeX math. Inline math uses `$...$`; display math uses `$$...$$`.
    - If the user only asks for review, write a short "No manuscript rewrite requested" note plus any safe local rewrites.
 
@@ -58,9 +63,11 @@ Always write the following files:
 
 3. `citation_report.md`
    - Begin with `# References`.
-   - Put verified cited items in a numbered reference list before any audit notes.
+   - Include `## Used References`, `## Unused References`, and `## Lookup Needed` sections.
+   - Put verified cited items in `## Used References` before any audit notes.
    - Each reference should use a standard bibliographic shape: authors, title, venue or preprint source, year, and DOI/arXiv/URL when known.
-   - Put missing citations, unused bibliography entries, and lookup tasks under a later `## Citation Audit` section.
+   - Put source entries supplied by the user but not cited in `manuscript_draft.md` under `## Unused References`.
+   - Put missing citations, incomplete metadata, and lookup tasks under `## Lookup Needed`.
    - Never invent bibliographic metadata.
 
 4. `revision_tasks.json`
@@ -78,11 +85,14 @@ Always write the following files:
 - Do not copy long passages from books or papers.
 - Do not claim that a proof is correct. Say which checks passed and what remains unverified.
 - Every external source claim must be tied to a citation, DOI, arXiv ID, URL, or an explicit "lookup needed" marker.
+- Every used reference must appear in `manuscript_draft.md` as an inline citation using `\cite{key}` for keyed BibTeX-style sources or `[n]` for numbered references.
+- Do not list references as used just because they appear in the bibliography. If the manuscript does not cite a supplied source, classify it as unused.
+- In continuation requests, treat user feedback and the current edited manuscript as the highest-priority revision target. Preserve previous manuscript material only when it remains compatible with the feedback.
 
 ## Workflow
 
 1. Interpret `Requested Work` as the primary objective. Do not force the task into a fixed mode if the user gave a natural-language goal.
-2. Extract the available material from `Draft`, `References`, and `Reviewer Comments`; each section may be empty except that at least one should contain user material.
+2. Extract the available material from `Draft`, `Authors`, `References`, `Reviewer Comments`, continuation feedback, and previous artifacts; each section may be empty except that at least one should contain user material.
 3. Read `Writing Parameters`; respect reference count, page count, and review-round targets as constraints when feasible.
 4. Use `$literature-citation` to validate seed references and identify lookup or expansion tasks. Runtime source lookup is limited to arXiv, Crossref, and OpenAlex unless the user supplies other sources manually.
 5. Use `$math-paper-writing` to produce the requested manuscript version: complete paper, expanded draft, revised section, response draft, or reference-informed rewrite.

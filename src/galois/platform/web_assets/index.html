@@ -409,6 +409,10 @@
                 <span data-i18n="paper.projectTitle">Project Title</span>
                 <input id="paper-title-input" type="text" placeholder="Compactness and extrema" data-i18n-placeholder="paper.projectTitlePlaceholder" />
               </label>
+              <label class="paper-field" for="paper-authors-input">
+                <span data-i18n="paper.authors">Authors</span>
+                <input id="paper-authors-input" type="text" placeholder="A. Student, B. Advisor" data-i18n-placeholder="paper.authorsPlaceholder" />
+              </label>
               <label class="paper-field" for="paper-journal-input">
                 <span data-i18n="paper.targetJournal">Target Journal</span>
                 <input id="paper-journal-input" type="text" placeholder="Not specified" data-i18n-placeholder="paper.targetJournalPlaceholder" />
@@ -469,6 +473,22 @@
                 </div>
                 <article id="paper-output" class="output-sheet paper-output paper-editable-render" data-paper-edit-target="output" aria-live="polite" tabindex="0"></article>
                 <textarea id="paper-output-editor" class="paper-output-editor" rows="18" hidden></textarea>
+                <section id="paper-continue-panel" class="continue-panel" hidden>
+                  <h3 data-i18n="paper.continueTitle">Continue polishing</h3>
+                  <p class="continue-hint" data-i18n="paper.continueHint">
+                    Add revision instructions. The next writing run will use the current manuscript, previous reports, and your feedback.
+                  </p>
+                  <textarea
+                    id="paper-continue-feedback"
+                    rows="4"
+                    placeholder="e.g. Add inline citations in the introduction and tighten the abstract."
+                    data-i18n-placeholder="paper.continuePlaceholder"
+                  ></textarea>
+                  <div class="continue-actions">
+                    <button id="paper-continue-submit" type="button" class="continue-submit" data-i18n="paper.continueSubmit">Continue polishing</button>
+                    <span id="paper-continue-message" class="continue-message" role="status" aria-live="polite"></span>
+                  </div>
+                </section>
               </section>
             </section>
           </section>

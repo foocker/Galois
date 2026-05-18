@@ -66,6 +66,7 @@ const elements = {
   gardenMessage: document.querySelector('#garden-message'),
   paperTypeChoices: [...document.querySelectorAll('input[name="paper-type"]')],
   paperTitle: document.querySelector('#paper-title-input'),
+  paperAuthors: document.querySelector('#paper-authors-input'),
   paperJournal: document.querySelector('#paper-journal-input'),
   paperMinRefs: document.querySelector('#paper-min-refs'),
   paperMaxRefs: document.querySelector('#paper-max-refs'),
@@ -84,6 +85,10 @@ const elements = {
   paperStatusPill: document.querySelector('#paper-status-pill'),
   paperOutput: document.querySelector('#paper-output'),
   paperOutputEditor: document.querySelector('#paper-output-editor'),
+  paperContinuePanel: document.querySelector('#paper-continue-panel'),
+  paperContinueFeedback: document.querySelector('#paper-continue-feedback'),
+  paperContinueSubmit: document.querySelector('#paper-continue-submit'),
+  paperContinueMessage: document.querySelector('#paper-continue-message'),
 };
 
 const defaultView = 'problem-solving';
@@ -197,6 +202,14 @@ const translations = {
     'nav.theoremSearching': 'Theorem Searching',
     'output.proofDocument': 'Proof Document',
     'paper.agentOutput': 'Agent Output',
+    'paper.authors': 'Authors',
+    'paper.authorsPlaceholder': 'A. Student, B. Advisor',
+    'paper.continueTitle': 'Continue polishing',
+    'paper.continueHint': 'Add revision instructions. The next writing run will use the current manuscript, previous reports, and your feedback.',
+    'paper.continuePlaceholder': 'e.g. Add inline citations in the introduction and tighten the abstract.',
+    'paper.continueSubmit': 'Continue polishing',
+    'paper.continueSubmitting': 'Queuing writing continuation...',
+    'paper.continueQueued': 'Writing continuation queued',
     'paper.draftEdit': 'Edit',
     'paper.draftPlaceholder': 'Paste a theorem, proof draft, rough notes, or manuscript here.',
     'paper.draftPreview': 'Preview',
@@ -350,6 +363,14 @@ const translations = {
     'nav.theoremSearching': '定理搜索',
     'output.proofDocument': '证明文档',
     'paper.agentOutput': 'Agent 输出',
+    'paper.authors': '作者列表',
+    'paper.authorsPlaceholder': '张三，李四',
+    'paper.continueTitle': '继续润色',
+    'paper.continueHint': '加入修订说明。下一次写作运行会基于当前正文、之前的报告和你的反馈继续。',
+    'paper.continuePlaceholder': '例如：在引言中补上内文引用，并压缩摘要。',
+    'paper.continueSubmit': '继续润色',
+    'paper.continueSubmitting': '正在排队写作续跑...',
+    'paper.continueQueued': '写作续跑已排队',
     'paper.draftEdit': '编辑',
     'paper.draftPlaceholder': '在这里粘贴核心定理、证明草稿、粗略想法或论文草稿。',
     'paper.draftPreview': '预览',
@@ -1294,6 +1315,13 @@ function renderWritingSnapshot(snapshot) {
     elements.paperStatusPill.className = `status-pill ${status}`;
   }
   renderPaperOutput(snapshot);
+  if (elements.paperContinuePanel) {
+    const canContinue = Boolean(snapshot.run_id && ['succeeded', 'failed'].includes(status));
+    elements.paperContinuePanel.hidden = !canContinue;
+    elements.paperContinuePanel.dataset.runId = canContinue ? snapshot.run_id : '';
+    if (!canContinue && elements.paperContinueFeedback) elements.paperContinueFeedback.value = '';
+    if (!canContinue && elements.paperContinueMessage) elements.paperContinueMessage.textContent = '';
+  }
 }
 
 function renderMathFallback(container) {
@@ -2177,6 +2205,7 @@ async function submitWritingProject() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: elements.paperTitle?.value.trim() || null,
+        authors: elements.paperAuthors?.value.trim() || '',
         project_type: selectedPaperType(),
         draft_markdown: draft,
         references_markdown: references,
@@ -2204,6 +2233,45 @@ async function submitWritingProject() {
   } catch (error) {
     setPaperSubmitDisabled(false);
     setPaperMessage(`${translate('paper.requestFailed')} ${error.message}`, 'error');
+  }
+}
+
+async function submitWritingContinuation() {
+  if (!elements.paperContinuePanel) return;
+  const runId = elements.paperContinuePanel.dataset.runId;
+  const feedback = (elements.paperContinueFeedback?.value || '').trim();
+  if (!runId) {
+    setPaperMessage(translate('paper.requestFailed'), 'error');
+    return;
+  }
+  if (!feedback) {
+    if (elements.paperContinueMessage) elements.paperContinueMessage.textContent = translate('message.problemRequired');
+    elements.paperContinueFeedback?.focus();
+    return;
+  }
+  if (elements.paperContinueSubmit) elements.paperContinueSubmit.disabled = true;
+  if (elements.paperContinueMessage) elements.paperContinueMessage.textContent = translate('paper.continueSubmitting');
+  try {
+    const created = await fetchJson(`/api/writing/projects/${encodeURIComponent(runId)}/continue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        feedback,
+        manuscript_markdown: state.paperOutputMarkdown || '',
+        model: elements.model.value,
+      }),
+    });
+    if (elements.paperContinueMessage) {
+      elements.paperContinueMessage.textContent = `${translate('paper.continueQueued')}: ${created.run_id}`;
+    }
+    if (elements.paperContinueFeedback) elements.paperContinueFeedback.value = '';
+    startWritingPolling(created.run_id);
+    await loadRecentRuns();
+  } catch (error) {
+    if (elements.paperContinueMessage) elements.paperContinueMessage.textContent = error.message;
+    setPaperMessage(error.message, 'error');
+  } finally {
+    if (elements.paperContinueSubmit) elements.paperContinueSubmit.disabled = false;
   }
 }
 
@@ -2304,6 +2372,9 @@ function wireEvents() {
   elements.paperOutputEditor?.addEventListener('blur', () => setPaperOutputEditMode(false));
   elements.paperSubmit?.addEventListener('click', () => {
     submitWritingProject().catch((error) => setPaperMessage(error.message, 'error'));
+  });
+  elements.paperContinueSubmit?.addEventListener('click', () => {
+    submitWritingContinuation().catch((error) => setPaperMessage(error.message, 'error'));
   });
   elements.markdown.addEventListener('input', updateProblemPreview);
   elements.problemPreview?.addEventListener('dblclick', () => setProblemEditMode(true));

@@ -273,3 +273,17 @@ def test_literature_citation_integrates_scientific_skill_sources() -> None:
     assert [phrase for phrase in required_phrases if phrase not in text] == []
     assert [phrase for phrase in forbidden_phrases if phrase in text] == []
     assert pdfs == []
+
+
+def test_writing_agent_contract_requires_authors_inline_citations_and_continuation() -> None:
+    text = (REPO_ROOT / "three_horse" / "writing" / "AGENTS.md").read_text(encoding="utf-8")
+    required = [
+        "an `Authors` section",
+        "continuation feedback plus previous manuscript",
+        "Put the title first and the author line immediately below it.",
+        "Every used reference must appear in `manuscript_draft.md` as an inline citation",
+        "Do not list references as used just because they appear in the bibliography.",
+        "`## Used References`, `## Unused References`, and `## Lookup Needed`",
+    ]
+
+    assert [phrase for phrase in required if phrase not in text] == []

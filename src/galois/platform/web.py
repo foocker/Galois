@@ -88,6 +88,7 @@ class CitationValidateRequest(BaseModel):
 
 class WritingProjectCreateRequest(BaseModel):
     title: str | None = None
+    authors: str = ""
     project_type: str = "paper"
     draft_markdown: str = ""
     references_markdown: str = ""
@@ -104,6 +105,12 @@ class WritingProjectCreateRequest(BaseModel):
     max_pages: int | None = Field(default=None, ge=1, le=300)
     review_rounds: int = Field(default=1, ge=0, le=5)
     model: str = DEFAULT_MODEL
+
+
+class WritingProjectContinueRequest(BaseModel):
+    feedback: str = Field(min_length=1)
+    manuscript_markdown: str = ""
+    model: str | None = None
 
 
 def _slug(text: str) -> str:
@@ -201,6 +208,10 @@ def _write_web_writing_input(run_dir: Path, payload: WritingProjectCreateRequest
         "",
         payload.target_journal.strip() or "Not specified.",
         "",
+        "## Authors",
+        "",
+        payload.authors.strip() or "Not provided.",
+        "",
         "## Requested Work",
         "",
         payload.requested_work.strip() or "Review and improve this mathematical manuscript.",
@@ -216,6 +227,82 @@ def _write_web_writing_input(run_dir: Path, payload: WritingProjectCreateRequest
         "## Reviewer Comments",
         "",
         payload.reviewer_comments.strip() or "Not provided.",
+        "",
+    ]
+    input_path.write_text("\n".join(sections), encoding="utf-8")
+    return input_path
+
+
+def _markdown_section(text: str, heading: str) -> str:
+    pattern = re.compile(
+        rf"^##\s+{re.escape(heading)}\s*$\n(?P<body>.*?)(?=^##\s+|\Z)",
+        flags=re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    match = pattern.search(text)
+    return match.group("body").strip() if match else ""
+
+
+def _read_text_if_exists(path: Path | None) -> str:
+    if path is None or not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
+
+
+def _write_web_writing_continuation_input(
+    run_dir: Path,
+    *,
+    previous_run_dir: Path,
+    previous_input: str,
+    previous_manuscript: str,
+    previous_citation_report: str,
+    previous_review_report: str,
+    previous_revision_tasks: str,
+    feedback: str,
+    current_manuscript: str,
+) -> Path:
+    writing_dir = run_dir / "writing"
+    writing_dir.mkdir(parents=True, exist_ok=True)
+    input_path = writing_dir / "input.md"
+    sections = [
+        "# Galois Paper Writing Continuation Request",
+        "",
+        f"continued_from: {previous_run_dir.name}",
+        "",
+        "## Authors",
+        "",
+        _markdown_section(previous_input, "Authors") or "Not provided.",
+        "",
+        "## Continuation Feedback",
+        "",
+        feedback.strip(),
+        "",
+        "## Current Edited Manuscript",
+        "",
+        current_manuscript.strip() or "Not provided.",
+        "",
+        "## Previous Manuscript",
+        "",
+        previous_manuscript or "Not provided.",
+        "",
+        "## Previous Citation Report",
+        "",
+        previous_citation_report or "Not provided.",
+        "",
+        "## Previous Review Report",
+        "",
+        previous_review_report or "Not provided.",
+        "",
+        "## Previous Revision Tasks",
+        "",
+        previous_revision_tasks or "Not provided.",
+        "",
+        "## Previous Input",
+        "",
+        previous_input.strip() or "Not provided.",
+        "",
+        "## Requested Work",
+        "",
+        "Revise and polish the current manuscript using the continuation feedback. Preserve valid mathematical content, keep or repair inline citations, and update the writing artifacts.",
         "",
     ]
     input_path.write_text("\n".join(sections), encoding="utf-8")
@@ -792,6 +879,103 @@ def _create_prepared_writing_run(
     return manifest.run_id, problem.problem_id, str(input_path)
 
 
+def _continue_prepared_writing_run(
+    *,
+    config_path: Path | None,
+    previous_run_dir: Path,
+    feedback: str,
+    manuscript_markdown: str,
+    model: str,
+) -> tuple[str, str, str]:
+    previous_input_path = previous_run_dir / "writing" / "input.md"
+    if not previous_input_path.exists():
+        raise FileNotFoundError("previous writing run has no input.md")
+    previous_input = previous_input_path.read_text(encoding="utf-8")
+
+    manuscript = _read_text_if_exists(_latest_revisioned_file(previous_run_dir / "writing", "manuscript_draft_r*.md"))
+    citation_report = _read_text_if_exists(_latest_revisioned_file(previous_run_dir / "writing", "citation_report_r*.md"))
+    review_report = _read_text_if_exists(_latest_revisioned_file(previous_run_dir / "writing", "review_report_r*.md"))
+    revision_tasks = _read_text_if_exists(_latest_revisioned_file(previous_run_dir / "writing", "revision_tasks_r*.json"))
+
+    run_config = load_config(config_path)
+    run_config.model = model
+    run_paths = resolve_paths(run_config)
+    ensure_run_layout(run_paths)
+    feature_flags = _resolve_run_feature_flags(
+        verification_default=run_config.verification.enabled,
+        max_repair_rounds_default=run_config.max_repair_rounds,
+        pipeline=PipelinePreset.WRITING_ONLY,
+        reasoning_only=False,
+        verification_override=False,
+        repair_loop_override=False,
+        max_repair_rounds_override=0,
+    )
+    previous_manifest = _safe_json(previous_run_dir / "manifest.json", {}) or {}
+    previous_problem = previous_manifest.get("problem", {}) if isinstance(previous_manifest, dict) else {}
+    previous_title = previous_problem.get("title") if isinstance(previous_problem, dict) else None
+    problem = ProblemInput(
+        problem_id=_slug(f"{previous_title or previous_run_dir.name} continued"),
+        problem_path="writing/input.md",
+        title=f"{previous_title or 'Writing project'} (continued)",
+        tags=["paper-writing", "continuation"],
+    )
+    run_dir, manifest = create_run_manifest(config=run_config, paths=run_paths, problem=problem)
+    input_path = _write_web_writing_continuation_input(
+        run_dir,
+        previous_run_dir=previous_run_dir,
+        previous_input=previous_input,
+        previous_manuscript=manuscript,
+        previous_citation_report=citation_report,
+        previous_review_report=review_report,
+        previous_revision_tasks=revision_tasks,
+        feedback=feedback,
+        current_manuscript=manuscript_markdown,
+    )
+    problem.problem_path = str(input_path)
+    manifest.problem = problem
+    launches = build_writing_workflow_plan(
+        config=run_config,
+        paths=run_paths,
+        problem=problem,
+        run_dir=run_dir,
+    )
+    _prepare_writing_workspace(run_dir, run_paths.repo_root)
+    _stage_input_for_writing_workspace(run_dir=run_dir, repo_root=run_paths.repo_root, problem=problem)
+    manifest.pipeline = feature_flags.pipeline
+    manifest.features = _feature_payload(feature_flags)
+    manifest.workflows = [launch.kind for launch in launches]
+    write_manifest(run_dir, manifest)
+    append_event(
+        run_dir,
+        run_id=manifest.run_id,
+        event_type="run_created",
+        payload={
+            "problem": {
+                "problem_id": problem.problem_id,
+                "problem_path": problem.problem_path,
+                "title": problem.title,
+                "tags": problem.tags,
+            },
+            "continued_from": previous_run_dir.name,
+            "run_dir": str(run_dir),
+            "workflow_count": len(launches),
+            "skip_services": False,
+            **_feature_payload(feature_flags),
+        },
+    )
+    _start_run_thread(
+        run_id=manifest.run_id,
+        config=run_config,
+        paths=run_paths,
+        run_dir=run_dir,
+        manifest=manifest,
+        problem=problem,
+        launches=launches,
+        feature_flags=feature_flags,
+    )
+    return manifest.run_id, problem.problem_id, str(input_path)
+
+
 def _start_run_thread(**kwargs: Any) -> None:
     thread = threading.Thread(
         target=execute_run_workflows,
@@ -952,6 +1136,50 @@ def create_app(config_path: Path | None = None) -> FastAPI:
                 "status": "queued",
                 "pipeline": PipelinePreset.WRITING_ONLY.value,
                 "model": payload.model,
+            },
+        )
+
+    @app.post("/api/writing/projects/{run_id}/continue")
+    def continue_writing_project(run_id: str, payload: WritingProjectContinueRequest) -> dict[str, Any]:
+        if not payload.feedback.strip():
+            raise HTTPException(status_code=400, detail="feedback must not be blank")
+        model = payload.model or DEFAULT_MODEL
+        if model not in SUPPORTED_MODELS:
+            raise HTTPException(status_code=400, detail="unsupported model")
+        if model not in config.model_connections:
+            raise HTTPException(status_code=400, detail="model is not configured")
+        if not model_is_configured(config, model):
+            raise HTTPException(status_code=400, detail="model credentials are not configured")
+        previous_run_dir = (config.run_root_path / run_id).resolve()
+        try:
+            previous_run_dir.relative_to(config.run_root_path.resolve())
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="run not found") from exc
+        if not previous_run_dir.exists() or not previous_run_dir.is_dir():
+            raise HTTPException(status_code=404, detail="run not found")
+        previous_snapshot = read_run_snapshot(config.run_root_path, run_id, project_root=config.project_root_path)
+        if previous_snapshot.get("pipeline") != PipelinePreset.WRITING_ONLY.value:
+            raise HTTPException(status_code=400, detail="run is not a writing project")
+        try:
+            new_run_id, project_id, input_path = _continue_prepared_writing_run(
+                config_path=config_path,
+                previous_run_dir=previous_run_dir,
+                feedback=payload.feedback,
+                manuscript_markdown=payload.manuscript_markdown,
+                model=model,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return JSONResponse(
+            status_code=202,
+            content={
+                "run_id": new_run_id,
+                "project_id": project_id,
+                "input_path": input_path,
+                "status": "queued",
+                "pipeline": PipelinePreset.WRITING_ONLY.value,
+                "model": model,
+                "continued_from": run_id,
             },
         )
 

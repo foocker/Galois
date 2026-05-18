@@ -278,6 +278,8 @@ def test_writing_runner_builds_command_and_saves_session(tmp_path: Path) -> None
     assert "test-model" in args_text
     assert "Galois Paper Writing workflow" in stdin_text
     assert "manuscript_draft.md" in stdin_text
+    assert "Every used reference must appear in manuscript_draft.md as an inline citation" in stdin_text
+    assert "If authors are provided, manuscript_draft.md must include them below the title" in stdin_text
     assert (runtime / "results" / "paper" / "review_report.md").exists()
 
 
