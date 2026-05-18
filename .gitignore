@@ -22,10 +22,6 @@ tmp/
 /great-math-paper/
 /mathematics writting/
 
-# Runtime assets. Keep the selected agent asset visible to the main repo, but
-# keep unrelated local reference snapshots ignored.
-/references/*
-!/references/Lumen/
 
 /three_horse/reasoning/memory/
 /three_horse/reasoning/results/
