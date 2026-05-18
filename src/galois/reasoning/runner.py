@@ -100,10 +100,9 @@ def _build_verifying_prompts(
 ) -> tuple[str, str]:
     verification_focus = (
         " Use English only for all reasoning, search queries, notes, proof drafts, and final artifacts in this workflow, even if the original problem statement was written in another language. "
-        " Platform-managed verification is enabled for this run. Prioritize producing concrete mathematical artifacts first: subgoals, proof steps, and a complete draft in `blueprint.md`. "
+        " Verification is enabled for this run. Prioritize producing concrete mathematical artifacts first: subgoals, proof steps, and a complete draft in `blueprint.md`. "
         "Do not spend long stretches on meta-discussion about interpretation, workflow policy, artifact naming, or whether to verify. "
         "Do not emit repeated planning blocks or repeated `I'm thinking`-style self-commentary. "
-        "Do not call `verify_proof_service` or invoke `$verify-proof`. The platform will verify `blueprint.md` after this reasoning pass. "
     )
     initial_prompt = (
         f"Use AGENTS.md exactly to solve the math problem in {problem_file}. "
@@ -217,11 +216,12 @@ def _build_prompts(
     if verification_enabled:
         if verification_mode == "external":
             verification_contract = (
-                " The platform will verify `blueprint.md` after this reasoning pass and handle any repair loop. "
-                "Keep `blueprint.md` readable as a finished mathematical writeup even before platform verification runs. "
-                "Do not wait for or publish a second verified artifact from inside the reasoning agent."
+                " Verification is platform-managed for this run: the platform will run a final verification pass after this reasoning session ends "
+                f"and feed back a repair contract if needed. You may also call `verify_proof_service` yourself once a complete draft of "
+                f"{results_dir / problem_id / 'blueprint.md'} exists, and use the returned report to revise the draft in this same session. "
+                "Always keep `blueprint.md` readable as a finished mathematical writeup."
             )
-            verification_guard = ""
+            verification_guard = guard
         else:
             verification_contract = (
                 " Verification is enabled for this run. You may call `verify_proof_service` when and only when a full proof draft "
@@ -460,7 +460,7 @@ def run_reasoning_resume(
     reasoning_effort = runtime_env.get("REASONING_EFFORT", "xhigh")
     resume = runtime_env.get("RESUME", "auto")
     codex_bin = runtime_env.get("CODEX_BIN", "codex")
-    stall_line_budget = int(runtime_env.get("GALOIS_REASONING_STALL_LINE_BUDGET", "120"))
+    stall_line_budget = int(runtime_env.get("GALOIS_REASONING_STALL_LINE_BUDGET", "400"))
 
     runtime_env["GALOIS_REASONING_RUNTIME_DIR"] = str(runtime_root)
     runtime_env["GALOIS_REASONING_WORKDIR"] = str(asset_root)
@@ -572,8 +572,14 @@ def run_reasoning_resume(
     completed = process.wait()
     output = "".join(output_chunks)
     if stalled_reason and completed == 0:
-        completed = 2
-        output = f"{output}\n{stalled_reason}\n"
+        if (results_dir / problem_id / "blueprint.md").exists():
+            output = (
+                f"{output}\n{stalled_reason}\n"
+                "blueprint.md is present; preserving exit_code=0 so the platform can wire it to verification.\n"
+            )
+        else:
+            completed = 2
+            output = f"{output}\n{stalled_reason}\n"
 
     new_session_id = _extract_session_id(output)
     effective_session_id = new_session_id or resume_id

@@ -30,18 +30,16 @@ RESULTS_ROOT = Path(os.getenv("GALOIS_VERIFICATION_RESULTS_DIR", str(RUNTIME_DIR
 
 CODEX_BIN = os.getenv("CODEX_BIN", "codex")
 CODEX_MODEL = os.getenv("CODEX_MODEL", DEFAULT_MODEL)
-CODEX_REASONING_EFFORT = os.getenv("CODEX_REASONING_EFFORT", "high")
+CODEX_REASONING_EFFORT = os.getenv("CODEX_REASONING_EFFORT", "xhigh")
 CODEX_TIMEOUT_SECONDS = int(os.getenv("CODEX_TIMEOUT_SECONDS", "0")) or None
 VERIFICATION_FILENAMES = ("verification.json", "verificationt.json")
 
 
 def normalize_reasoning_effort(effort: str) -> str:
     normalized = (effort or "").strip().lower()
-    if normalized == "xhigh":
-        return "high"
-    if normalized in {"minimal", "low", "medium", "high"}:
+    if normalized in {"minimal", "low", "medium", "high", "xhigh"}:
         return normalized
-    return "high"
+    return "xhigh"
 
 
 class VerifyRequest(BaseModel):
@@ -88,12 +86,14 @@ def _verification_path(run_id: str) -> Path | None:
 
 
 def build_prompt(run_id: str, statement: str, proof: str) -> str:
+    output_path = _results_dir(run_id) / VERIFICATION_FILENAMES[0]
     return (
         f"Run_id: {run_id}. "
         f"Statement: {statement}. "
         f"Proof:\n{proof}\n\n"
         "Use AGENTS.md to verify the proof against the statement. "
-        "Work directly toward the final JSON artifact at results/{run_id}/verification.json. "
+        f"Write the final JSON artifact via the `write_verification_output` MCP tool with run_id={run_id}; "
+        f"its absolute target path is {output_path}. Do not write to a different path. "
         "Use English only. "
         "Do not spend time restating the workflow, listing the required skills, or narrating your plan. "
         "Do not narrate your plan. "

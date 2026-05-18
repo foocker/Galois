@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import sys
 
@@ -9,6 +10,25 @@ from .artifacts import reasoning_workspace_dir
 from .config import PlatformConfig, model_runtime_environment
 from .contracts import LaunchMode, ProblemInput, WorkflowKind, WorkflowLaunch
 from .paths import RepoPaths
+
+
+def _venv_path_prefix_env() -> dict[str, str]:
+    python_bin = Path(sys.executable)
+    if not python_bin.is_absolute():
+        python_bin = (Path.cwd() / python_bin).resolve()
+    venv_bin = str(python_bin.parent)
+    existing_path = os.environ.get("PATH", "")
+    if existing_path:
+        path_parts = [venv_bin] + [
+            segment for segment in existing_path.split(os.pathsep) if segment and segment != venv_bin
+        ]
+        new_path = os.pathsep.join(path_parts)
+    else:
+        new_path = venv_bin
+    return {
+        "PATH": new_path,
+        "GALOIS_PYTHON_BIN": str(python_bin),
+    }
 
 
 def _resolve_problem_path(problem: ProblemInput, paths: RepoPaths) -> Path:
@@ -51,6 +71,7 @@ def build_reasoning_launch(
         "GALOIS_REASONING_VERIFICATION_ENABLED": "1" if verification_enabled else "0",
         "GALOIS_REASONING_VERIFICATION_MODE": "external" if verification_enabled else "disabled",
         "RESUME": "auto" if config.resume_enabled else "0",
+        **_venv_path_prefix_env(),
         **model_runtime_environment(config),
     }
     if run_dir is not None:
@@ -100,6 +121,7 @@ def build_verification_launch(
             "CODEX_BIN": config.codex.bin,
             "CODEX_MODEL": config.model,
             "CODEX_REASONING_EFFORT": config.model_reasoning_effort,
+            **_venv_path_prefix_env(),
             **model_runtime_environment(config),
             "GALOIS_VERIFICATION_AGENT_DIR": str(agent_dir),
             "GALOIS_VERIFICATION_RUNTIME_DIR": str(runtime_dir),
@@ -134,6 +156,7 @@ def build_writing_launch(
         "WRITING_FILE": _writing_input_path(problem, paths, run_dir=run_dir),
         "GALOIS_WRITING_PROJECT_ID": problem.problem_id,
         "RESUME": "auto" if config.resume_enabled else "0",
+        **_venv_path_prefix_env(),
         **model_runtime_environment(config),
     }
     if run_dir is not None:

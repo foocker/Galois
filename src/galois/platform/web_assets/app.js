@@ -1607,7 +1607,59 @@ function resolveSnapshotDocuments(snapshot) {
   return {
     problemContent: snapshot.problem_input?.content || null,
     proofContent: snapshot.output?.content || null,
+    outputKind: snapshot.output?.kind || null,
+    verified: Boolean(snapshot.output?.verified),
+    verification: snapshot.output?.verification || null,
   };
+}
+
+function renderVerificationBadge(documents) {
+  if (documents.verified) {
+    return `<div class="verification-badge verification-badge--verified">${escapeHtml(translate('status.verified'))}</div>`;
+  }
+  if (documents.verification) {
+    const decision = documents.verification.decision?.decision || '';
+    if (decision && decision !== 'accepted') {
+      return `<div class="verification-badge verification-badge--unverified">unverified · ${escapeHtml(decision)}</div>`;
+    }
+  }
+  if (documents.outputKind === 'reasoning_blueprint' || documents.outputKind === 'final_blueprint') {
+    return `<div class="verification-badge verification-badge--pending">verification pending</div>`;
+  }
+  return '';
+}
+
+function renderVerificationReport(verification) {
+  if (!verification) return '';
+  const normalized = verification.normalized || {};
+  const decisionPayload = verification.decision || {};
+  const verdict = normalized.verdict || decisionPayload.verdict || decisionPayload.decision || 'unknown';
+  const summary = normalized.summary || decisionPayload.error || '';
+  const criticalErrors = Array.isArray(normalized.critical_errors) ? normalized.critical_errors : [];
+  const gaps = Array.isArray(normalized.gaps) ? normalized.gaps : [];
+  const repairHints = normalized.repair_hints || '';
+
+  const renderIssues = (issues, label) => {
+    if (!issues.length) return '';
+    const items = issues
+      .map((issue) => {
+        const loc = issue.location ? `<code>${escapeHtml(issue.location)}</code>` : '';
+        const text = issue.issue ? renderInlineMarkdown(issue.issue) : '';
+        return `<li>${loc}${loc && text ? ' — ' : ''}${text}</li>`;
+      })
+      .join('');
+    return `<h4>${escapeHtml(label)}</h4><ul>${items}</ul>`;
+  };
+
+  return `
+    <details class="verification-report" ${verdict === 'wrong' ? 'open' : ''}>
+      <summary>verification report · verdict: <strong>${escapeHtml(verdict)}</strong></summary>
+      ${summary ? `<p>${renderInlineMarkdown(summary)}</p>` : ''}
+      ${renderIssues(criticalErrors, 'Critical errors')}
+      ${renderIssues(gaps, 'Gaps')}
+      ${repairHints ? `<h4>Repair hints</h4><p>${renderInlineMarkdown(repairHints)}</p>` : ''}
+    </details>
+  `;
 }
 
 function renderSnapshot(snapshot) {
@@ -1618,7 +1670,9 @@ function renderSnapshot(snapshot) {
     elements.proofSheet.hidden = false;
     elements.copyProofMarkdown.disabled = false;
     elements.copyProofMarkdown.textContent = translate('actions.copyProofMarkdown');
-    elements.output.innerHTML = renderMarkdownLite(documents.proofContent);
+    const badge = renderVerificationBadge(documents);
+    const report = renderVerificationReport(documents.verification);
+    elements.output.innerHTML = badge + renderMarkdownLite(documents.proofContent) + report;
     renderMath(elements.output);
   } else {
     state.proofMarkdown = '';

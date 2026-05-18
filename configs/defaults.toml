@@ -38,7 +38,7 @@ url = "postgresql://galois:galois_dev@127.0.0.1:5432/galois"
 
 [platform]
 resume_enabled = true
-max_repair_rounds = 1
+max_repair_rounds = 3
 project_root = "projects/default"
 benchmark_root = "benchmarks"
 run_root = "runs"

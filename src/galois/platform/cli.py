@@ -53,6 +53,16 @@ class RunFeatureFlags:
 
 PIPELINE_CHOICES = tuple(pipeline.value for pipeline in PipelinePreset)
 
+_WIRE_FAILURE_DECISIONS = frozenset(
+    {
+        "blueprint_missing",
+        "verification_unavailable",
+        "verification_api_failed",
+        "verification_malformed",
+        "verification_not_attempted",
+    }
+)
+
 
 def _apply_model_override(config: PlatformConfig, model_override: str | None) -> PlatformConfig:
     if model_override:
@@ -752,6 +762,22 @@ def _write_summary(run_dir: Path, results: list[WorkflowResult], feature_flags: 
                 "",
             ]
         )
+
+    wire_failures = [
+        event for event in _load_run_events(run_dir)
+        if event.get("event_type") == "wire_failed" and isinstance(event.get("payload"), dict)
+    ]
+    if wire_failures:
+        latest_failure = wire_failures[-1].get("payload") or {}
+        lines.extend(
+            [
+                "## Wire Failure",
+                "",
+                f"- decision: `{latest_failure.get('decision')}`",
+                f"- attempt: `{latest_failure.get('attempt')}`",
+                "",
+            ]
+        )
     (run_dir / "summary.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
@@ -1091,6 +1117,18 @@ def execute_run_workflows(
                         "decision": decision,
                     },
                 )
+                if decision in _WIRE_FAILURE_DECISIONS:
+                    final_status = RunStatus.FAILED
+                    service_error = service_error or f"wire_failed:{decision}"
+                    append_event(
+                        run_dir,
+                        run_id=manifest.run_id,
+                        workflow="reasoning",
+                        event_type="wire_failed",
+                        payload={"attempt": attempts, "decision": decision},
+                    )
+                    print(f"[reasoning] wire_failed decision={decision}")
+                    break
                 if decision != "repair_needed":
                     break
                 if not feature_flags.repair_loop_enabled:

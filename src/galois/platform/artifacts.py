@@ -4,10 +4,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 from urllib import error, request
+
+
+def _default_verify_timeout() -> int:
+    raw = os.environ.get("GALOIS_VERIFICATION_CLIENT_TIMEOUT_SECONDS", "1800")
+    try:
+        value = int(raw)
+    except ValueError:
+        return 1800
+    return value if value > 0 else 1800
 
 from galois.contracts import ComponentRef, VerificationArtifact, VerificationIssue, Verdict, to_dict
 
@@ -70,7 +80,7 @@ def resolve_problem_statement(problem: ProblemInput, repo_root: Path, run_dir: P
 
 
 def reasoning_problem_id(problem: ProblemInput) -> str:
-    return Path(problem.problem_path).stem
+    return problem.problem_id or Path(problem.problem_path).stem
 
 
 def reasoning_workspace_dir(run_dir: Path) -> Path:
@@ -102,10 +112,13 @@ def next_artifact_revision(run_dir: Path, workflow: str, pattern: str) -> int:
 
 def discover_reasoning_blueprint(run_dir: Path, problem: ProblemInput) -> Path | None:
     problem_id = reasoning_problem_id(problem)
+    legacy_problem_id = Path(problem.problem_path).stem
     workspace_dir = reasoning_workspace_dir(run_dir)
     candidates = [
         workspace_dir / "results" / problem_id / "blueprint_verified.md",
         workspace_dir / "results" / problem_id / "blueprint.md",
+        workspace_dir / "results" / legacy_problem_id / "blueprint_verified.md",
+        workspace_dir / "results" / legacy_problem_id / "blueprint.md",
         run_dir / "reasoning" / "results" / problem_id / "blueprint_verified.md",
         run_dir / "reasoning" / "results" / problem_id / "blueprint.md",
     ]
@@ -113,11 +126,15 @@ def discover_reasoning_blueprint(run_dir: Path, problem: ProblemInput) -> Path |
         if candidate.exists():
             return candidate
 
-    results_root = run_dir / "reasoning" / "results"
-    if not results_root.exists():
-        return None
-    discovered = sorted(results_root.glob("**/blueprint_verified.md")) + sorted(results_root.glob("**/blueprint.md"))
-    return discovered[0] if discovered else None
+    for results_root in (workspace_dir / "results", run_dir / "reasoning" / "results"):
+        if not results_root.exists():
+            continue
+        discovered = sorted(results_root.glob("**/blueprint_verified.md")) + sorted(
+            results_root.glob("**/blueprint.md")
+        )
+        if discovered:
+            return discovered[0]
+    return None
 
 
 def _normalize_markdown_math_delimiters(content: str) -> str:
@@ -238,8 +255,10 @@ def call_verification_api(
     proof: str,
     url: str = "http://127.0.0.1:8091/verify",
     revision: int = 1,
-    timeout_seconds: int = 60,
+    timeout_seconds: int | None = None,
 ) -> VerificationRequestResult:
+    if timeout_seconds is None:
+        timeout_seconds = _default_verify_timeout()
     verification_dir = run_dir / "verification"
     verification_dir.mkdir(parents=True, exist_ok=True)
     request_path = verification_dir / f"verification_request_r{revision}.json"

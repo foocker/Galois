@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .cli import (
+    _copy_problem_artifacts,
     _feature_payload,
     _prepare_reasoning_workspace,
     _prepare_verification_workspace,
@@ -109,6 +110,23 @@ def _write_web_problem(run_dir: Path, problem_markdown: str) -> Path:
     return statement_path
 
 
+def _finalize_web_problem_artifacts(
+    *,
+    run_dir: Path,
+    problem: ProblemInput,
+    repo_root: Path,
+    config,
+) -> None:
+    """Run the canonical-English translation pass and write meta.json.
+
+    The web entrypoint only stages the raw user markdown into source_statement.md
+    and statement.md. Without this finalize pass, non-English statements never
+    get translated and meta.json is missing — the CLI does this via
+    _copy_problem_artifacts before launching workflows.
+    """
+    _copy_problem_artifacts(run_dir, problem, repo_root, config)
+
+
 def _write_web_writing_input(run_dir: Path, payload: WritingProjectCreateRequest) -> Path:
     writing_dir = run_dir / "writing"
     writing_dir.mkdir(parents=True, exist_ok=True)
@@ -192,11 +210,50 @@ def _final_workspace_blueprint(run_dir: Path) -> Path | None:
     result_root = run_dir / "reasoning" / "workspace" / "results"
     if not result_root.exists():
         return None
+    verified = sorted(
+        result_root.glob("*/blueprint_verified.md"),
+        key=lambda candidate: (candidate.stat().st_mtime, str(candidate)),
+    )
+    if verified:
+        return verified[-1]
     blueprints = sorted(
         result_root.glob("*/blueprint.md"),
         key=lambda candidate: (candidate.stat().st_mtime, str(candidate)),
     )
     return blueprints[-1] if blueprints else None
+
+
+def _latest_verification_decision(run_dir: Path) -> dict[str, Any] | None:
+    verification_dir = run_dir / "verification"
+    if not verification_dir.exists():
+        return None
+    decision_files = sorted(
+        verification_dir.glob("verification_decision_r*.json"),
+        key=lambda candidate: _latest_revision(candidate),
+    )
+    if not decision_files:
+        return None
+    decision_path = decision_files[-1]
+    decision_payload = _safe_json(decision_path, {})
+    if not isinstance(decision_payload, dict):
+        return None
+
+    normalized_path_value = decision_payload.get("normalized_path")
+    normalized_payload: dict[str, Any] = {}
+    if isinstance(normalized_path_value, str) and normalized_path_value:
+        normalized_path = Path(normalized_path_value)
+        if not normalized_path.is_absolute():
+            normalized_path = run_dir / normalized_path
+        if normalized_path.exists():
+            loaded = _safe_json(normalized_path, {})
+            if isinstance(loaded, dict):
+                normalized_payload = loaded
+
+    return {
+        "path": str(decision_path),
+        "decision": decision_payload,
+        "normalized": normalized_payload,
+    }
 
 
 def _read_events(run_dir: Path, limit: int = 40) -> list[dict[str, Any]]:
@@ -219,21 +276,32 @@ def _output_payload(run_dir: Path) -> dict[str, Any] | None:
     if writing_payload is not None:
         return writing_payload
 
+    verification = _latest_verification_decision(run_dir)
+
     final_blueprint_path = _final_workspace_blueprint(run_dir)
     if final_blueprint_path is not None:
-        return {
-            "kind": "final_blueprint",
+        is_verified = final_blueprint_path.name == "blueprint_verified.md"
+        payload: dict[str, Any] = {
+            "kind": "verified_blueprint" if is_verified else "final_blueprint",
             "path": str(final_blueprint_path),
             "content": final_blueprint_path.read_text(encoding="utf-8"),
+            "verified": is_verified,
         }
+        if verification is not None:
+            payload["verification"] = verification
+        return payload
 
     blueprint_path = _latest_blueprint(run_dir)
     if blueprint_path is not None:
-        return {
+        payload = {
             "kind": "reasoning_blueprint",
             "path": str(blueprint_path),
             "content": blueprint_path.read_text(encoding="utf-8"),
+            "verified": False,
         }
+        if verification is not None:
+            payload["verification"] = verification
+        return payload
 
     summary_path = run_dir / "summary.md"
     if summary_path.exists():
@@ -390,6 +458,12 @@ def _create_prepared_run(
     statement_path = _write_web_problem(run_dir, payload.problem_markdown)
     problem.problem_path = str(statement_path)
     manifest.problem = problem
+    _finalize_web_problem_artifacts(
+        run_dir=run_dir,
+        problem=problem,
+        repo_root=run_paths.repo_root,
+        config=run_config,
+    )
     launches = build_workflow_plan(
         config=run_config,
         paths=run_paths,

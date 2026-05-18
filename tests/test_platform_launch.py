@@ -551,10 +551,10 @@ def test_verification_prompt_prioritizes_proof_before_verifier_work(tmp_path: Pa
     )
 
     for prompt in (initial_prompt, resume_prompt):
-        assert "Platform-managed verification is enabled for this run." in prompt
-        assert "The platform will verify `blueprint.md` after this reasoning pass" in prompt
-        assert "Do not call `verify_proof_service` or invoke `$verify-proof`." in prompt
-        assert "blueprint_verified.md" not in prompt
+        assert "Verification is enabled for this run." in prompt
+        assert "Verification is platform-managed for this run" in prompt
+        assert "You may also call `verify_proof_service` yourself" in prompt
+        assert "Do not call `verify_proof_service`" not in prompt
 
 
 def test_copy_problem_artifacts_translates_non_english_statement_to_canonical_english(monkeypatch, tmp_path: Path) -> None:
