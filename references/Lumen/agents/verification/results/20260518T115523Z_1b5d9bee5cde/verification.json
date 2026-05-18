@@ -1,0 +1,9 @@
+{
+  "verification_report": {
+    "summary": "The proof is correct. It uses the assumption that n is even to write n = 2k for some integer k, computes n^2 = 2(2k^2), and verifies that the remaining factor is an integer, which establishes that n^2 is even.",
+    "critical_errors": [],
+    "gaps": []
+  },
+  "verdict": "correct",
+  "repair_hints": ""
+}

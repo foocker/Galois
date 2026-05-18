@@ -1,0 +1,5 @@
+{"timestamp_utc": "2026-05-18T11:26:08.989296+00:00", "channel": "events", "record": {"stage": "sequential_verification", "status": "started", "location": "theorem thm:even-square-test", "note": "Checking the markdown proof in textual order against the theorem statement hypotheses."}}
+{"timestamp_utc": "2026-05-18T11:26:09.003057+00:00", "event_type": "memory_append", "channel": "statement_checks"}
+{"timestamp_utc": "2026-05-18T11:26:09.006238+00:00", "event_type": "memory_append", "channel": "reference_checks"}
+{"timestamp_utc": "2026-05-18T11:26:32.001121+00:00", "event_type": "memory_append", "channel": "verification_reports"}
+{"timestamp_utc": "2026-05-18T11:26:48.646024+00:00", "event_type": "memory_append", "channel": "verification_reports"}

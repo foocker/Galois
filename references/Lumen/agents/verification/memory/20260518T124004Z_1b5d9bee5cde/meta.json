@@ -1,0 +1,7 @@
+{
+  "run_id": "20260518T124004Z_1b5d9bee5cde",
+  "created_at_utc": "2026-05-18T12:40:49.842604+00:00",
+  "updated_at_utc": "2026-05-18T12:40:49.842612+00:00",
+  "statement": "Prove that if n is an even integer, then n^2 is even.",
+  "input_shape": "proof_markdown_text"
+}
