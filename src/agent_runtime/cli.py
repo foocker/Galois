@@ -54,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8765)
     serve_parser.add_argument("--runtime-root", type=Path, default=Path.cwd() / ".research-runtime")
+    serve_parser.add_argument("--max-concurrency", type=int, default=None)
 
     create_parser = subparsers.add_parser("create", help="Create a research project and start its first run.")
     _add_client_options(create_parser)
@@ -93,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "serve":
-        serve(runtime_root=args.runtime_root, host=args.host, port=args.port)
+        serve(runtime_root=args.runtime_root, host=args.host, port=args.port, max_concurrency=args.max_concurrency)
         return 0
     if args.command == "create":
         payload = {

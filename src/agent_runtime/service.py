@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
+import queue
 import re
 import shutil
 import subprocess
@@ -80,6 +81,12 @@ class ResearchRunContext:
 
 
 Launcher = Callable[[ResearchRunContext], None]
+
+
+@dataclass(slots=True)
+class RuntimeJob:
+    context: ResearchRunContext
+    launcher: Launcher
 
 
 def _repo_root() -> Path:
@@ -619,39 +626,79 @@ def _default_launcher(context: ResearchRunContext) -> None:
         raise RuntimeError(f"research runtime command failed with exit code {completed.returncode}")
 
 
+def _run_context(context: ResearchRunContext, launcher: Launcher) -> None:
+    try:
+        _set_run_status(context.run_dir, "running")
+        _append_event(context.run_dir, "running", "running")
+        launcher(context)
+        _snapshot_artifacts(context)
+        _set_run_status(context.run_dir, "succeeded")
+        _append_event(context.run_dir, "succeeded", "succeeded")
+    except Exception as exc:  # pragma: no cover - async failures are inspected through run state
+        _set_run_status(context.run_dir, "failed", error=str(exc))
+        _append_event(context.run_dir, "failed", "failed", message="runtime execution failed")
+
+
+class RuntimeScheduler:
+    def __init__(self, *, max_concurrency: int) -> None:
+        self.max_concurrency = max(1, max_concurrency)
+        self._jobs: queue.Queue[RuntimeJob] = queue.Queue()
+        self._project_locks: dict[str, threading.Lock] = {}
+        self._project_locks_guard = threading.Lock()
+        for index in range(self.max_concurrency):
+            thread = threading.Thread(target=self._worker, name=f"research-runtime-worker-{index + 1}", daemon=True)
+            thread.start()
+
+    def submit(self, context: ResearchRunContext, launcher: Launcher) -> str:
+        _write_context_state(context)
+        _prepare_run_directory(context)
+        _set_run_status(context.run_dir, "queued")
+        _append_event(context.run_dir, "created", "queued")
+        self._jobs.put(RuntimeJob(context=context, launcher=launcher))
+        return "queued"
+
+    def _project_lock(self, project_id: str) -> threading.Lock:
+        with self._project_locks_guard:
+            lock = self._project_locks.get(project_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._project_locks[project_id] = lock
+            return lock
+
+    def _worker(self) -> None:
+        while True:
+            job = self._jobs.get()
+            try:
+                with self._project_lock(job.context.project_id):
+                    _run_context(job.context, job.launcher)
+            finally:
+                self._jobs.task_done()
+
+
 def _launch_context(
     *,
     context: ResearchRunContext,
     launcher: Launcher,
     run_async: bool,
+    scheduler: RuntimeScheduler | None = None,
 ) -> str:
+    if run_async:
+        if scheduler is None:
+            raise RuntimeError("runtime scheduler is required for async runs")
+        return scheduler.submit(context, launcher)
     _write_context_state(context)
     _prepare_run_directory(context)
+    _set_run_status(context.run_dir, "queued")
     _append_event(context.run_dir, "created", "queued")
-
-    def _run() -> None:
-        try:
-            _set_run_status(context.run_dir, "running")
-            _append_event(context.run_dir, "running", "running")
-            launcher(context)
-            _snapshot_artifacts(context)
-            _set_run_status(context.run_dir, "succeeded")
-            _append_event(context.run_dir, "succeeded", "succeeded")
-        except Exception as exc:  # pragma: no cover - async failures are inspected through run state
-            _set_run_status(context.run_dir, "failed", error=str(exc))
-            _append_event(context.run_dir, "failed", "failed", message="runtime execution failed")
-
-    if run_async:
-        thread = threading.Thread(target=_run, name=f"research-runtime-{context.run_id}", daemon=True)
-        thread.start()
-        return "running"
-    _run()
+    _run_context(context, launcher)
     return str(_load_json(_run_state_path(context.run_dir)).get("status", "unknown"))
 
 
 def _set_run_status(run_dir: Path, status: str, error: str | None = None) -> None:
     state = _load_json(_run_state_path(run_dir))
     state["status"] = status
+    if error is None:
+        state.pop("error", None)
     if error:
         state["error"] = error
     _write_json(_run_state_path(run_dir), state)
@@ -662,10 +709,14 @@ def create_app(
     runtime_root: Path,
     launcher: Launcher | None = None,
     run_async: bool = True,
+    max_concurrency: int | None = None,
 ) -> FastAPI:
     runtime_root = runtime_root.resolve()
     runtime_root.mkdir(parents=True, exist_ok=True)
     launcher = launcher or _default_launcher
+    if max_concurrency is None:
+        max_concurrency = int(os.getenv("AGENT_RUNTIME_MAX_CONCURRENCY", "2"))
+    scheduler = RuntimeScheduler(max_concurrency=max_concurrency) if run_async else None
     app = FastAPI(title="Research Runtime API", version="0.1.0")
 
     @app.get("/v1/health")
@@ -687,7 +738,7 @@ def create_app(
             model=request.execution.model,
             reasoning_effort=request.execution.reasoning_effort,
         )
-        status = _launch_context(context=context, launcher=launcher, run_async=run_async)
+        status = _launch_context(context=context, launcher=launcher, run_async=run_async, scheduler=scheduler)
         _write_json(
             _project_state_path(project_dir),
             {
@@ -735,7 +786,7 @@ def create_app(
             previous_run_id=previous_run_id,
             continuation_prompt=request.prompt,
         )
-        status = _launch_context(context=context, launcher=launcher, run_async=run_async)
+        status = _launch_context(context=context, launcher=launcher, run_async=run_async, scheduler=scheduler)
         project["latest_run_id"] = context.run_id
         project["instructions"] = _serialize_files(prompt_files)
         project["references"] = _serialize_files(references)
@@ -791,10 +842,15 @@ def create_app(
     return app
 
 
-def serve(runtime_root: Path, host: str = "127.0.0.1", port: int = 8765) -> None:
+def serve(
+    runtime_root: Path,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    max_concurrency: int | None = None,
+) -> None:
     import uvicorn
 
-    uvicorn.run(create_app(runtime_root=runtime_root), host=host, port=port)
+    uvicorn.run(create_app(runtime_root=runtime_root, max_concurrency=max_concurrency), host=host, port=port)
 
 
 def launch_subprocess(context: ResearchRunContext, *, command: list[str]) -> None:

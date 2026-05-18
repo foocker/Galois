@@ -6,7 +6,7 @@
 
 ```bash
 uv sync
-uv run agent-runtime serve --host 127.0.0.1 --port 8765
+uv run agent-runtime serve --host 127.0.0.1 --port 8765 --max-concurrency 2
 ```
 
 创建首轮研究：
@@ -58,4 +58,6 @@ tests/                    接口与运行时测试
 references/Lumen/         底层 agent 资产；不是公共 API
 ```
 
-运行数据默认写入 `.research-runtime/`，也可以通过 `agent-runtime serve --runtime-root <dir>` 指定。每个 project 只创建一个薄 workspace：静态 agent 资产通过符号链接复用，`data/`、`input/`、`memory/`、`results/`、`downloads/`、`scripts/` 在 project 内持续写入和复用；每个 run 保留本轮 `input/`、`logs/`、`events` 和 artifact 快照，并在 run 目录下提供 `memory/`、`results/`、`downloads/`、`scripts/` 的符号链接入口，方便人工检查但不复制数据。
+运行数据默认写入 `.research-runtime/`，也可以通过 `agent-runtime serve --runtime-root <dir>` 指定。HTTP 创建和续跑请求会先进入本机队列，`--max-concurrency` 或 `AGENT_RUNTIME_MAX_CONCURRENCY` 控制同时运行的 agent 数；同一个 project 的 run 会串行执行，避免并发写同一份 `memory/` 和 `results/`。
+
+每个 project 只创建一个薄 workspace：静态 agent 资产通过符号链接复用，`data/`、`input/`、`memory/`、`results/`、`downloads/`、`scripts/` 在 project 内持续写入和复用；每个 run 保留本轮 `input/`、`logs/`、`events` 和 artifact 快照，并在 run 目录下提供 `memory/`、`results/`、`downloads/`、`scripts/` 的符号链接入口，方便人工检查但不复制数据。

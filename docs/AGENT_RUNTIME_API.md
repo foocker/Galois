@@ -7,7 +7,7 @@ agent implementation behind it.
 ## CLI
 
 ```bash
-uv run agent-runtime serve --host 127.0.0.1 --port 8765
+uv run agent-runtime serve --host 127.0.0.1 --port 8765 --max-concurrency 2
 
 uv run agent-runtime create \
   --problem-file problem.md \
@@ -25,6 +25,11 @@ uv run agent-runtime events <run_id> --json
 ## HTTP Contract
 
 Base URL: `http://127.0.0.1:8765`
+
+The service uses a local queue for asynchronous runs. `--max-concurrency` or
+`AGENT_RUNTIME_MAX_CONCURRENCY` controls how many agent runs may execute at once.
+Runs for the same project are serialized so they do not write the same workspace
+state concurrently.
 
 ### `GET /v1/health`
 

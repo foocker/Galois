@@ -3,8 +3,19 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import threading
+import time
 
 from fastapi.testclient import TestClient
+
+
+def _wait_until(predicate, *, timeout_seconds: float = 2.0) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.01)
+    assert predicate()
 
 
 def _assert_public_payload_is_backend_neutral(payload: dict) -> None:
@@ -397,6 +408,83 @@ def test_failed_continuation_does_not_expose_prior_workspace_artifacts(tmp_path:
     assert artifacts["artifacts"]["verified_solution"] is None
 
 
+def test_async_scheduler_limits_global_running_tasks(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    started: list[str] = []
+    lock = threading.Lock()
+    release = threading.Event()
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        with lock:
+            started.append(context.run_id)
+        release.wait(timeout=2)
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text("# Solution\n", encoding="utf-8")
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=True, max_concurrency=1)
+    client = TestClient(app)
+
+    first = client.post("/v1/projects", json={"title": "Async one", "problem": {"content": "Solve it."}}).json()
+    _wait_until(lambda: len(started) == 1)
+    second = client.post("/v1/projects", json={"title": "Async two", "problem": {"content": "Solve it."}}).json()
+    time.sleep(0.05)
+
+    try:
+        assert first["status"] == "queued"
+        assert second["status"] == "queued"
+        assert len(started) == 1
+        assert client.get(f"/v1/runs/{second['latest_run_id']}").json()["status"] == "queued"
+    finally:
+        release.set()
+
+    _wait_until(lambda: client.get(f"/v1/runs/{first['latest_run_id']}").json()["status"] == "succeeded")
+    _wait_until(lambda: client.get(f"/v1/runs/{second['latest_run_id']}").json()["status"] == "succeeded")
+
+
+def test_async_scheduler_serializes_runs_for_same_project(tmp_path: Path) -> None:
+    from agent_runtime.service import ResearchRunContext, create_app
+
+    started: list[str] = []
+    lock = threading.Lock()
+    release_first = threading.Event()
+    release_second = threading.Event()
+
+    def fake_launcher(context: ResearchRunContext) -> None:
+        with lock:
+            started.append(context.run_id)
+            index = len(started)
+        if index == 1:
+            release_first.wait(timeout=2)
+        else:
+            release_second.wait(timeout=2)
+        output_dir = context.results_dir / context.problem_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "blueprint.md").write_text(f"# Solution\n\nrun={index}", encoding="utf-8")
+
+    app = create_app(runtime_root=tmp_path, launcher=fake_launcher, run_async=True, max_concurrency=2)
+    client = TestClient(app)
+
+    created = client.post("/v1/projects", json={"title": "Same project", "problem": {"content": "Solve it."}}).json()
+    _wait_until(lambda: len(started) == 1)
+    continued = client.post(
+        f"/v1/projects/{created['project_id']}/runs",
+        json={"prompt": "Continue it."},
+    ).json()
+    time.sleep(0.05)
+
+    try:
+        assert len(started) == 1
+        assert client.get(f"/v1/runs/{continued['latest_run_id']}").json()["status"] == "queued"
+    finally:
+        release_first.set()
+
+    _wait_until(lambda: len(started) == 2)
+    release_second.set()
+    _wait_until(lambda: client.get(f"/v1/runs/{continued['latest_run_id']}").json()["status"] == "succeeded")
+
+
 def test_default_launcher_runs_vendored_generation_workspace(monkeypatch, tmp_path: Path) -> None:
     from agent_runtime.service import create_app
 
@@ -531,11 +619,12 @@ def test_agent_runtime_cli_uses_neutral_public_name() -> None:
     from agent_runtime.cli import build_parser
 
     parser = build_parser()
-    args = parser.parse_args(["serve", "--host", "127.0.0.1", "--port", "8765"])
+    args = parser.parse_args(["serve", "--host", "127.0.0.1", "--port", "8765", "--max-concurrency", "4"])
 
     assert args.command == "serve"
     assert args.host == "127.0.0.1"
     assert args.port == 8765
+    assert args.max_concurrency == 4
 
     create_args = parser.parse_args(
         [
