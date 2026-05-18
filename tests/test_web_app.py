@@ -123,8 +123,8 @@ def test_index_loads_markdown_rendering_assets(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "marked.min.js" in response.text
     assert "purify.min.js" in response.text
-    assert '/assets/styles.css?v=garden-graph-modal-1' in response.text
-    assert '/assets/app.js?v=garden-graph-modal-1' in response.text
+    assert '/assets/styles.css?v=reader-surface-1' in response.text
+    assert '/assets/app.js?v=reader-surface-1' in response.text
 
 
 def test_index_contains_current_product_views(tmp_path: Path) -> None:
@@ -1798,6 +1798,12 @@ context.setProblemEditMode(true);
 if (markdown.hidden !== false) throw new Error("problem editor should show in edit mode");
 if (preview.hidden !== true) throw new Error("problem render should hide in edit mode");
 if (markdown.focused !== true) throw new Error("problem editor should be focused");
+markdown.value = "";
+markdown.focused = false;
+context.setProblemEditMode(false);
+if (markdown.hidden !== false) throw new Error("empty problem editor should stay visible");
+if (preview.hidden !== true) throw new Error("empty problem preview should stay hidden");
+if (markdown.focused !== true) throw new Error("empty problem editor should be focused");
 """
     result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
 
@@ -3227,6 +3233,20 @@ def test_paper_writing_rendered_surfaces_fill_vertical_workspace() -> None:
     assert ".paper-input-render,\n.paper-output" in paper_css
     assert "max-width: none;" in paper_css
     assert "margin: 0;" in paper_css
+    assert "--reader-paper: #fbfaf5;" in css
+    assert "background: var(--reader-paper);" in paper_css
+    assert "color: var(--reader-ink);" in paper_css
+    assert "background: var(--reader-paper-cool);" in paper_css
+
+
+def test_reference_surfaces_use_light_reader_tokens() -> None:
+    css = Path("src/galois/platform/web_assets/styles.css").read_text(encoding="utf-8")
+    reference_css = css[css.index(".reference-panel") : css.index(".continue-panel")]
+
+    assert "background: var(--reader-paper-cool);" in reference_css
+    assert "background: var(--reader-paper);" in reference_css
+    assert "color: var(--reader-ink);" in reference_css
+    assert "color: var(--reader-link);" in reference_css
 
 
 def test_problem_garden_submit_uses_rendered_compact_markdown_fields() -> None:

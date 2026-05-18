@@ -1589,10 +1589,12 @@ function updateProblemPreview() {
 function setProblemEditMode(editing) {
   if (!elements.markdown || !elements.problemPreview) return;
   if (!editing) updateProblemPreview();
-  elements.markdown.hidden = !editing;
-  elements.problemPreview.hidden = editing;
+  const hasContent = Boolean((elements.markdown.value || '').trim());
+  const showEditor = editing || !hasContent;
+  elements.markdown.hidden = !showEditor;
+  elements.problemPreview.hidden = showEditor;
   elements.problemPreview.setAttribute?.('tabindex', '0');
-  if (editing) elements.markdown.focus();
+  if (showEditor) elements.markdown.focus();
 }
 
 function statusLabel(run) {
@@ -2150,6 +2152,7 @@ async function submitRun(event) {
   }
   if (!problemMarkdown.trim()) {
     setMessage(translate('message.problemRequired'), 'error');
+    setProblemEditMode(true);
     return;
   }
 
@@ -2377,6 +2380,7 @@ function wireEvents() {
     submitWritingContinuation().catch((error) => setPaperMessage(error.message, 'error'));
   });
   elements.markdown.addEventListener('input', updateProblemPreview);
+  elements.problemPreview?.addEventListener('click', () => setProblemEditMode(true));
   elements.problemPreview?.addEventListener('dblclick', () => setProblemEditMode(true));
   elements.problemPreview?.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;

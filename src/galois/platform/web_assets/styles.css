@@ -13,6 +13,13 @@
   --green: #1e5b3b;
   --danger: #8c2f2b;
   --focus: #36527b;
+  --reader-paper: #fbfaf5;
+  --reader-paper-cool: #fbf9fd;
+  --reader-ink: #0d111b;
+  --reader-muted: #6c675f;
+  --reader-rule: #101522;
+  --reader-hairline: #c9c2b5;
+  --reader-link: #182644;
   font-family: "Georgia", "Times New Roman", serif;
 }
 
@@ -2028,10 +2035,10 @@ textarea:focus {
 .paper-field textarea,
 .paper-input {
   width: 100%;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--reader-hairline);
   border-radius: 0;
-  background: var(--sheet-cool);
-  color: var(--ink);
+  background: var(--reader-paper-cool);
+  color: var(--reader-ink);
   font-family: "Georgia", "Times New Roman", serif;
   font-size: 1rem;
   letter-spacing: 0;
@@ -2108,7 +2115,8 @@ textarea:focus {
   border: 0;
   border-radius: 0;
   padding: clamp(1rem, 2vw, 1.55rem);
-  background: var(--sheet);
+  background: var(--reader-paper);
+  color: var(--reader-ink);
 }
 
 .paper-output-panel {
@@ -2117,9 +2125,10 @@ textarea:focus {
   gap: 1rem;
   min-width: 0;
   min-height: 0;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--reader-rule);
   padding: 1.25rem;
-  background: var(--sheet);
+  background: var(--reader-paper);
+  color: var(--reader-ink);
 }
 
 .paper-output-header {
@@ -2141,8 +2150,8 @@ textarea:focus {
   border: 0;
   padding: clamp(1rem, 2vw, 1.55rem);
   resize: none;
-  background: var(--sheet-cool);
-  color: var(--ink);
+  background: var(--reader-paper-cool);
+  color: var(--reader-ink);
   font-family: "Georgia", "Times New Roman", serif;
   font-size: 1rem;
   line-height: 1.6;
@@ -2179,7 +2188,7 @@ textarea:focus {
 }
 
 .citation-index {
-  color: var(--muted);
+  color: var(--reader-muted);
   font-family: "Courier New", monospace;
   font-size: 0.82rem;
   font-weight: 800;
@@ -2190,6 +2199,7 @@ textarea:focus {
 }
 
 .citation-text a {
+  color: var(--reader-link);
   overflow-wrap: anywhere;
 }
 
@@ -2327,15 +2337,16 @@ textarea:focus {
   margin: 0 0 1rem 0;
   padding: 0.55rem 0.85rem;
   border-radius: 0.55rem;
-  border: 1px solid rgba(168, 85, 247, 0.3);
-  background: rgba(250, 245, 255, 0.6);
+  border: 1px solid var(--reader-hairline);
+  background: var(--reader-paper-cool);
+  color: var(--reader-ink);
   font-size: 0.88rem;
 }
 
 .reference-panel > summary {
   cursor: pointer;
   font-weight: 600;
-  color: #6b21a8;
+  color: var(--reader-link);
 }
 
 .reference-panel ul {
@@ -2343,7 +2354,8 @@ textarea:focus {
 }
 
 .reference-panel pre {
-  background: rgba(15, 23, 42, 0.04);
+  background: color-mix(in srgb, var(--reader-paper) 82%, var(--reader-paper-cool));
+  color: var(--reader-ink);
   padding: 0.5rem;
   border-radius: 0.4rem;
   font-size: 0.78rem;
@@ -2354,20 +2366,21 @@ textarea:focus {
 .references-panel {
   margin: 1rem 0;
   padding: 0.6rem 0.85rem;
-  border: 1px solid rgba(168, 85, 247, 0.3);
+  border: 1px solid var(--reader-hairline);
   border-radius: 0.55rem;
-  background: rgba(250, 245, 255, 0.5);
+  background: var(--reader-paper-cool);
+  color: var(--reader-ink);
 }
 
 .references-panel > summary {
   cursor: pointer;
   font-weight: 600;
-  color: #6b21a8;
+  color: var(--reader-link);
   font-size: 0.95rem;
 }
 
 .references-count {
-  color: #94a3b8;
+  color: var(--reader-muted);
   font-weight: 400;
   font-size: 0.85rem;
 }
@@ -2375,7 +2388,7 @@ textarea:focus {
 .references-hint {
   margin: 0.5rem 0 0.75rem 0;
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--reader-muted);
 }
 
 .reference-row {
@@ -2384,7 +2397,7 @@ textarea:focus {
   gap: 0.4rem 0.6rem;
   margin-bottom: 0.6rem;
   padding-bottom: 0.6rem;
-  border-bottom: 1px dashed rgba(148, 163, 184, 0.4);
+  border-bottom: 1px dashed var(--reader-hairline);
 }
 
 .reference-row:last-child {
@@ -2396,9 +2409,10 @@ textarea:focus {
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 0.85rem;
   padding: 0.35rem 0.5rem;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  border: 1px solid var(--reader-hairline);
   border-radius: 0.35rem;
-  background: white;
+  background: var(--reader-paper);
+  color: var(--reader-ink);
 }
 
 .reference-content {
@@ -2408,9 +2422,10 @@ textarea:focus {
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 0.82rem;
   padding: 0.45rem 0.55rem;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  border: 1px solid var(--reader-hairline);
   border-radius: 0.35rem;
-  background: white;
+  background: var(--reader-paper);
+  color: var(--reader-ink);
 }
 
 .reference-remove {
