@@ -223,11 +223,29 @@ class RunIndexStore:
             )
         self.connection.commit()
 
-    def sync_run_directories(self, run_dirs: Iterable[Path]) -> None:
+    def sync_run_directories(self, run_dirs: Iterable[Path], *, run_root: Path | None = None) -> None:
         records = [record for run_dir in run_dirs if (record := manifest_run_record(run_dir))]
         records.sort(key=_run_sort_key, reverse=True)
         for record in records:
             self.upsert_run(record)
+        if run_root is not None:
+            self.prune_missing_runs(run_root=run_root, run_ids=[record["run_id"] for record in records])
+
+    def prune_missing_runs(self, *, run_root: Path, run_ids: list[str]) -> None:
+        resolved_run_root = str(run_root.resolve())
+        with self.connection.cursor() as cursor:
+            if run_ids:
+                cursor.execute(
+                    """
+                    DELETE FROM run_index
+                    WHERE run_root = %s
+                    AND NOT (run_id = ANY(%s))
+                    """,
+                    (resolved_run_root, run_ids),
+                )
+            else:
+                cursor.execute("DELETE FROM run_index WHERE run_root = %s", (resolved_run_root,))
+        self.connection.commit()
 
     def list_runs(self, *, run_root: Path, limit: int = 20) -> list[dict[str, Any]]:
         with self.connection.cursor() as cursor:

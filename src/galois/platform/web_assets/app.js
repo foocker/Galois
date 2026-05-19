@@ -1870,7 +1870,11 @@ async function copyProofMarkdown() {
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.detail || `Request failed: ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(payload.detail || `Request failed: ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
   return payload;
 }
 
@@ -1902,14 +1906,34 @@ async function pollWritingRun(runId) {
   }
 }
 
+function handleRunPollError(runId, error) {
+  if (error?.status === 404) {
+    stopPolling();
+    if (state.currentRunId === runId) state.currentRunId = null;
+    clearCurrentRunStorage(runId);
+    setSubmitDisabled(false);
+  }
+  setMessage(error.message, 'error');
+}
+
+function handleWritingPollError(runId, error) {
+  if (error?.status === 404) {
+    stopWritingPolling();
+    if (state.currentWritingRunId === runId) state.currentWritingRunId = null;
+    clearCurrentWritingRunStorage(runId);
+    setPaperSubmitDisabled(false);
+  }
+  setPaperMessage(error.message, 'error');
+}
+
 function startPolling(runId, viewName = defaultView) {
   state.currentRunId = runId;
   storageSet(currentRunStorageKey, runId);
   setView(viewName);
   if (state.pollHandle) clearInterval(state.pollHandle);
-  pollRun(runId).catch((error) => setMessage(error.message, 'error'));
+  pollRun(runId).catch((error) => handleRunPollError(runId, error));
   state.pollHandle = setInterval(() => {
-    pollRun(runId).catch((error) => setMessage(error.message, 'error'));
+    pollRun(runId).catch((error) => handleRunPollError(runId, error));
   }, 2500);
 }
 
@@ -1918,9 +1942,9 @@ function startWritingPolling(runId) {
   storageSet(currentWritingRunStorageKey, runId);
   setView('paper-writing');
   if (state.writingPollHandle) clearInterval(state.writingPollHandle);
-  pollWritingRun(runId).catch((error) => setPaperMessage(error.message, 'error'));
+  pollWritingRun(runId).catch((error) => handleWritingPollError(runId, error));
   state.writingPollHandle = setInterval(() => {
-    pollWritingRun(runId).catch((error) => setPaperMessage(error.message, 'error'));
+    pollWritingRun(runId).catch((error) => handleWritingPollError(runId, error));
   }, 2500);
 }
 

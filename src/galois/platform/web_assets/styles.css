@@ -37,6 +37,13 @@
   --green: #8fc7a0;
   --danger: #e09b91;
   --focus: #d7c79e;
+  --reader-paper: #1a1918;
+  --reader-paper-cool: #201f22;
+  --reader-ink: #eee9dc;
+  --reader-muted: #b7ad9d;
+  --reader-rule: #e2d8c5;
+  --reader-hairline: #4b443a;
+  --reader-link: #d7c79e;
 }
 
 * {
@@ -2460,7 +2467,8 @@ textarea:focus {
   padding: 0.5rem 0.65rem;
   border: 1px solid rgba(245, 158, 11, 0.45);
   border-radius: 0.4rem;
-  background: white;
+  background: var(--reader-paper-cool);
+  color: var(--reader-ink);
   font-family: inherit;
   font-size: 0.9rem;
   resize: vertical;

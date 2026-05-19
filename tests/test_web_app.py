@@ -3239,6 +3239,20 @@ def test_paper_writing_rendered_surfaces_fill_vertical_workspace() -> None:
     assert "background: var(--reader-paper-cool);" in paper_css
 
 
+def test_paper_writing_dark_theme_keeps_reader_surfaces_dark() -> None:
+    css = Path("src/galois/platform/web_assets/styles.css").read_text(encoding="utf-8")
+    dark_theme_css = css[css.index(':root[data-theme="dark"]') : css.index("* {")]
+    paper_css = css[css.index(".paper-writing-view") :]
+
+    assert "--reader-paper: #1a1918;" in dark_theme_css
+    assert "--reader-paper-cool: #201f22;" in dark_theme_css
+    assert "--reader-ink: #eee9dc;" in dark_theme_css
+    assert "background: white;" not in paper_css
+    assert ".continue-panel textarea" in paper_css
+    assert "background: var(--reader-paper-cool);" in paper_css
+    assert "color: var(--reader-ink);" in paper_css
+
+
 def test_reference_surfaces_use_light_reader_tokens() -> None:
     css = Path("src/galois/platform/web_assets/styles.css").read_text(encoding="utf-8")
     reference_css = css[css.index(".reference-panel") : css.index(".continue-panel")]
@@ -3649,6 +3663,128 @@ output.innerHTML = "";
   if (storage["galois-current-run-id"] !== undefined) throw new Error("completed stored run id should be removed");
   if (proofSheet.hidden !== true) throw new Error("completed proof sheet should not be restored as active state");
   if (output.innerHTML !== "") throw new Error(`old output should not be rendered: ${{output.innerHTML}}`);
+}})().catch((error) => {{
+  console.error(error);
+  process.exit(1);
+}});
+"""
+    result = subprocess.run([node, "-e", harness], check=False, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_frontend_stops_polling_missing_run() -> None:
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    app_js = Path("src/galois/platform/web_assets/app.js").read_text(encoding="utf-8")
+    harness = f"""
+const vm = require("vm");
+const code = {json.dumps(app_js)};
+
+function fakeClassList() {{
+  const values = new Set();
+  return {{
+    values,
+    toggle(name, force) {{
+      const enabled = force === undefined ? !values.has(name) : Boolean(force);
+      if (enabled) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{ return values.has(name); }},
+    add(name) {{ values.add(name); }},
+    remove(name) {{ values.delete(name); }},
+  }};
+}}
+
+function fakeElement(dataset = {{}}) {{
+  const element = {{
+    dataset,
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    className: "",
+    addEventListener() {{}},
+    setAttribute() {{}},
+    closest() {{ return {{ querySelectorAll() {{ return []; }} }}; }},
+    querySelectorAll() {{ return []; }},
+    requestSubmit() {{}},
+    scrollIntoView() {{}},
+    focus() {{}},
+  }};
+  element.classList = fakeClassList();
+  return element;
+}}
+
+const message = fakeElement();
+const elementMap = new Map();
+const document = {{
+  documentElement: {{ lang: "en", dataset: {{}} }},
+  querySelector(selector) {{
+    if (selector === "#form-message") return message;
+    if (!elementMap.has(selector)) elementMap.set(selector, fakeElement());
+    return elementMap.get(selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === "[data-view]") return [fakeElement({{ view: "problem-solving" }})];
+    if (selector === "[data-view-target]") return [fakeElement({{ viewTarget: "problem-solving" }})];
+    return [];
+  }},
+  createElement() {{ return fakeElement(); }},
+}};
+const storage = {{}};
+const window = {{
+  location: {{ hash: "" }},
+  history: {{ replaceState(_state, _title, hash) {{ window.location.hash = hash; }} }},
+  addEventListener() {{}},
+  localStorage: {{
+    getItem(key) {{ return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null; }},
+    setItem(key, value) {{ storage[key] = String(value); }},
+    removeItem(key) {{ delete storage[key]; }},
+  }},
+}};
+let intervalCount = 0;
+let clearedIntervals = 0;
+let detailFetchCount = 0;
+const fetch = async (url) => {{
+  if (url === "/api/runs") return new Promise(() => {{}});
+  if (url === "/api/runs/missing-run") {{
+    detailFetchCount += 1;
+    return {{ ok: false, status: 404, json: async () => ({{ detail: "run not found" }}) }};
+  }}
+  throw new Error(`unexpected fetch: ${{url}}`);
+}};
+const context = {{
+  console,
+  document,
+  window,
+  fetch,
+  setInterval() {{ intervalCount += 1; return 42; }},
+  clearInterval() {{ clearedIntervals += 1; }},
+  Intl,
+  Date,
+  Error,
+  encodeURIComponent,
+  Set,
+  Map,
+  Math,
+  String,
+  Number,
+}};
+
+vm.runInNewContext(code, context);
+
+(async () => {{
+  context.startPolling("missing-run");
+  await new Promise((resolve) => setImmediate(resolve));
+  if (detailFetchCount !== 1) throw new Error(`missing run should be fetched once, got ${{detailFetchCount}}`);
+  if (intervalCount !== 1) throw new Error(`poll interval should be created once before the 404 resolves, got ${{intervalCount}}`);
+  if (clearedIntervals !== 1) throw new Error(`poll interval should be cleared after 404, got ${{clearedIntervals}}`);
+  if (storage["galois-current-run-id"] !== undefined) throw new Error("missing run id should be removed from storage");
+  if (!message.textContent.includes("run not found")) throw new Error(message.textContent);
 }})().catch((error) => {{
   console.error(error);
   process.exit(1);
@@ -4271,6 +4407,70 @@ def test_run_index_keeps_database_display_title_when_resyncing(tmp_path: Path) -
         assert indexed["auto_display_title"] == "Auto title"
         with store.connection.cursor() as cursor:
             cursor.execute("DELETE FROM run_index WHERE run_id = %s", (run_dir.name,))
+        store.connection.commit()
+
+
+def test_run_index_prunes_missing_runs_for_current_root(tmp_path: Path) -> None:
+    from galois.platform.run_index import RunIndexStore, manifest_run_record
+
+    database_url = "postgresql://galois:galois_dev@127.0.0.1:5432/galois"
+    import psycopg
+
+    try:
+        with psycopg.connect(database_url, connect_timeout=2) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+    except psycopg.OperationalError:
+        return
+
+    run_root = tmp_path / "runs"
+    live_dir = run_root / "20260429T103838Z_live"
+    problem_dir = live_dir / "problem"
+    problem_dir.mkdir(parents=True)
+    (problem_dir / "statement.md").write_text("# Live theorem\n\nShow it.", encoding="utf-8")
+    (live_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": live_dir.name,
+                "status": "succeeded",
+                "pipeline": "reasoning-verification",
+                "model": "gpt-5.4",
+                "problem": {"problem_id": "problem", "title": ""},
+            }
+        ),
+        encoding="utf-8",
+    )
+    stale_id = "20260429T103838Z_stale"
+
+    with RunIndexStore(database_url) as store:
+        store.initialize()
+        with store.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM run_index WHERE run_id IN (%s, %s)", (live_dir.name, stale_id))
+        store.connection.commit()
+        stale_record = {
+            "run_id": stale_id,
+            "run_root": str(run_root.resolve()),
+            "run_dir": str((run_root / stale_id).resolve()),
+            "display_title": "Stale theorem",
+            "auto_display_title": "Stale theorem",
+            "problem_id": "stale",
+            "problem_title": "Stale theorem",
+            "problem_path": "",
+            "status": "succeeded",
+            "pipeline": "reasoning-verification",
+            "model": "gpt-5.4",
+            "manifest": {"run_id": stale_id, "status": "succeeded"},
+        }
+        store.upsert_run(stale_record)
+        record = manifest_run_record(live_dir)
+        assert record is not None
+        store.sync_run_directories([live_dir], run_root=run_root)
+
+        indexed_ids = [row["run_id"] for row in store.list_runs(run_root=run_root, limit=20)]
+
+        assert indexed_ids == [live_dir.name]
+        with store.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM run_index WHERE run_id IN (%s, %s)", (live_dir.name, stale_id))
         store.connection.commit()
 
 

@@ -1009,7 +1009,7 @@ def create_app(config_path: Path | None = None) -> FastAPI:
             run_dirs = sorted((candidate for candidate in run_root.iterdir() if candidate.is_dir()), reverse=True)
         with RunIndexStore(config.database.connection_url) as index:
             index.initialize()
-            index.sync_run_directories(run_dirs)
+            index.sync_run_directories(run_dirs, run_root=run_root)
             runs = [
                 {
                     "run_id": row["run_id"],
